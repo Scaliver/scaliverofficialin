@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, Bell, BellRing } from "lucide-react";
+import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -8,11 +8,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 
 interface Order {
@@ -42,6 +45,10 @@ interface UserProfile {
     role: string;
   }[];
   orders: Order[];
+  wallet?: {
+    id: string;
+    balance: number;
+  } | null;
 }
 
 const Admin = () => {
@@ -51,12 +58,18 @@ const Admin = () => {
   
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [activeTab, setActiveTab] = useState<"orders" | "users">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets">("orders");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userOrdersDialogOpen, setUserOrdersDialogOpen] = useState(false);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const initialLoadRef = useRef(true);
+  
+  // Credit coins state
+  const [creditDialogOpen, setCreditDialogOpen] = useState(false);
+  const [creditAmount, setCreditAmount] = useState("");
+  const [creditDescription, setCreditDescription] = useState("");
+  const [isCreditLoading, setIsCreditLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading) {
@@ -190,7 +203,7 @@ const Admin = () => {
 
       const usersWithData = await Promise.all(
         (profilesData || []).map(async (profile) => {
-          const [rolesResult, ordersResult] = await Promise.all([
+          const [rolesResult, ordersResult, walletResult] = await Promise.all([
             supabase
               .from("user_roles")
               .select("role")
@@ -199,7 +212,12 @@ const Admin = () => {
               .from("orders")
               .select("*")
               .eq("user_id", profile.id)
-              .order("created_at", { ascending: false })
+              .order("created_at", { ascending: false }),
+            supabase
+              .from("wallets")
+              .select("id, balance")
+              .eq("user_id", profile.id)
+              .maybeSingle()
           ]);
           
           return {
@@ -209,6 +227,7 @@ const Admin = () => {
               ...order,
               profiles: { display_name: profile.display_name, phone: profile.phone }
             })),
+            wallet: walletResult.data,
           };
         })
       );
@@ -279,6 +298,70 @@ const Admin = () => {
   const viewUserOrders = (user: UserProfile) => {
     setSelectedUser(user);
     setUserOrdersDialogOpen(true);
+  };
+
+  const openCreditDialog = (user: UserProfile) => {
+    setSelectedUser(user);
+    setCreditAmount("");
+    setCreditDescription("");
+    setCreditDialogOpen(true);
+  };
+
+  const handleCreditCoins = async () => {
+    if (!selectedUser || !creditAmount) return;
+    
+    const amount = parseFloat(creditAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid positive amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreditLoading(true);
+    
+    try {
+      // First, update the wallet balance
+      const newBalance = (selectedUser.wallet?.balance || 0) + amount;
+      
+      const { error: walletError } = await supabase
+        .from("wallets")
+        .update({ balance: newBalance })
+        .eq("user_id", selectedUser.id);
+
+      if (walletError) throw walletError;
+
+      // Then, create a transaction record
+      const { error: txError } = await supabase
+        .from("coin_transactions")
+        .insert({
+          user_id: selectedUser.id,
+          amount: amount,
+          type: "credit",
+          description: creditDescription || "Admin credit - Payment verified",
+        });
+
+      if (txError) throw txError;
+
+      toast({
+        title: "Coins Credited Successfully",
+        description: `₹${amount} credited to ${selectedUser.display_name || "User"}'s wallet.`,
+      });
+
+      setCreditDialogOpen(false);
+      fetchUsers(); // Refresh users to show updated balance
+    } catch (error) {
+      console.error("Error crediting coins:", error);
+      toast({
+        title: "Error",
+        description: "Failed to credit coins. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreditLoading(false);
+    }
   };
 
   if (authLoading || isLoading) {
@@ -377,6 +460,17 @@ const Admin = () => {
             >
               <Users className="w-4 h-4" />
               Users ({users.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("wallets")}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${
+                activeTab === "wallets"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Wallet className="w-4 h-4" />
+              Wallets
             </button>
           </div>
 
@@ -634,6 +728,85 @@ const Admin = () => {
               )}
             </div>
           )}
+
+          {/* Wallets Tab */}
+          {activeTab === "wallets" && (
+            <div className="space-y-4">
+              {users.length === 0 ? (
+                <div className="bg-card border border-border rounded-2xl text-center py-12">
+                  <Wallet className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="font-body text-muted-foreground">No users with wallets yet</p>
+                </div>
+              ) : (
+                <>
+                  {/* Desktop Table */}
+                  <div className="hidden lg:block bg-card border border-border rounded-2xl overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-secondary/50">
+                          <tr>
+                            <th className="text-left p-4 font-display text-sm text-foreground">User</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Phone</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Wallet Balance</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {users.map((u) => (
+                            <tr key={u.id} className="border-t border-border">
+                              <td className="p-4">
+                                <p className="font-display font-bold text-foreground">{u.display_name || "Unknown"}</p>
+                              </td>
+                              <td className="p-4">
+                                <p className="font-body text-foreground">{u.phone || "-"}</p>
+                              </td>
+                              <td className="p-4">
+                                <p className="font-display font-bold text-primary">₹{u.wallet?.balance?.toFixed(2) || "0.00"}</p>
+                              </td>
+                              <td className="p-4">
+                                <Button size="sm" variant="default" onClick={() => openCreditDialog(u)} className="gap-2">
+                                  <Coins className="w-4 h-4" />
+                                  Credit Coins
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Mobile Cards */}
+                  <div className="lg:hidden space-y-3">
+                    {users.map((u) => (
+                      <div key={u.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-display font-bold text-foreground">{u.display_name || "Unknown"}</p>
+                            <p className="font-body text-sm text-muted-foreground">{u.phone || "No phone"}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-muted-foreground text-xs">Balance</p>
+                            <p className="font-display font-bold text-primary">₹{u.wallet?.balance?.toFixed(2) || "0.00"}</p>
+                          </div>
+                        </div>
+                        
+                        <Button 
+                          size="sm" 
+                          variant="default" 
+                          className="w-full gap-2"
+                          onClick={() => openCreditDialog(u)}
+                        >
+                          <Coins className="w-4 h-4" />
+                          Credit Coins
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </main>
 
@@ -688,6 +861,61 @@ const Admin = () => {
           ) : (
             <p className="text-center text-muted-foreground py-8">No orders found</p>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Credit Coins Dialog */}
+      <Dialog open={creditDialogOpen} onOpenChange={setCreditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl flex items-center gap-2">
+              <Coins className="w-5 h-5 text-primary" />
+              Credit Coins
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="bg-secondary/30 rounded-xl p-4 border border-border">
+              <p className="text-sm text-muted-foreground">Crediting to</p>
+              <p className="font-display font-bold text-foreground">{selectedUser?.display_name || "Unknown User"}</p>
+              <p className="text-sm text-muted-foreground">{selectedUser?.phone || "No phone"}</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Current Balance: <span className="font-bold text-primary">₹{selectedUser?.wallet?.balance?.toFixed(2) || "0.00"}</span>
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="amount">Amount to Credit (₹)</Label>
+              <Input
+                id="amount"
+                type="number"
+                placeholder="Enter amount"
+                value={creditAmount}
+                onChange={(e) => setCreditAmount(e.target.value)}
+                min="1"
+                step="0.01"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description (Optional)</Label>
+              <Input
+                id="description"
+                placeholder="e.g., Payment verified via UPI"
+                value={creditDescription}
+                onChange={(e) => setCreditDescription(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreditCoins} disabled={!creditAmount || isCreditLoading}>
+              {isCreditLoading ? "Processing..." : "Credit Coins"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
