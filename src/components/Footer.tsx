@@ -27,12 +27,12 @@ const Footer = () => {
               </p>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Phone className="w-4 h-4 text-primary" />
-                <span className="font-body">+91 1234567890</span>
+                <span className="font-body">+91 7637851804</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <MessageCircle className="w-4 h-4 text-primary" />
-                <a href="#" className="font-body hover:text-primary transition-colors">
-                  Click here to join WhatsApp channel
+                <a href="https://chat.whatsapp.com/EMhSsDxfiwj2HVVvsIOt0S" target="_blank" rel="noopener noreferrer" className="font-body hover:text-primary transition-colors">
+                  Join if you want to join my WhatsApp channel
                 </a>
               </div>
             </div>

@@ -14,7 +14,7 @@ const ProductCard = ({ name, image, inStock = true, onClick }: ProductCardProps)
       className="group relative overflow-hidden rounded-xl bg-card border border-border/50 cursor-pointer card-hover"
     >
       {/* Image Container */}
-      <div className="relative aspect-square overflow-hidden">
+      <div className="relative aspect-[4/3] overflow-hidden">
         <img
           src={image}
           alt={name}
