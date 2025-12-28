@@ -314,13 +314,45 @@ const Admin = () => {
 
       if (error) throw error;
 
+      const order = orders.find(o => o.id === orderId);
+      
       setOrders(orders.map(order => 
         order.id === orderId ? { ...order, status: newStatus } : order
       ));
 
-      toast({
-        title: "Order Updated",
+      // Show notification based on status
+      const statusMessages: Record<string, { title: string; description: string; icon: string }> = {
+        completed: { 
+          title: "✅ Order Completed", 
+          description: `Order for ${order?.product_name} marked as completed.`,
+          icon: "✅"
+        },
+        pending: { 
+          title: "⏳ Order Pending", 
+          description: `Order for ${order?.product_name} marked as pending.`,
+          icon: "⏳"
+        },
+        cancelled: { 
+          title: "❌ Order Cancelled", 
+          description: `Order for ${order?.product_name} has been cancelled.`,
+          icon: "❌"
+        },
+        processing: { 
+          title: "🔄 Order Processing", 
+          description: `Order for ${order?.product_name} is now being processed.`,
+          icon: "🔄"
+        },
+      };
+
+      const notification = statusMessages[newStatus] || { 
+        title: "Order Updated", 
         description: `Order status changed to ${newStatus}.`,
+        icon: "📦"
+      };
+
+      toast({
+        title: notification.title,
+        description: notification.description,
       });
     } catch (error) {
       toast({
