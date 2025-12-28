@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
-import { Eye, EyeOff, LogIn, UserPlus, ArrowLeft, Mail, CheckCircle } from "lucide-react";
+import { Eye, EyeOff, LogIn, UserPlus, ArrowLeft, Mail, CheckCircle, RefreshCw, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -26,13 +27,16 @@ const signupSchema = z.object({
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { user, signUp, signIn, isLoading: authLoading } = useAuth();
   
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(!searchParams.get("signup"));
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showVerificationMessage, setShowVerificationMessage] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   
   const [formData, setFormData] = useState({
     displayName: "",
@@ -44,6 +48,13 @@ const Auth = () => {
   
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Handle signup query param
+  useEffect(() => {
+    if (searchParams.get("signup") === "true") {
+      setIsLogin(false);
+    }
+  }, [searchParams]);
+
   // Redirect if already logged in
   useEffect(() => {
     if (user && !authLoading) {
@@ -51,12 +62,47 @@ const Auth = () => {
     }
   }, [user, authLoading, navigate]);
 
+  // Cooldown timer for resend
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    // Clear error when user types
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const handleResendEmail = async () => {
+    if (resendCooldown > 0) return;
+    
+    setResendingEmail(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: formData.email,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Email Sent!",
+        description: "A new verification email has been sent to your inbox.",
+      });
+      setResendCooldown(60); // 60 second cooldown
+    } catch (error: any) {
+      toast({
+        title: "Failed to Resend",
+        description: error.message || "Could not resend verification email.",
+        variant: "destructive",
+      });
+    } finally {
+      setResendingEmail(false);
     }
   };
 
@@ -67,7 +113,6 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        // Validate login
         const result = loginSchema.safeParse({
           email: formData.email,
           password: formData.password,
@@ -115,7 +160,6 @@ const Auth = () => {
           navigate("/");
         }
       } else {
-        // Validate signup
         const result = signupSchema.safeParse(formData);
 
         if (!result.success) {
@@ -177,7 +221,6 @@ const Auth = () => {
   if (showVerificationMessage) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        {/* Header */}
         <header className="border-b border-border/50 bg-background/95 backdrop-blur">
           <div className="container flex h-16 items-center">
             <Button 
@@ -204,6 +247,20 @@ const Auth = () => {
                 We've sent a verification link to <span className="text-primary font-semibold">{formData.email}</span>. 
                 Click the link in the email to verify your account.
               </p>
+              
+              {/* Phone verification info */}
+              {formData.phone && (
+                <div className="bg-secondary/50 rounded-xl p-4 mb-6">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                    <Phone className="w-4 h-4" />
+                    <span className="font-body text-sm">Phone: {formData.phone}</span>
+                  </div>
+                  <p className="font-body text-xs text-muted-foreground">
+                    Your phone number has been saved to your profile.
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-3">
                 <Button
                   variant="gaming"
@@ -216,8 +273,25 @@ const Auth = () => {
                   <CheckCircle className="w-4 h-4 mr-2" />
                   I've Verified - Go to Login
                 </Button>
+                
+                {/* Resend email button */}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleResendEmail}
+                  disabled={resendingEmail || resendCooldown > 0}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${resendingEmail ? 'animate-spin' : ''}`} />
+                  {resendCooldown > 0 
+                    ? `Resend in ${resendCooldown}s` 
+                    : resendingEmail 
+                      ? "Sending..." 
+                      : "Resend Verification Email"
+                  }
+                </Button>
+                
                 <p className="font-body text-sm text-muted-foreground">
-                  Didn't receive the email? Check your spam folder or try signing up again.
+                  Didn't receive the email? Check your spam folder.
                 </p>
               </div>
             </div>
@@ -229,7 +303,6 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
       <header className="border-b border-border/50 bg-background/95 backdrop-blur">
         <div className="container flex h-16 items-center">
           <Button 
@@ -243,10 +316,8 @@ const Auth = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          {/* Logo */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-4">
               <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center glow-blue">
@@ -261,9 +332,7 @@ const Auth = () => {
             </p>
           </div>
 
-          {/* Auth Card */}
           <div className="bg-card border border-border rounded-2xl p-8">
-            {/* Toggle Tabs */}
             <div className="flex gap-2 mb-6">
               <button
                 onClick={() => setIsLogin(true)}
@@ -289,7 +358,6 @@ const Auth = () => {
               </button>
             </div>
 
-            {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
                 <>

@@ -1,4 +1,4 @@
-import { Menu, Search, User, LogIn, Shield, LogOut } from "lucide-react";
+import { Menu, Search, User, LogIn, Shield, LogOut, UserPlus } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -76,10 +76,16 @@ const Header = () => {
               </Button>
             </div>
           ) : (
-            <Button variant="gaming" className="hidden md:flex gap-2" onClick={() => navigate("/auth")}>
-              <LogIn className="h-4 w-4" />
-              Login
-            </Button>
+            <div className="hidden md:flex items-center gap-2">
+              <Button variant="outline" onClick={() => navigate("/auth")}>
+                <LogIn className="h-4 w-4 mr-2" />
+                Login
+              </Button>
+              <Button variant="gaming" onClick={() => navigate("/auth?signup=true")}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Sign Up
+              </Button>
+            </div>
           )}
           <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             <Menu className="h-5 w-5" />
@@ -123,10 +129,16 @@ const Header = () => {
                 Logout
               </Button>
             ) : (
-              <Button variant="gaming" className="w-full mt-2" onClick={() => { navigate("/auth"); setMobileMenuOpen(false); }}>
-                <LogIn className="h-4 w-4" />
-                Login
-              </Button>
+              <div className="flex flex-col gap-2 mt-2">
+                <Button variant="outline" className="w-full" onClick={() => { navigate("/auth"); setMobileMenuOpen(false); }}>
+                  <LogIn className="h-4 w-4 mr-2" />
+                  Login
+                </Button>
+                <Button variant="gaming" className="w-full" onClick={() => { navigate("/auth?signup=true"); setMobileMenuOpen(false); }}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Sign Up
+                </Button>
+              </div>
             )}
           </nav>
         </div>
