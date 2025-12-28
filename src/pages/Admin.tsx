@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye } from "lucide-react";
+import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, Bell, BellRing } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -55,6 +55,8 @@ const Admin = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userOrdersDialogOpen, setUserOrdersDialogOpen] = useState(false);
+  const [newOrdersCount, setNewOrdersCount] = useState(0);
+  const initialLoadRef = useRef(true);
 
   useEffect(() => {
     if (!authLoading) {
@@ -82,7 +84,33 @@ const Admin = () => {
         .on(
           'postgres_changes',
           {
-            event: '*',
+            event: 'INSERT',
+            schema: 'public',
+            table: 'orders'
+          },
+          (payload) => {
+            // Show notification for new orders (skip on initial load)
+            if (!initialLoadRef.current) {
+              const newOrder = payload.new as Order;
+              setNewOrdersCount(prev => prev + 1);
+              toast({
+                title: "🔔 New Order Received!",
+                description: `${newOrder.product_name} - ₹${newOrder.price}`,
+                duration: 5000,
+              });
+              // Play notification sound (optional visual pulse)
+              document.title = `(New Order) Admin Panel`;
+              setTimeout(() => {
+                document.title = "Admin Panel";
+              }, 5000);
+            }
+            fetchOrders();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
             schema: 'public',
             table: 'orders'
           },
@@ -107,12 +135,17 @@ const Admin = () => {
         )
         .subscribe();
 
+      // Mark initial load complete after first fetch
+      setTimeout(() => {
+        initialLoadRef.current = false;
+      }, 2000);
+
       return () => {
         supabase.removeChannel(ordersChannel);
         supabase.removeChannel(profilesChannel);
       };
     }
-  }, [isAdmin]);
+  }, [isAdmin, toast]);
 
   const fetchOrders = async () => {
     try {
@@ -276,31 +309,51 @@ const Admin = () => {
           </Button>
 
           {/* Admin Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center relative">
                 <Shield className="w-6 h-6 text-primary-foreground" />
+                {newOrdersCount > 0 && (
+                  <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+                    {newOrdersCount}
+                  </span>
+                )}
               </div>
               <div>
-                <h1 className="font-display text-2xl font-bold text-foreground">Admin Panel</h1>
-                <p className="font-body text-sm text-muted-foreground">Manage orders and users (Real-time)</p>
+                <h1 className="font-display text-xl sm:text-2xl font-bold text-foreground">Admin Dashboard</h1>
+                <p className="font-body text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  Live Updates Active
+                </p>
               </div>
             </div>
-            <Button 
-              variant="outline" 
-              onClick={() => { fetchOrders(); fetchUsers(); }}
-              className="gap-2"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Refresh
-            </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              {newOrdersCount > 0 && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setNewOrdersCount(0)}
+                  className="gap-2 flex-1 sm:flex-none"
+                >
+                  <BellRing className="w-4 h-4" />
+                  Clear ({newOrdersCount})
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                onClick={() => { fetchOrders(); fetchUsers(); setNewOrdersCount(0); }}
+                className="gap-2 flex-1 sm:flex-none"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Refresh
+              </Button>
+            </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 mb-6">
+          <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
             <button
-              onClick={() => setActiveTab("orders")}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-display font-bold transition-all ${
+              onClick={() => { setActiveTab("orders"); setNewOrdersCount(0); }}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap relative ${
                 activeTab === "orders"
                   ? "bg-primary text-primary-foreground"
                   : "bg-secondary text-muted-foreground hover:text-foreground"
@@ -308,10 +361,15 @@ const Admin = () => {
             >
               <Package className="w-4 h-4" />
               Orders ({orders.length})
+              {newOrdersCount > 0 && activeTab !== "orders" && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  {newOrdersCount}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab("users")}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-display font-bold transition-all ${
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${
                 activeTab === "users"
                   ? "bg-primary text-primary-foreground"
                   : "bg-secondary text-muted-foreground hover:text-foreground"
@@ -324,182 +382,255 @@ const Admin = () => {
 
           {/* Orders Tab */}
           {activeTab === "orders" && (
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+            <div className="space-y-4">
               {orders.length === 0 ? (
-                <div className="text-center py-12">
+                <div className="bg-card border border-border rounded-2xl text-center py-12">
                   <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <p className="font-body text-muted-foreground">No orders yet</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-secondary/50">
-                      <tr>
-                        <th className="text-left p-4 font-display text-sm text-foreground">Product</th>
-                        <th className="text-left p-4 font-display text-sm text-foreground">Customer</th>
-                        <th className="text-left p-4 font-display text-sm text-foreground">Game ID</th>
-                        <th className="text-left p-4 font-display text-sm text-foreground">Contact</th>
-                        <th className="text-left p-4 font-display text-sm text-foreground">Price</th>
-                        <th className="text-left p-4 font-display text-sm text-foreground">Date & Time</th>
-                        <th className="text-left p-4 font-display text-sm text-foreground">Status</th>
-                        <th className="text-left p-4 font-display text-sm text-foreground">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orders.map((order) => {
-                        const { date, time } = formatDateTime(order.created_at);
-                        return (
-                          <tr key={order.id} className="border-t border-border">
-                            <td className="p-4">
-                              <div>
-                                <p className="font-display font-bold text-foreground">{order.product_name}</p>
-                                <p className="font-body text-sm text-muted-foreground">{order.amount}</p>
-                              </div>
-                            </td>
-                            <td className="p-4">
-                              <p className="font-body text-foreground">
-                                {order.profiles?.display_name || "Unknown"}
-                              </p>
-                              {order.profiles?.phone && (
-                                <p className="font-body text-sm text-muted-foreground">{order.profiles.phone}</p>
-                              )}
-                            </td>
-                            <td className="p-4">
-                              <p className="font-body text-foreground">{order.user_game_id}</p>
-                              {order.zone_id && (
-                                <p className="font-body text-sm text-muted-foreground">Zone: {order.zone_id}</p>
-                              )}
-                            </td>
-                            <td className="p-4">
-                              <p className="font-body text-foreground">{order.contact_number}</p>
-                            </td>
-                            <td className="p-4">
-                              <p className="font-display font-bold text-primary">₹{order.price}</p>
-                            </td>
-                            <td className="p-4">
-                              <p className="font-body text-foreground">{date}</p>
-                              <p className="font-body text-sm text-muted-foreground">{time}</p>
-                            </td>
-                            <td className="p-4">
-                              <Badge className={getStatusColor(order.status)}>
-                                {order.status}
-                              </Badge>
-                            </td>
-                            <td className="p-4">
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-yellow-400 hover:bg-yellow-500/20"
-                                  onClick={() => updateOrderStatus(order.id, "processing")}
-                                  disabled={order.status === "processing"}
-                                >
-                                  <Clock className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-green-400 hover:bg-green-500/20"
-                                  onClick={() => updateOrderStatus(order.id, "completed")}
-                                  disabled={order.status === "completed"}
-                                >
-                                  <Check className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-red-400 hover:bg-red-500/20"
-                                  onClick={() => updateOrderStatus(order.id, "cancelled")}
-                                  disabled={order.status === "cancelled"}
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </td>
+                <>
+                  {/* Desktop Table - Hidden on mobile */}
+                  <div className="hidden lg:block bg-card border border-border rounded-2xl overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-secondary/50">
+                          <tr>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Product</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Customer</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Game ID</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Contact</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Price</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Date & Time</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Status</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Actions</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                        </thead>
+                        <tbody>
+                          {orders.map((order) => {
+                            const { date, time } = formatDateTime(order.created_at);
+                            return (
+                              <tr key={order.id} className="border-t border-border">
+                                <td className="p-4">
+                                  <div>
+                                    <p className="font-display font-bold text-foreground">{order.product_name}</p>
+                                    <p className="font-body text-sm text-muted-foreground">{order.amount}</p>
+                                  </div>
+                                </td>
+                                <td className="p-4">
+                                  <p className="font-body text-foreground">{order.profiles?.display_name || "Unknown"}</p>
+                                  {order.profiles?.phone && (
+                                    <p className="font-body text-sm text-muted-foreground">{order.profiles.phone}</p>
+                                  )}
+                                </td>
+                                <td className="p-4">
+                                  <p className="font-body text-foreground">{order.user_game_id}</p>
+                                  {order.zone_id && <p className="font-body text-sm text-muted-foreground">Zone: {order.zone_id}</p>}
+                                </td>
+                                <td className="p-4">
+                                  <p className="font-body text-foreground">{order.contact_number}</p>
+                                </td>
+                                <td className="p-4">
+                                  <p className="font-display font-bold text-primary">₹{order.price}</p>
+                                </td>
+                                <td className="p-4">
+                                  <p className="font-body text-foreground">{date}</p>
+                                  <p className="font-body text-sm text-muted-foreground">{time}</p>
+                                </td>
+                                <td className="p-4">
+                                  <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
+                                </td>
+                                <td className="p-4">
+                                  <div className="flex gap-2">
+                                    <Button size="sm" variant="ghost" className="text-yellow-400 hover:bg-yellow-500/20" onClick={() => updateOrderStatus(order.id, "processing")} disabled={order.status === "processing"}>
+                                      <Clock className="w-4 h-4" />
+                                    </Button>
+                                    <Button size="sm" variant="ghost" className="text-green-400 hover:bg-green-500/20" onClick={() => updateOrderStatus(order.id, "completed")} disabled={order.status === "completed"}>
+                                      <Check className="w-4 h-4" />
+                                    </Button>
+                                    <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/20" onClick={() => updateOrderStatus(order.id, "cancelled")} disabled={order.status === "cancelled"}>
+                                      <X className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Mobile Cards - Shown only on mobile */}
+                  <div className="lg:hidden space-y-3">
+                    {orders.map((order) => {
+                      const { date, time } = formatDateTime(order.created_at);
+                      return (
+                        <div key={order.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="font-display font-bold text-foreground">{order.product_name}</p>
+                              <p className="font-body text-sm text-muted-foreground">{order.amount}</p>
+                            </div>
+                            <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Customer</p>
+                              <p className="font-body text-foreground">{order.profiles?.display_name || "Unknown"}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Price</p>
+                              <p className="font-display font-bold text-primary">₹{order.price}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Game ID</p>
+                              <p className="font-body text-foreground">{order.user_game_id}</p>
+                              {order.zone_id && <p className="text-muted-foreground text-xs">Zone: {order.zone_id}</p>}
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Contact</p>
+                              <p className="font-body text-foreground">{order.contact_number}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2 border-t border-border">
+                            <p className="font-body text-xs text-muted-foreground">{date} • {time}</p>
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="ghost" className="text-yellow-400 hover:bg-yellow-500/20 h-8 w-8 p-0" onClick={() => updateOrderStatus(order.id, "processing")} disabled={order.status === "processing"}>
+                                <Clock className="w-4 h-4" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-green-400 hover:bg-green-500/20 h-8 w-8 p-0" onClick={() => updateOrderStatus(order.id, "completed")} disabled={order.status === "completed"}>
+                                <Check className="w-4 h-4" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/20 h-8 w-8 p-0" onClick={() => updateOrderStatus(order.id, "cancelled")} disabled={order.status === "cancelled"}>
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </div>
           )}
 
           {/* Users Tab */}
           {activeTab === "users" && (
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+            <div className="space-y-4">
               {users.length === 0 ? (
-                <div className="text-center py-12">
+                <div className="bg-card border border-border rounded-2xl text-center py-12">
                   <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <p className="font-body text-muted-foreground">No users yet</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-secondary/50">
-                      <tr>
-                        <th className="text-left p-4 font-display text-sm text-foreground">Name</th>
-                        <th className="text-left p-4 font-display text-sm text-foreground">Phone</th>
-                        <th className="text-left p-4 font-display text-sm text-foreground">Role</th>
-                        <th className="text-left p-4 font-display text-sm text-foreground">Total Orders</th>
-                        <th className="text-left p-4 font-display text-sm text-foreground">Total Spent</th>
-                        <th className="text-left p-4 font-display text-sm text-foreground">Joined</th>
-                        <th className="text-left p-4 font-display text-sm text-foreground">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {users.map((user) => {
-                        const totalSpent = user.orders.reduce((sum, order) => sum + Number(order.price), 0);
-                        const { date, time } = formatDateTime(user.created_at);
-                        return (
-                          <tr key={user.id} className="border-t border-border">
-                            <td className="p-4">
-                              <p className="font-display font-bold text-foreground">
-                                {user.display_name || "Unknown"}
-                              </p>
-                            </td>
-                            <td className="p-4">
-                              <p className="font-body text-foreground">
-                                {user.phone || "-"}
-                              </p>
-                            </td>
-                            <td className="p-4">
-                              <Badge variant={user.user_roles?.some(r => r.role === "admin") ? "default" : "secondary"}>
-                                {user.user_roles?.some(r => r.role === "admin") ? "Admin" : "User"}
-                              </Badge>
-                            </td>
-                            <td className="p-4">
-                              <p className="font-display font-bold text-foreground">
-                                {user.orders.length}
-                              </p>
-                            </td>
-                            <td className="p-4">
-                              <p className="font-display font-bold text-primary">
-                                ₹{totalSpent.toFixed(0)}
-                              </p>
-                            </td>
-                            <td className="p-4">
-                              <p className="font-body text-foreground">{date}</p>
-                              <p className="font-body text-sm text-muted-foreground">{time}</p>
-                            </td>
-                            <td className="p-4">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => viewUserOrders(user)}
-                                disabled={user.orders.length === 0}
-                              >
-                                <Eye className="w-4 h-4 mr-2" />
-                                View Orders
-                              </Button>
-                            </td>
+                <>
+                  {/* Desktop Table - Hidden on mobile */}
+                  <div className="hidden lg:block bg-card border border-border rounded-2xl overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-secondary/50">
+                          <tr>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Name</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Phone</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Role</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Total Orders</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Total Spent</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Joined</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Actions</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                        </thead>
+                        <tbody>
+                          {users.map((u) => {
+                            const totalSpent = u.orders.reduce((sum, order) => sum + Number(order.price), 0);
+                            const { date, time } = formatDateTime(u.created_at);
+                            return (
+                              <tr key={u.id} className="border-t border-border">
+                                <td className="p-4">
+                                  <p className="font-display font-bold text-foreground">{u.display_name || "Unknown"}</p>
+                                </td>
+                                <td className="p-4">
+                                  <p className="font-body text-foreground">{u.phone || "-"}</p>
+                                </td>
+                                <td className="p-4">
+                                  <Badge variant={u.user_roles?.some(r => r.role === "admin") ? "default" : "secondary"}>
+                                    {u.user_roles?.some(r => r.role === "admin") ? "Admin" : "User"}
+                                  </Badge>
+                                </td>
+                                <td className="p-4">
+                                  <p className="font-display font-bold text-foreground">{u.orders.length}</p>
+                                </td>
+                                <td className="p-4">
+                                  <p className="font-display font-bold text-primary">₹{totalSpent.toFixed(0)}</p>
+                                </td>
+                                <td className="p-4">
+                                  <p className="font-body text-foreground">{date}</p>
+                                  <p className="font-body text-sm text-muted-foreground">{time}</p>
+                                </td>
+                                <td className="p-4">
+                                  <Button size="sm" variant="outline" onClick={() => viewUserOrders(u)} disabled={u.orders.length === 0}>
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    View Orders
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Mobile Cards - Shown only on mobile */}
+                  <div className="lg:hidden space-y-3">
+                    {users.map((u) => {
+                      const totalSpent = u.orders.reduce((sum, order) => sum + Number(order.price), 0);
+                      const { date, time } = formatDateTime(u.created_at);
+                      return (
+                        <div key={u.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="font-display font-bold text-foreground">{u.display_name || "Unknown"}</p>
+                              <p className="font-body text-sm text-muted-foreground">{u.phone || "No phone"}</p>
+                            </div>
+                            <Badge variant={u.user_roles?.some(r => r.role === "admin") ? "default" : "secondary"}>
+                              {u.user_roles?.some(r => r.role === "admin") ? "Admin" : "User"}
+                            </Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-3 gap-3 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Orders</p>
+                              <p className="font-display font-bold text-foreground">{u.orders.length}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Total Spent</p>
+                              <p className="font-display font-bold text-primary">₹{totalSpent.toFixed(0)}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Joined</p>
+                              <p className="font-body text-foreground text-xs">{date}</p>
+                            </div>
+                          </div>
+
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="w-full"
+                            onClick={() => viewUserOrders(u)} 
+                            disabled={u.orders.length === 0}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Order History
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </div>
           )}
