@@ -13,7 +13,7 @@ const Footer = () => {
                 <span className="font-display font-bold text-lg text-primary-foreground">S</span>
               </div>
               <span className="font-display font-bold text-xl tracking-wider text-gradient">
-                SCALIVER OFFICIAL
+                Scaliver Official
               </span>
             </div>
             <p className="font-body text-muted-foreground max-w-md mb-6">
@@ -94,7 +94,7 @@ const Footer = () => {
       <div className="border-t border-border">
         <div className="container py-4 text-center">
           <p className="font-body text-sm text-muted-foreground">
-            All Rights Reserved © 2024 | SCALIVER OFFICIAL
+            All Rights Reserved © 2024 | Scaliver Official
           </p>
         </div>
       </div>

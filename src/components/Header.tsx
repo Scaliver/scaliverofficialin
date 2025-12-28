@@ -16,7 +16,7 @@ const Header = () => {
             </div>
           </div>
           <span className="font-display font-bold text-xl tracking-wider text-gradient">
-            SCALIVER
+            Scaliver Official
           </span>
         </div>
 
