@@ -1,12 +1,15 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { ArrowLeft, Check, AlertCircle, MessageCircle } from "lucide-react";
+import { ArrowLeft, Check, AlertCircle, MessageCircle, Wallet, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { getProductById, PricingTier } from "@/data/products";
+import { useAuth } from "@/hooks/useAuth";
+import { useWallet } from "@/hooks/useWallet";
+import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -14,6 +17,8 @@ const ProductDetail = () => {
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { balance, wallet } = useWallet();
   
   const product = getProductById(productId || "");
   
@@ -21,6 +26,7 @@ const ProductDetail = () => {
   const [userId, setUserId] = useState("");
   const [zoneId, setZoneId] = useState("");
   const [contactNumber, setContactNumber] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
 
   if (!product) {
     return (
@@ -42,14 +48,14 @@ const ProductDetail = () => {
     );
   }
 
-  const handleOrder = () => {
+  const validateForm = () => {
     if (!selectedTier) {
       toast({
         title: "Select a pack",
         description: "Please select a pricing option to continue.",
         variant: "destructive",
       });
-      return;
+      return false;
     }
 
     if (!userId.trim()) {
@@ -58,7 +64,7 @@ const ProductDetail = () => {
         description: "Please enter your User ID / Player ID.",
         variant: "destructive",
       });
-      return;
+      return false;
     }
 
     if (!contactNumber.trim()) {
@@ -67,8 +73,85 @@ const ProductDetail = () => {
         description: "Please enter your WhatsApp number for order updates.",
         variant: "destructive",
       });
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleWalletPayment = async () => {
+    if (!validateForm() || !selectedTier || !user) return;
+
+    if (balance < selectedTier.price) {
+      toast({
+        title: "Insufficient Balance",
+        description: `You need ₹${selectedTier.price - balance} more. Please add coins to your wallet.`,
+        variant: "destructive",
+      });
       return;
     }
+
+    setIsProcessing(true);
+
+    try {
+      // Create order
+      const { error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          user_id: user.id,
+          product_id: product.id,
+          product_name: product.name,
+          amount: selectedTier.amount,
+          price: selectedTier.price,
+          user_game_id: userId,
+          zone_id: zoneId || null,
+          contact_number: contactNumber,
+          status: "pending",
+        });
+
+      if (orderError) throw orderError;
+
+      // Deduct from wallet
+      const newBalance = balance - selectedTier.price;
+      const { error: walletError } = await supabase
+        .from("wallets")
+        .update({ balance: newBalance })
+        .eq("user_id", user.id);
+
+      if (walletError) throw walletError;
+
+      // Record transaction
+      const { error: txError } = await supabase
+        .from("coin_transactions")
+        .insert({
+          user_id: user.id,
+          amount: selectedTier.price,
+          type: "debit",
+          description: `Purchase: ${product.name} - ${selectedTier.amount}`,
+        });
+
+      if (txError) throw txError;
+
+      toast({
+        title: "Order Placed Successfully!",
+        description: "Your order has been placed. Check your orders page for updates.",
+      });
+
+      navigate("/orders");
+    } catch (error) {
+      console.error("Error placing order:", error);
+      toast({
+        title: "Error",
+        description: "Failed to place order. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleWhatsAppOrder = () => {
+    if (!validateForm() || !selectedTier) return;
 
     // Create WhatsApp message
     const message = encodeURIComponent(
@@ -89,6 +172,8 @@ const ProductDetail = () => {
       description: "You'll be redirected to WhatsApp to complete your order.",
     });
   };
+
+  const canPayWithWallet = user && wallet && selectedTier && balance >= selectedTier.price;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -152,6 +237,30 @@ const ProductDetail = () => {
                   {product.description}
                 </p>
               </div>
+
+              {/* Wallet Balance Card (if logged in) */}
+              {user && (
+                <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="w-5 h-5 text-primary" />
+                      <span className="font-body text-foreground">Wallet Balance</span>
+                    </div>
+                    <span className="font-display text-xl font-bold text-primary">₹{balance.toFixed(2)}</span>
+                  </div>
+                  {selectedTier && balance < selectedTier.price && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Need ₹{(selectedTier.price - balance).toFixed(2)} more for this pack.{" "}
+                      <button 
+                        onClick={() => navigate("/add-coin")}
+                        className="text-primary hover:underline"
+                      >
+                        Add coins
+                      </button>
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Pricing Tiers */}
               <div className="bg-card border border-border rounded-xl p-6">
@@ -262,20 +371,53 @@ const ProductDetail = () => {
                 </div>
               )}
 
-              {/* Order Button */}
-              <Button 
-                variant="gaming" 
-                size="lg" 
-                className="w-full text-lg py-6"
-                onClick={handleOrder}
-              >
-                <MessageCircle className="w-5 h-5 mr-2" />
-                Order via WhatsApp
-              </Button>
+              {/* Payment Buttons */}
+              <div className="space-y-3">
+                {user && (
+                  <Button 
+                    variant="gaming" 
+                    size="lg" 
+                    className="w-full text-lg py-6"
+                    onClick={handleWalletPayment}
+                    disabled={!canPayWithWallet || isProcessing}
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Wallet className="w-5 h-5 mr-2" />
+                        Pay with Wallet {selectedTier ? `(₹${selectedTier.price})` : ""}
+                      </>
+                    )}
+                  </Button>
+                )}
+                
+                <Button 
+                  variant={user ? "outline" : "gaming"} 
+                  size="lg" 
+                  className="w-full text-lg py-6"
+                  onClick={handleWhatsAppOrder}
+                  disabled={isProcessing}
+                >
+                  <MessageCircle className="w-5 h-5 mr-2" />
+                  Order via WhatsApp
+                </Button>
+              </div>
 
-              <p className="text-center font-body text-sm text-muted-foreground">
-                You'll be redirected to WhatsApp to complete your order
-              </p>
+              {!user && (
+                <p className="text-center font-body text-sm text-muted-foreground">
+                  <button 
+                    onClick={() => navigate("/auth")}
+                    className="text-primary hover:underline"
+                  >
+                    Sign in
+                  </button>
+                  {" "}to pay with wallet balance
+                </p>
+              )}
             </div>
           </div>
         </div>

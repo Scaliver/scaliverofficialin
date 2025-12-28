@@ -40,14 +40,6 @@ const Header = () => {
           <a href="/#contact" className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors">
             Contact Us
           </a>
-          {user && (
-            <button 
-              onClick={() => navigate("/profile")}
-              className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
-            >
-              My Account
-            </button>
-          )}
           {isAdmin && (
             <Button 
               variant="gaming"
@@ -56,8 +48,16 @@ const Header = () => {
               className="flex items-center gap-2"
             >
               <Shield className="w-4 h-4" />
-              Dashboard
+              Admin
             </Button>
+          )}
+          {user && (
+            <button 
+              onClick={() => navigate("/profile")}
+              className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
+            >
+              My Account
+            </button>
           )}
         </nav>
 
