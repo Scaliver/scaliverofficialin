@@ -38,7 +38,6 @@ const ProductDetail = () => {
   const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
   const [userId, setUserId] = useState("");
   const [zoneId, setZoneId] = useState("");
-  const [contactNumber, setContactNumber] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
@@ -75,17 +74,8 @@ const ProductDetail = () => {
 
     if (!userId.trim()) {
       toast({
-        title: "User ID required",
-        description: "Please enter your User ID / Player ID.",
-        variant: "destructive",
-      });
-      return false;
-    }
-
-    if (!contactNumber.trim()) {
-      toast({
-        title: "Contact number required",
-        description: "Please enter your WhatsApp number for order updates.",
+        title: "Player ID required",
+        description: "Please enter your Player ID.",
         variant: "destructive",
       });
       return false;
@@ -120,7 +110,7 @@ const ProductDetail = () => {
           price: selectedTier.price,
           user_game_id: userId,
           zone_id: zoneId || null,
-          contact_number: contactNumber,
+          contact_number: user.email || "",
           status: "pending",
         })
         .select()
@@ -157,7 +147,7 @@ const ProductDetail = () => {
         price: selectedTier.price,
         userId: userId,
         zoneId: zoneId || undefined,
-        contactNumber: contactNumber,
+        contactNumber: user.email || "",
         transactionDate: new Date().toISOString(),
         paymentMethod: "Wallet Balance",
       });
@@ -182,10 +172,9 @@ const ProductDetail = () => {
   const handleUPIPayment = () => {
     if (!validateForm() || !selectedTier) return;
 
-    // Open UPI payment link or show UPI details
     toast({
       title: "UPI Payment",
-      description: "Please contact us on WhatsApp to complete your UPI payment.",
+      description: "Please contact us to complete your UPI payment.",
     });
     
     const message = encodeURIComponent(
@@ -194,8 +183,7 @@ const ProductDetail = () => {
       `💎 Pack: ${selectedTier.amount}\n` +
       `💰 Price: ₹${selectedTier.price}\n` +
       `🆔 Player ID: ${userId}\n` +
-      `${zoneId ? `🌐 Zone/Server: ${zoneId}\n` : ""}` +
-      `📱 Contact: ${contactNumber}\n\n` +
+      `${zoneId ? `🌐 Zone/Server: ${zoneId}\n` : ""}\n` +
       `I want to pay via UPI.`
     );
 
@@ -298,19 +286,6 @@ const ProductDetail = () => {
                       className="bg-secondary border-border"
                     />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="contact" className="font-body text-foreground">
-                    WhatsApp Number *
-                  </Label>
-                  <Input
-                    id="contact"
-                    placeholder="Enter your WhatsApp number"
-                    value={contactNumber}
-                    onChange={(e) => setContactNumber(e.target.value)}
-                    className="bg-secondary border-border"
-                  />
                 </div>
               </div>
 
