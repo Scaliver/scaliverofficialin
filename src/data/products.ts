@@ -1,13 +1,13 @@
-import mlbbDiamonds from "@/assets/mlbb-diamonds.png";
+import mlbbDiamonds from "@/assets/mlbb-hero.jpg";
 import pubgUc from "@/assets/pubg-uc.png";
 import genshinGems from "@/assets/genshin-gems.png";
 import starlightCard from "@/assets/starlight-card.png";
 import doubleDiamonds from "@/assets/double-diamonds.png";
 import weeklyPass from "@/assets/weekly-pass.png";
-import instagramService from "@/assets/instagram-service.png";
-import youtubeService from "@/assets/youtube-service.png";
-import hokTokens from "@/assets/hok-tokens.png";
-import bgmiUc from "@/assets/bgmi-uc.png";
+import instagramService from "@/assets/instagram-hero.jpg";
+import youtubeService from "@/assets/youtube-hero.jpg";
+import hokTokens from "@/assets/hok-hero.jpg";
+import bgmiUc from "@/assets/bgmi-hero.webp";
 
 export interface PricingTier {
   id: string;
