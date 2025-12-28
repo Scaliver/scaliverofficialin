@@ -5,6 +5,7 @@ import ProductSection from "@/components/ProductSection";
 import FeaturesSection from "@/components/FeaturesSection";
 import Footer from "@/components/Footer";
 import QuickActions from "@/components/QuickActions";
+import WhatsAppButton from "@/components/WhatsAppButton";
 import { mobileLegendsProducts, mobileGamesProducts, socialMediaProducts } from "@/data/products";
 
 const Index = () => {
@@ -45,6 +46,9 @@ const Index = () => {
 
       {/* Mobile Quick Actions */}
       <QuickActions />
+
+      {/* WhatsApp Floating Button */}
+      <WhatsAppButton />
     </div>
   );
 };
