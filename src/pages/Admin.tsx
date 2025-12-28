@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins } from "lucide-react";
+import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +51,17 @@ interface UserProfile {
   } | null;
 }
 
+interface CoinTransaction {
+  id: string;
+  user_id: string;
+  amount: number;
+  type: string;
+  description: string;
+  created_at: string;
+  user_display_name?: string;
+  user_phone?: string;
+}
+
 const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -58,7 +69,8 @@ const Admin = () => {
   
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets">("orders");
+  const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
+  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history">("orders");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userOrdersDialogOpen, setUserOrdersDialogOpen] = useState(false);
@@ -90,6 +102,7 @@ const Admin = () => {
     if (isAdmin) {
       fetchOrders();
       fetchUsers();
+      fetchTransactions();
       
       // Set up real-time subscriptions
       const ordersChannel = supabase
@@ -148,6 +161,21 @@ const Admin = () => {
         )
         .subscribe();
 
+      const transactionsChannel = supabase
+        .channel('admin-transactions-realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'coin_transactions'
+          },
+          () => {
+            fetchTransactions();
+          }
+        )
+        .subscribe();
+
       // Mark initial load complete after first fetch
       setTimeout(() => {
         initialLoadRef.current = false;
@@ -156,6 +184,7 @@ const Admin = () => {
       return () => {
         supabase.removeChannel(ordersChannel);
         supabase.removeChannel(profilesChannel);
+        supabase.removeChannel(transactionsChannel);
       };
     }
   }, [isAdmin, toast]);
@@ -235,6 +264,38 @@ const Admin = () => {
       setUsers(usersWithData);
     } catch (error) {
       console.error("Error fetching users:", error);
+    }
+  };
+
+  const fetchTransactions = async () => {
+    try {
+      const { data: txData, error } = await supabase
+        .from("coin_transactions")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Get user profiles for each transaction
+      const txWithProfiles = await Promise.all(
+        (txData || []).map(async (tx) => {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("display_name, phone")
+            .eq("id", tx.user_id)
+            .maybeSingle();
+          
+          return {
+            ...tx,
+            user_display_name: profileData?.display_name,
+            user_phone: profileData?.phone,
+          };
+        })
+      );
+
+      setTransactions(txWithProfiles);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
     }
   };
 
@@ -423,7 +484,7 @@ const Admin = () => {
               )}
               <Button 
                 variant="outline" 
-                onClick={() => { fetchOrders(); fetchUsers(); setNewOrdersCount(0); }}
+                onClick={() => { fetchOrders(); fetchUsers(); fetchTransactions(); setNewOrdersCount(0); }}
                 className="gap-2 flex-1 sm:flex-none"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -471,6 +532,17 @@ const Admin = () => {
             >
               <Wallet className="w-4 h-4" />
               Wallets
+            </button>
+            <button
+              onClick={() => setActiveTab("history")}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${
+                activeTab === "history"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <History className="w-4 h-4" />
+              Wallet History
             </button>
           </div>
 
@@ -802,6 +874,113 @@ const Admin = () => {
                         </Button>
                       </div>
                     ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Wallet History Tab */}
+          {activeTab === "history" && (
+            <div className="space-y-4">
+              {transactions.length === 0 ? (
+                <div className="bg-card border border-border rounded-2xl text-center py-12">
+                  <History className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="font-body text-muted-foreground">No wallet transactions yet</p>
+                </div>
+              ) : (
+                <>
+                  {/* Desktop Table */}
+                  <div className="hidden lg:block bg-card border border-border rounded-2xl overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-secondary/50">
+                          <tr>
+                            <th className="text-left p-4 font-display text-sm text-foreground">User</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Type</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Amount</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Description</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Date & Time</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {transactions.map((tx) => {
+                            const { date, time } = formatDateTime(tx.created_at);
+                            return (
+                              <tr key={tx.id} className="border-t border-border">
+                                <td className="p-4">
+                                  <p className="font-display font-bold text-foreground">{tx.user_display_name || "Unknown"}</p>
+                                  <p className="font-body text-sm text-muted-foreground">{tx.user_phone || "-"}</p>
+                                </td>
+                                <td className="p-4">
+                                  <Badge className={tx.type === "credit" 
+                                    ? "bg-green-500/20 text-green-400 border-green-500/30" 
+                                    : "bg-red-500/20 text-red-400 border-red-500/30"
+                                  }>
+                                    <span className="flex items-center gap-1">
+                                      {tx.type === "credit" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                                      {tx.type}
+                                    </span>
+                                  </Badge>
+                                </td>
+                                <td className="p-4">
+                                  <p className={`font-display font-bold ${tx.type === "credit" ? "text-green-400" : "text-red-400"}`}>
+                                    {tx.type === "credit" ? "+" : "-"}₹{tx.amount.toFixed(2)}
+                                  </p>
+                                </td>
+                                <td className="p-4">
+                                  <p className="font-body text-foreground text-sm">{tx.description}</p>
+                                </td>
+                                <td className="p-4">
+                                  <p className="font-body text-foreground">{date}</p>
+                                  <p className="font-body text-sm text-muted-foreground">{time}</p>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Mobile Cards */}
+                  <div className="lg:hidden space-y-3">
+                    {transactions.map((tx) => {
+                      const { date, time } = formatDateTime(tx.created_at);
+                      return (
+                        <div key={tx.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="font-display font-bold text-foreground">{tx.user_display_name || "Unknown"}</p>
+                              <p className="font-body text-sm text-muted-foreground">{tx.user_phone || "-"}</p>
+                            </div>
+                            <Badge className={tx.type === "credit" 
+                              ? "bg-green-500/20 text-green-400 border-green-500/30" 
+                              : "bg-red-500/20 text-red-400 border-red-500/30"
+                            }>
+                              <span className="flex items-center gap-1">
+                                {tx.type === "credit" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                                {tx.type}
+                              </span>
+                            </Badge>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <p className={`font-display font-bold text-lg ${tx.type === "credit" ? "text-green-400" : "text-red-400"}`}>
+                              {tx.type === "credit" ? "+" : "-"}₹{tx.amount.toFixed(2)}
+                            </p>
+                            <div className="text-right">
+                              <p className="font-body text-sm text-foreground">{date}</p>
+                              <p className="font-body text-xs text-muted-foreground">{time}</p>
+                            </div>
+                          </div>
+
+                          <p className="font-body text-sm text-muted-foreground border-t border-border pt-2">
+                            {tx.description}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </>
               )}
