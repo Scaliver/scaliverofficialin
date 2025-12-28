@@ -49,13 +49,15 @@ const Header = () => {
             </button>
           )}
           {isAdmin && (
-            <button 
+            <Button 
+              variant="gaming"
+              size="sm"
               onClick={() => navigate("/admin")}
-              className="font-body text-lg font-medium text-accent hover:text-primary transition-colors flex items-center gap-1"
+              className="flex items-center gap-2"
             >
               <Shield className="w-4 h-4" />
-              Admin
-            </button>
+              Dashboard
+            </Button>
           )}
         </nav>
 
@@ -115,13 +117,14 @@ const Header = () => {
               </button>
             )}
             {isAdmin && (
-              <button 
+              <Button 
+                variant="gaming"
                 onClick={() => { navigate("/admin"); setMobileMenuOpen(false); }}
-                className="font-body text-lg font-medium text-accent hover:text-primary transition-colors text-left flex items-center gap-1"
+                className="w-full flex items-center justify-center gap-2"
               >
                 <Shield className="w-4 h-4" />
-                Admin Panel
-              </button>
+                Admin Dashboard
+              </Button>
             )}
             {user ? (
               <Button variant="outline" className="w-full mt-2" onClick={handleSignOut}>
