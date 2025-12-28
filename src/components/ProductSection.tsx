@@ -1,4 +1,5 @@
 import { ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import ProductCard from "./ProductCard";
 
 interface Product {
@@ -15,6 +16,8 @@ interface ProductSectionProps {
 }
 
 const ProductSection = ({ title, products, onViewMore }: ProductSectionProps) => {
+  const navigate = useNavigate();
+
   return (
     <section className="py-8 md:py-12">
       <div className="container">
@@ -47,6 +50,7 @@ const ProductSection = ({ title, products, onViewMore }: ProductSectionProps) =>
                 name={product.name}
                 image={product.image}
                 inStock={product.inStock}
+                onClick={() => navigate(`/product/${product.id}`)}
               />
             </div>
           ))}
