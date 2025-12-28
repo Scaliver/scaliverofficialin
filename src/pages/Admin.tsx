@@ -697,6 +697,56 @@ const Admin = () => {
             </button>
           </div>
 
+          {/* Dashboard Stats */}
+          {activeTab === "orders" && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="bg-card border border-border rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                    <Package className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Orders</p>
+                    <p className="text-xl font-bold text-foreground">{orders.length}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-card border border-border rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                    <Coins className="w-5 h-5 text-green-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Revenue</p>
+                    <p className="text-xl font-bold text-foreground">₹{orders.reduce((sum, o) => sum + o.price, 0).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-card border border-border rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-yellow-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Pending Orders</p>
+                    <p className="text-xl font-bold text-foreground">{orders.filter(o => o.status === "pending").length}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-card border border-border rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <Check className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Completed</p>
+                    <p className="text-xl font-bold text-foreground">{orders.filter(o => o.status === "completed").length}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Orders Tab */}
           {activeTab === "orders" && (
             <div className="space-y-4">
