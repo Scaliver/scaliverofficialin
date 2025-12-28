@@ -1,12 +1,50 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import Header from "@/components/Header";
+import HeroBanner from "@/components/HeroBanner";
+import MarqueeBanner from "@/components/MarqueeBanner";
+import ProductSection from "@/components/ProductSection";
+import FeaturesSection from "@/components/FeaturesSection";
+import Footer from "@/components/Footer";
+import QuickActions from "@/components/QuickActions";
+import { mobileLegendsProducts, mobileGamesProducts, socialMediaProducts } from "@/data/products";
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <Header />
+
+      {/* Hero Banner Carousel */}
+      <HeroBanner />
+
+      {/* Scrolling Marquee */}
+      <MarqueeBanner />
+
+      {/* Product Sections */}
+      <main id="games" className="pb-20 md:pb-8">
+        <ProductSection
+          title="Mobile Legends"
+          products={mobileLegendsProducts}
+        />
+
+        <ProductSection
+          title="Mobile Games"
+          products={mobileGamesProducts}
+        />
+
+        <ProductSection
+          title="Social Media"
+          products={socialMediaProducts}
+        />
+
+        {/* Features Section */}
+        <FeaturesSection />
+      </main>
+
+      {/* Footer */}
+      <Footer />
+
+      {/* Mobile Quick Actions */}
+      <QuickActions />
     </div>
   );
 };
