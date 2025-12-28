@@ -1,15 +1,24 @@
-import { Menu, Search, User, LogIn } from "lucide-react";
+import { Menu, Search, User, LogIn, Shield, LogOut } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const { user, isAdmin, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
           <div className="relative">
             <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center glow-blue">
               <span className="font-display font-bold text-lg text-primary-foreground">S</span>
@@ -22,18 +31,32 @@ const Header = () => {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-8">
-          <a href="#" className="font-body text-lg font-medium text-foreground hover:text-primary transition-colors">
+          <a href="/" className="font-body text-lg font-medium text-foreground hover:text-primary transition-colors">
             Home
           </a>
-          <a href="#games" className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors">
+          <a href="/#games" className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors">
             Games
           </a>
-          <a href="#contact" className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors">
+          <a href="/#contact" className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors">
             Contact Us
           </a>
-          <a href="#account" className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors">
-            My Account
-          </a>
+          {user && (
+            <button 
+              onClick={() => navigate("/profile")}
+              className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
+            >
+              My Account
+            </button>
+          )}
+          {isAdmin && (
+            <button 
+              onClick={() => navigate("/admin")}
+              className="font-body text-lg font-medium text-accent hover:text-primary transition-colors flex items-center gap-1"
+            >
+              <Shield className="w-4 h-4" />
+              Admin
+            </button>
+          )}
         </nav>
 
         {/* Actions */}
@@ -41,10 +64,23 @@ const Header = () => {
           <Button variant="ghost" size="icon" className="hidden md:flex">
             <Search className="h-5 w-5" />
           </Button>
-          <Button variant="gaming" className="hidden md:flex gap-2">
-            <LogIn className="h-4 w-4" />
-            Login
-          </Button>
+          {user ? (
+            <div className="hidden md:flex items-center gap-2">
+              <Button variant="ghost" onClick={() => navigate("/profile")}>
+                <User className="h-4 w-4 mr-2" />
+                Profile
+              </Button>
+              <Button variant="outline" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </div>
+          ) : (
+            <Button variant="gaming" className="hidden md:flex gap-2" onClick={() => navigate("/auth")}>
+              <LogIn className="h-4 w-4" />
+              Login
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             <Menu className="h-5 w-5" />
           </Button>
@@ -55,22 +91,43 @@ const Header = () => {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-border bg-card animate-fade-in">
           <nav className="container py-4 flex flex-col gap-4">
-            <a href="#" className="font-body text-lg font-medium text-foreground hover:text-primary transition-colors">
+            <a href="/" className="font-body text-lg font-medium text-foreground hover:text-primary transition-colors">
               Home
             </a>
-            <a href="#games" className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors">
+            <a href="/#games" className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors">
               Games
             </a>
-            <a href="#contact" className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors">
+            <a href="/#contact" className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors">
               Contact Us
             </a>
-            <a href="#account" className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors">
-              My Account
-            </a>
-            <Button variant="gaming" className="w-full mt-2">
-              <LogIn className="h-4 w-4" />
-              Login
-            </Button>
+            {user && (
+              <button 
+                onClick={() => { navigate("/profile"); setMobileMenuOpen(false); }}
+                className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors text-left"
+              >
+                My Account
+              </button>
+            )}
+            {isAdmin && (
+              <button 
+                onClick={() => { navigate("/admin"); setMobileMenuOpen(false); }}
+                className="font-body text-lg font-medium text-accent hover:text-primary transition-colors text-left flex items-center gap-1"
+              >
+                <Shield className="w-4 h-4" />
+                Admin Panel
+              </button>
+            )}
+            {user ? (
+              <Button variant="outline" className="w-full mt-2" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            ) : (
+              <Button variant="gaming" className="w-full mt-2" onClick={() => { navigate("/auth"); setMobileMenuOpen(false); }}>
+                <LogIn className="h-4 w-4" />
+                Login
+              </Button>
+            )}
           </nav>
         </div>
       )}
