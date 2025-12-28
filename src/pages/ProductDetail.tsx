@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { ArrowLeft, Check, AlertCircle, MessageCircle, Wallet, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, AlertCircle, Wallet, Loader2, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,19 @@ import { useWallet } from "@/hooks/useWallet";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import TransactionReceipt from "@/components/TransactionReceipt";
+
+interface ReceiptData {
+  orderId: string;
+  productName: string;
+  amount: string;
+  price: number;
+  userId: string;
+  zoneId?: string;
+  contactNumber: string;
+  transactionDate: string;
+  paymentMethod: string;
+}
 
 const ProductDetail = () => {
   const { productId } = useParams<{ productId: string }>();
@@ -27,6 +40,8 @@ const ProductDetail = () => {
   const [zoneId, setZoneId] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   if (!product) {
     return (
@@ -95,7 +110,7 @@ const ProductDetail = () => {
 
     try {
       // Create order
-      const { error: orderError } = await supabase
+      const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .insert({
           user_id: user.id,
@@ -107,7 +122,9 @@ const ProductDetail = () => {
           zone_id: zoneId || null,
           contact_number: contactNumber,
           status: "pending",
-        });
+        })
+        .select()
+        .single();
 
       if (orderError) throw orderError;
 
@@ -132,12 +149,24 @@ const ProductDetail = () => {
 
       if (txError) throw txError;
 
+      // Show receipt
+      setReceiptData({
+        orderId: orderData.id,
+        productName: product.name,
+        amount: selectedTier.amount,
+        price: selectedTier.price,
+        userId: userId,
+        zoneId: zoneId || undefined,
+        contactNumber: contactNumber,
+        transactionDate: new Date().toISOString(),
+        paymentMethod: "Wallet Balance",
+      });
+      setReceiptOpen(true);
+
       toast({
         title: "Order Placed Successfully!",
         description: "Your order has been placed. Check your orders page for updates.",
       });
-
-      navigate("/orders");
     } catch (error) {
       console.error("Error placing order:", error);
       toast({
@@ -150,27 +179,27 @@ const ProductDetail = () => {
     }
   };
 
-  const handleWhatsAppOrder = () => {
+  const handleUPIPayment = () => {
     if (!validateForm() || !selectedTier) return;
 
-    // Create WhatsApp message
+    // Open UPI payment link or show UPI details
+    toast({
+      title: "UPI Payment",
+      description: "Please contact us on WhatsApp to complete your UPI payment.",
+    });
+    
     const message = encodeURIComponent(
-      `🎮 *New Order - Scaliver Official*\n\n` +
+      `🎮 *UPI Payment Request - Scaliver Official*\n\n` +
       `📦 Product: ${product.name}\n` +
       `💎 Pack: ${selectedTier.amount}\n` +
       `💰 Price: ₹${selectedTier.price}\n` +
-      `🆔 User ID: ${userId}\n` +
-      `${zoneId ? `🌐 Zone ID: ${zoneId}\n` : ""}` +
-      `📱 Contact: ${contactNumber}`
+      `🆔 Player ID: ${userId}\n` +
+      `${zoneId ? `🌐 Zone/Server: ${zoneId}\n` : ""}` +
+      `📱 Contact: ${contactNumber}\n\n` +
+      `I want to pay via UPI.`
     );
 
-    // Open WhatsApp with pre-filled message
     window.open(`https://wa.me/911234567890?text=${message}`, "_blank");
-
-    toast({
-      title: "Order Initiated!",
-      description: "You'll be redirected to WhatsApp to complete your order.",
-    });
   };
 
   const canPayWithWallet = user && wallet && selectedTier && balance >= selectedTier.price;
@@ -238,6 +267,53 @@ const ProductDetail = () => {
                 </p>
               </div>
 
+              {/* User Details Form - MOVED TO TOP */}
+              <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+                <h3 className="font-display text-lg font-bold text-foreground">
+                  Enter Your Game Details
+                </h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="userId" className="font-body text-foreground">
+                      Player ID *
+                    </Label>
+                    <Input
+                      id="userId"
+                      placeholder="Enter your Player ID"
+                      value={userId}
+                      onChange={(e) => setUserId(e.target.value)}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="zoneId" className="font-body text-foreground">
+                      Server / Zone ID
+                    </Label>
+                    <Input
+                      id="zoneId"
+                      placeholder="Enter server/zone ID"
+                      value={zoneId}
+                      onChange={(e) => setZoneId(e.target.value)}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="contact" className="font-body text-foreground">
+                    WhatsApp Number *
+                  </Label>
+                  <Input
+                    id="contact"
+                    placeholder="Enter your WhatsApp number"
+                    value={contactNumber}
+                    onChange={(e) => setContactNumber(e.target.value)}
+                    className="bg-secondary border-border"
+                  />
+                </div>
+              </div>
+
               {/* Wallet Balance Card (if logged in) */}
               {user && (
                 <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-xl p-4">
@@ -299,53 +375,6 @@ const ProductDetail = () => {
                 </div>
               </div>
 
-              {/* User Details Form */}
-              <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-                <h3 className="font-display text-lg font-bold text-foreground">
-                  Enter Your Details
-                </h3>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="userId" className="font-body text-foreground">
-                      User ID / Player ID *
-                    </Label>
-                    <Input
-                      id="userId"
-                      placeholder="Enter your ID"
-                      value={userId}
-                      onChange={(e) => setUserId(e.target.value)}
-                      className="bg-secondary border-border"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="zoneId" className="font-body text-foreground">
-                      Zone ID (if applicable)
-                    </Label>
-                    <Input
-                      id="zoneId"
-                      placeholder="Enter zone ID"
-                      value={zoneId}
-                      onChange={(e) => setZoneId(e.target.value)}
-                      className="bg-secondary border-border"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="contact" className="font-body text-foreground">
-                    WhatsApp Number *
-                  </Label>
-                  <Input
-                    id="contact"
-                    placeholder="Enter your WhatsApp number"
-                    value={contactNumber}
-                    onChange={(e) => setContactNumber(e.target.value)}
-                    className="bg-secondary border-border"
-                  />
-                </div>
-              </div>
-
               {/* Order Summary */}
               {selectedTier && (
                 <div className="bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30 rounded-xl p-6">
@@ -389,7 +418,7 @@ const ProductDetail = () => {
                     ) : (
                       <>
                         <Wallet className="w-5 h-5 mr-2" />
-                        Pay with Wallet {selectedTier ? `(₹${selectedTier.price})` : ""}
+                        Pay with Coins {selectedTier ? `(₹${selectedTier.price})` : ""}
                       </>
                     )}
                   </Button>
@@ -399,11 +428,11 @@ const ProductDetail = () => {
                   variant={user ? "outline" : "gaming"} 
                   size="lg" 
                   className="w-full text-lg py-6"
-                  onClick={handleWhatsAppOrder}
+                  onClick={handleUPIPayment}
                   disabled={isProcessing}
                 >
-                  <MessageCircle className="w-5 h-5 mr-2" />
-                  Order via WhatsApp
+                  <CreditCard className="w-5 h-5 mr-2" />
+                  Pay with UPI
                 </Button>
               </div>
 
@@ -422,6 +451,16 @@ const ProductDetail = () => {
           </div>
         </div>
       </main>
+
+      {/* Transaction Receipt Dialog */}
+      <TransactionReceipt
+        open={receiptOpen}
+        onOpenChange={(open) => {
+          setReceiptOpen(open);
+          if (!open) navigate("/orders");
+        }}
+        receipt={receiptData}
+      />
 
       <Footer />
     </div>
