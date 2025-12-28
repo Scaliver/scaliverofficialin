@@ -82,6 +82,12 @@ const Admin = () => {
   const [creditAmount, setCreditAmount] = useState("");
   const [creditDescription, setCreditDescription] = useState("");
   const [isCreditLoading, setIsCreditLoading] = useState(false);
+  
+  // Debit coins state
+  const [debitDialogOpen, setDebitDialogOpen] = useState(false);
+  const [debitAmount, setDebitAmount] = useState("");
+  const [debitDescription, setDebitDescription] = useState("");
+  const [isDebitLoading, setIsDebitLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading) {
@@ -368,6 +374,13 @@ const Admin = () => {
     setCreditDialogOpen(true);
   };
 
+  const openDebitDialog = (user: UserProfile) => {
+    setSelectedUser(user);
+    setDebitAmount("");
+    setDebitDescription("");
+    setDebitDialogOpen(true);
+  };
+
   const handleCreditCoins = async () => {
     if (!selectedUser || !creditAmount) return;
     
@@ -422,6 +435,73 @@ const Admin = () => {
       });
     } finally {
       setIsCreditLoading(false);
+    }
+  };
+
+  const handleDebitCoins = async () => {
+    if (!selectedUser || !debitAmount) return;
+    
+    const amount = parseFloat(debitAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid positive amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const currentBalance = selectedUser.wallet?.balance || 0;
+    if (amount > currentBalance) {
+      toast({
+        title: "Insufficient Balance",
+        description: `User only has ₹${currentBalance.toFixed(2)} in their wallet.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDebitLoading(true);
+    
+    try {
+      // First, update the wallet balance
+      const newBalance = currentBalance - amount;
+      
+      const { error: walletError } = await supabase
+        .from("wallets")
+        .update({ balance: newBalance })
+        .eq("user_id", selectedUser.id);
+
+      if (walletError) throw walletError;
+
+      // Then, create a transaction record
+      const { error: txError } = await supabase
+        .from("coin_transactions")
+        .insert({
+          user_id: selectedUser.id,
+          amount: amount,
+          type: "debit",
+          description: debitDescription || "Admin debit - Refund/Correction",
+        });
+
+      if (txError) throw txError;
+
+      toast({
+        title: "Coins Deducted Successfully",
+        description: `₹${amount} deducted from ${selectedUser.display_name || "User"}'s wallet.`,
+      });
+
+      setDebitDialogOpen(false);
+      fetchUsers(); // Refresh users to show updated balance
+    } catch (error) {
+      console.error("Error debiting coins:", error);
+      toast({
+        title: "Error",
+        description: "Failed to deduct coins. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDebitLoading(false);
     }
   };
 
@@ -836,10 +916,16 @@ const Admin = () => {
                                 <p className="font-display font-bold text-primary">₹{u.wallet?.balance?.toFixed(2) || "0.00"}</p>
                               </td>
                               <td className="p-4">
-                                <Button size="sm" variant="default" onClick={() => openCreditDialog(u)} className="gap-2">
-                                  <Coins className="w-4 h-4" />
-                                  Credit Coins
-                                </Button>
+                                <div className="flex gap-2">
+                                  <Button size="sm" variant="default" onClick={() => openCreditDialog(u)} className="gap-1">
+                                    <ArrowUp className="w-4 h-4" />
+                                    Credit
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={() => openDebitDialog(u)} className="gap-1 text-red-400 hover:text-red-300 hover:bg-red-500/10">
+                                    <ArrowDown className="w-4 h-4" />
+                                    Debit
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -863,15 +949,26 @@ const Admin = () => {
                           </div>
                         </div>
                         
-                        <Button 
-                          size="sm" 
-                          variant="default" 
-                          className="w-full gap-2"
-                          onClick={() => openCreditDialog(u)}
-                        >
-                          <Coins className="w-4 h-4" />
-                          Credit Coins
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="default" 
+                            className="flex-1 gap-1"
+                            onClick={() => openCreditDialog(u)}
+                          >
+                            <ArrowUp className="w-4 h-4" />
+                            Credit
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="flex-1 gap-1 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                            onClick={() => openDebitDialog(u)}
+                          >
+                            <ArrowDown className="w-4 h-4" />
+                            Debit
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1093,6 +1190,65 @@ const Admin = () => {
             </Button>
             <Button onClick={handleCreditCoins} disabled={!creditAmount || isCreditLoading}>
               {isCreditLoading ? "Processing..." : "Credit Coins"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Debit Coins Dialog */}
+      <Dialog open={debitDialogOpen} onOpenChange={setDebitDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl flex items-center gap-2">
+              <ArrowDown className="w-5 h-5 text-red-400" />
+              Debit Coins
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="bg-secondary/30 rounded-xl p-4 border border-border">
+              <p className="text-sm text-muted-foreground">Deducting from</p>
+              <p className="font-display font-bold text-foreground">{selectedUser?.display_name || "Unknown User"}</p>
+              <p className="text-sm text-muted-foreground">{selectedUser?.phone || "No phone"}</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Current Balance: <span className="font-bold text-primary">₹{selectedUser?.wallet?.balance?.toFixed(2) || "0.00"}</span>
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="debitAmount">Amount to Deduct (₹)</Label>
+              <Input
+                id="debitAmount"
+                type="number"
+                placeholder="Enter amount"
+                value={debitAmount}
+                onChange={(e) => setDebitAmount(e.target.value)}
+                min="1"
+                step="0.01"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="debitDescription">Reason (Optional)</Label>
+              <Input
+                id="debitDescription"
+                placeholder="e.g., Refund for cancelled order"
+                value={debitDescription}
+                onChange={(e) => setDebitDescription(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDebitDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleDebitCoins} 
+              disabled={!debitAmount || isDebitLoading}
+              variant="destructive"
+            >
+              {isDebitLoading ? "Processing..." : "Deduct Coins"}
             </Button>
           </DialogFooter>
         </DialogContent>
