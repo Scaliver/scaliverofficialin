@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
-import { Eye, EyeOff, LogIn, UserPlus, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, LogIn, UserPlus, ArrowLeft, Mail, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,7 @@ const loginSchema = z.object({
 const signupSchema = z.object({
   displayName: z.string().min(2, "Name must be at least 2 characters").max(50, "Name must be less than 50 characters"),
   email: z.string().email("Please enter a valid email address"),
+  phone: z.string().min(10, "Phone number must be at least 10 digits").max(15, "Phone number is too long").regex(/^[0-9+\-\s]+$/, "Please enter a valid phone number"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -26,15 +27,17 @@ const signupSchema = z.object({
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, signIn, signUp, isLoading: authLoading } = useAuth();
+  const { user, signUp, signIn, isLoading: authLoading } = useAuth();
   
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showVerificationMessage, setShowVerificationMessage] = useState(false);
   
   const [formData, setFormData] = useState({
     displayName: "",
     email: "",
+    phone: "",
     password: "",
     confirmPassword: "",
   });
@@ -91,6 +94,12 @@ const Auth = () => {
               description: "Invalid email or password. Please try again.",
               variant: "destructive",
             });
+          } else if (error.message.includes("Email not confirmed")) {
+            toast({
+              title: "Email Not Verified",
+              description: "Please check your email and click the verification link.",
+              variant: "destructive",
+            });
           } else {
             toast({
               title: "Login Failed",
@@ -121,7 +130,7 @@ const Auth = () => {
           return;
         }
 
-        const { error } = await signUp(formData.email, formData.password, formData.displayName);
+        const { error } = await signUp(formData.email, formData.password, formData.displayName, formData.phone);
         
         if (error) {
           if (error.message.includes("already registered")) {
@@ -138,11 +147,11 @@ const Auth = () => {
             });
           }
         } else {
+          setShowVerificationMessage(true);
           toast({
-            title: "Account Created!",
-            description: "Welcome to Scaliver Official!",
+            title: "Verification Email Sent!",
+            description: "Please check your email to verify your account.",
           });
-          navigate("/");
         }
       }
     } catch {
@@ -160,6 +169,60 @@ const Auth = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse font-display text-xl text-primary">Loading...</div>
+      </div>
+    );
+  }
+
+  // Email verification success message
+  if (showVerificationMessage) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        {/* Header */}
+        <header className="border-b border-border/50 bg-background/95 backdrop-blur">
+          <div className="container flex h-16 items-center">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate("/")}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Home
+            </Button>
+          </div>
+        </header>
+
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-md text-center">
+            <div className="bg-card border border-border rounded-2xl p-8">
+              <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
+                <Mail className="w-8 h-8 text-green-400" />
+              </div>
+              <h1 className="font-display text-2xl font-bold text-foreground mb-4">
+                Check Your Email
+              </h1>
+              <p className="font-body text-muted-foreground mb-6">
+                We've sent a verification link to <span className="text-primary font-semibold">{formData.email}</span>. 
+                Click the link in the email to verify your account.
+              </p>
+              <div className="space-y-3">
+                <Button
+                  variant="gaming"
+                  className="w-full"
+                  onClick={() => {
+                    setShowVerificationMessage(false);
+                    setIsLogin(true);
+                  }}
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  I've Verified - Go to Login
+                </Button>
+                <p className="font-body text-sm text-muted-foreground">
+                  Didn't receive the email? Check your spam folder or try signing up again.
+                </p>
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
@@ -229,28 +292,48 @@ const Auth = () => {
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
-                <div className="space-y-2">
-                  <Label htmlFor="displayName" className="font-body text-foreground">
-                    Display Name
-                  </Label>
-                  <Input
-                    id="displayName"
-                    name="displayName"
-                    type="text"
-                    placeholder="Enter your name"
-                    value={formData.displayName}
-                    onChange={handleInputChange}
-                    className={`bg-secondary border-border ${errors.displayName ? "border-destructive" : ""}`}
-                  />
-                  {errors.displayName && (
-                    <p className="text-sm text-destructive">{errors.displayName}</p>
-                  )}
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="displayName" className="font-body text-foreground">
+                      Display Name *
+                    </Label>
+                    <Input
+                      id="displayName"
+                      name="displayName"
+                      type="text"
+                      placeholder="Enter your name"
+                      value={formData.displayName}
+                      onChange={handleInputChange}
+                      className={`bg-secondary border-border ${errors.displayName ? "border-destructive" : ""}`}
+                    />
+                    {errors.displayName && (
+                      <p className="text-sm text-destructive">{errors.displayName}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="phone" className="font-body text-foreground">
+                      Phone Number *
+                    </Label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      placeholder="Enter your phone number"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      className={`bg-secondary border-border ${errors.phone ? "border-destructive" : ""}`}
+                    />
+                    {errors.phone && (
+                      <p className="text-sm text-destructive">{errors.phone}</p>
+                    )}
+                  </div>
+                </>
               )}
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="font-body text-foreground">
-                  Email Address
+                  Email Address *
                 </Label>
                 <Input
                   id="email"
@@ -268,7 +351,7 @@ const Auth = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="font-body text-foreground">
-                  Password
+                  Password *
                 </Label>
                 <div className="relative">
                   <Input
@@ -296,7 +379,7 @@ const Auth = () => {
               {!isLogin && (
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword" className="font-body text-foreground">
-                    Confirm Password
+                    Confirm Password *
                   </Label>
                   <Input
                     id="confirmPassword"
