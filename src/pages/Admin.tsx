@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +10,13 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -88,6 +95,38 @@ const Admin = () => {
   const [debitAmount, setDebitAmount] = useState("");
   const [debitDescription, setDebitDescription] = useState("");
   const [isDebitLoading, setIsDebitLoading] = useState(false);
+
+  // Search and filter state for orders
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [productFilter, setProductFilter] = useState<string>("all");
+
+  // Memoized filtered orders
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      // Search filter
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = searchQuery === "" ||
+        order.product_name.toLowerCase().includes(searchLower) ||
+        order.user_game_id.toLowerCase().includes(searchLower) ||
+        order.profiles?.display_name?.toLowerCase().includes(searchLower) ||
+        order.profiles?.phone?.toLowerCase().includes(searchLower) ||
+        order.contact_number.toLowerCase().includes(searchLower);
+
+      // Status filter
+      const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+
+      // Product filter
+      const matchesProduct = productFilter === "all" || order.product_name === productFilter;
+
+      return matchesSearch && matchesStatus && matchesProduct;
+    });
+  }, [orders, searchQuery, statusFilter, productFilter]);
+
+  // Get unique product names for filter
+  const uniqueProducts = useMemo(() => {
+    return [...new Set(orders.map(o => o.product_name))];
+  }, [orders]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -661,10 +700,69 @@ const Admin = () => {
           {/* Orders Tab */}
           {activeTab === "orders" && (
             <div className="space-y-4">
-              {orders.length === 0 ? (
+              {/* Search and Filter Bar */}
+              <div className="bg-card border border-border rounded-xl p-4 space-y-4">
+                <div className="flex flex-col lg:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by product, user, game ID..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 bg-secondary border-border"
+                    />
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-[140px] bg-secondary border-border">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="processing">Processing</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={productFilter} onValueChange={setProductFilter}>
+                      <SelectTrigger className="w-[180px] bg-secondary border-border">
+                        <SelectValue placeholder="Product" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Products</SelectItem>
+                        {uniqueProducts.map((product) => (
+                          <SelectItem key={product} value={product}>{product}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {(searchQuery || statusFilter !== "all" || productFilter !== "all") && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSearchQuery("");
+                          setStatusFilter("all");
+                          setProductFilter("all");
+                        }}
+                        className="whitespace-nowrap"
+                      >
+                        Clear Filters
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Showing {filteredOrders.length} of {orders.length} orders
+                </p>
+              </div>
+
+              {filteredOrders.length === 0 ? (
                 <div className="bg-card border border-border rounded-2xl text-center py-12">
                   <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="font-body text-muted-foreground">No orders yet</p>
+                  <p className="font-body text-muted-foreground">
+                    {orders.length === 0 ? "No orders yet" : "No orders match your search"}
+                  </p>
                 </div>
               ) : (
                 <>
@@ -685,7 +783,7 @@ const Admin = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {orders.map((order) => {
+                          {filteredOrders.map((order) => {
                             const { date, time } = formatDateTime(order.created_at);
                             return (
                               <tr key={order.id} className="border-t border-border">
@@ -741,7 +839,7 @@ const Admin = () => {
 
                   {/* Mobile Cards - Shown only on mobile */}
                   <div className="lg:hidden space-y-3">
-                    {orders.map((order) => {
+                    {filteredOrders.map((order) => {
                       const { date, time } = formatDateTime(order.created_at);
                       return (
                         <div key={order.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
