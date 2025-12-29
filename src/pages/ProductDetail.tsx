@@ -304,35 +304,50 @@ const ProductDetail = () => {
               {/* User Details Form - MOVED TO TOP */}
               <div className="bg-card border border-border rounded-xl p-6 space-y-4">
                 <h3 className="font-display text-lg font-bold text-foreground">
-                  Enter Your Game Details
+                  {product.isSocialMedia ? "Enter Your Details" : "Enter Your Game Details"}
                 </h3>
                 
-                <div className="grid grid-cols-2 gap-4">
+                {product.isSocialMedia ? (
                   <div className="space-y-2">
                     <Label htmlFor="userId" className="font-body text-foreground">
-                      {product.isSocialMedia ? "Profile/Post URL *" : "Player ID *"}
+                      Profile URL / Post URL *
                     </Label>
                     <Input
                       id="userId"
-                      placeholder={product.isSocialMedia ? "Enter your profile or post URL" : "Enter your Player ID"}
+                      placeholder="Enter your profile or post URL"
                       value={userId}
                       onChange={(e) => setUserId(e.target.value)}
                       className="bg-secondary border-border"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="zoneId" className="font-body text-foreground">
-                      Server / Zone ID
-                    </Label>
-                    <Input
-                      id="zoneId"
-                      placeholder="Enter server/zone ID"
-                      value={zoneId}
-                      onChange={(e) => setZoneId(e.target.value)}
-                      className="bg-secondary border-border"
-                    />
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="userId" className="font-body text-foreground">
+                        Player ID *
+                      </Label>
+                      <Input
+                        id="userId"
+                        placeholder="Enter your Player ID"
+                        value={userId}
+                        onChange={(e) => setUserId(e.target.value)}
+                        className="bg-secondary border-border"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="zoneId" className="font-body text-foreground">
+                        Server / Zone ID
+                      </Label>
+                      <Input
+                        id="zoneId"
+                        placeholder="Enter server/zone ID"
+                        value={zoneId}
+                        onChange={(e) => setZoneId(e.target.value)}
+                        className="bg-secondary border-border"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Wallet Balance Card (if logged in) */}

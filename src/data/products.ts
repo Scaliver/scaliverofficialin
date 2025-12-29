@@ -215,6 +215,7 @@ export const socialMediaProducts: Product[] = [
       { id: "ig-1", amount: "1000 Followers", price: 199, smmServiceId: "1", quantity: 1000 },
       { id: "ig-2", amount: "5000 Followers", price: 899, smmServiceId: "1", quantity: 5000 },
       { id: "ig-3", amount: "10000 Followers", price: 1699, smmServiceId: "1", quantity: 10000 },
+      { id: "ig-0", amount: "10 Likes", price: 1, smmServiceId: "2", quantity: 10 },
       { id: "ig-4", amount: "1000 Likes", price: 5, smmServiceId: "2", quantity: 1000 },
       { id: "ig-5", amount: "2000 Likes", price: 10, smmServiceId: "2", quantity: 2000 },
       { id: "ig-6", amount: "3000 Likes", price: 15, smmServiceId: "2", quantity: 3000 },

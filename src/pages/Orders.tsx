@@ -105,10 +105,11 @@ const Orders = () => {
           </Badge>
         );
       case "cancelled":
+      case "failed":
         return (
           <Badge className="bg-red-500/20 text-red-500 border-red-500/30">
             <XCircle className="w-3 h-3 mr-1" />
-            Cancelled
+            {status === "failed" ? "Failed" : "Cancelled"}
           </Badge>
         );
       default:
@@ -118,6 +119,15 @@ const Orders = () => {
             Pending
           </Badge>
         );
+    }
+  };
+
+  const getStatusProgress = (status: string) => {
+    switch (status) {
+      case "completed": return 100;
+      case "processing": return 66;
+      case "pending": return 33;
+      default: return 0;
     }
   };
 
@@ -179,16 +189,41 @@ const Orders = () => {
                       </div>
                       {getStatusBadge(order.status)}
                     </div>
+
+                    {/* Status Progress Bar */}
+                    {!["cancelled", "failed"].includes(order.status) && (
+                      <div className="mb-3">
+                        <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                          <span>Pending</span>
+                          <span>Processing</span>
+                          <span>Completed</span>
+                        </div>
+                        <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-yellow-500 via-blue-500 to-green-500 transition-all duration-500"
+                            style={{ width: `${getStatusProgress(order.status)}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
                     
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <span className="text-muted-foreground">Game ID:</span>
-                        <span className="ml-2">{order.user_game_id}</span>
+                        <span className="text-muted-foreground">
+                          {order.product_id === "instagram" || order.product_id === "youtube" ? "URL:" : "Game ID:"}
+                        </span>
+                        <span className="ml-2 break-all">{order.user_game_id}</span>
                       </div>
-                      {order.zone_id && (
+                      {order.zone_id && !order.zone_id.startsWith("SMM#") && (
                         <div>
                           <span className="text-muted-foreground">Zone ID:</span>
                           <span className="ml-2">{order.zone_id}</span>
+                        </div>
+                      )}
+                      {order.zone_id?.startsWith("SMM#") && (
+                        <div>
+                          <span className="text-muted-foreground">Order ID:</span>
+                          <span className="ml-2 text-primary">{order.zone_id}</span>
                         </div>
                       )}
                       <div>
