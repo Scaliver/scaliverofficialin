@@ -9,6 +9,27 @@ const corsHeaders = {
 const SMM_API_KEY = Deno.env.get('SMM_API_KEY');
 const SMM_API_URL = Deno.env.get('SMM_API_URL');
 
+function getSmmApiUrl(): string {
+  if (!SMM_API_URL) throw new Error('SMM_API_URL not configured');
+
+  const trimmed = SMM_API_URL.trim();
+
+  // Common misconfiguration: API key pasted into URL field.
+  if (/^[a-f0-9]{32,}$/i.test(trimmed) && !trimmed.includes('.') && !trimmed.includes('/')) {
+    throw new Error('SMM_API_URL looks like an API key, not a URL. Please set it to your panel API endpoint (e.g. https://your-panel.com/api/v2 or https://your-panel.com/api.php).');
+  }
+
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  try {
+    return new URL(withScheme).toString();
+  } catch {
+    const redacted = trimmed.length > 10 ? `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}` : '[redacted]';
+    throw new Error(`SMM_API_URL is invalid. Expected a full URL (https://...). Got: ${redacted}`);
+  }
+}
+
+
 interface SMMOrderRequest {
   service: string;  // SMM service ID
   link: string;     // Target link (profile/post URL)
@@ -31,7 +52,7 @@ async function placeSMMOrder(data: SMMOrderRequest): Promise<SMMOrderResponse> {
   formData.append('link', data.link);
   formData.append('quantity', data.quantity.toString());
 
-  const response = await fetch(SMM_API_URL!, {
+  const response = await fetch(getSmmApiUrl(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -51,7 +72,7 @@ async function getOrderStatus(orderId: number): Promise<any> {
   formData.append('action', 'status');
   formData.append('order', orderId.toString());
 
-  const response = await fetch(SMM_API_URL!, {
+  const response = await fetch(getSmmApiUrl(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -68,7 +89,7 @@ async function getServices(): Promise<any> {
   formData.append('key', SMM_API_KEY!);
   formData.append('action', 'services');
 
-  const response = await fetch(SMM_API_URL!, {
+  const response = await fetch(getSmmApiUrl(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -85,7 +106,7 @@ async function getBalance(): Promise<any> {
   formData.append('key', SMM_API_KEY!);
   formData.append('action', 'balance');
 
-  const response = await fetch(SMM_API_URL!, {
+  const response = await fetch(getSmmApiUrl(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
