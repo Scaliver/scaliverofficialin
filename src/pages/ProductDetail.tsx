@@ -99,7 +99,7 @@ const ProductDetail = () => {
     setIsProcessing(true);
 
     try {
-      // Create order
+      // Create order first
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -117,6 +117,50 @@ const ProductDetail = () => {
         .single();
 
       if (orderError) throw orderError;
+
+      // If this is a social media product with SMM service ID, place order via SMM API
+      if (product.isSocialMedia && selectedTier.smmServiceId && selectedTier.quantity) {
+        try {
+          const { data: smmData, error: smmError } = await supabase.functions.invoke('smm-order', {
+            body: {
+              action: 'order',
+              service: selectedTier.smmServiceId,
+              link: userId, // For social media, userId field contains the profile/post URL
+              quantity: selectedTier.quantity,
+            }
+          });
+
+          if (smmError) throw smmError;
+
+          if (smmData.error) {
+            // Update order status to failed
+            await supabase
+              .from("orders")
+              .update({ status: "failed" })
+              .eq("id", orderData.id);
+            
+            throw new Error(smmData.error);
+          }
+
+          // Update order with SMM order ID
+          await supabase
+            .from("orders")
+            .update({ 
+              status: "processing",
+              zone_id: smmData.order ? `SMM#${smmData.order}` : zoneId 
+            })
+            .eq("id", orderData.id);
+
+          console.log("SMM Order placed:", smmData);
+        } catch (smmApiError) {
+          console.error("SMM API Error:", smmApiError);
+          toast({
+            title: "Warning",
+            description: "Order created but SMM processing failed. Our team will process manually.",
+            variant: "default",
+          });
+        }
+      }
 
       // Deduct from wallet
       const newBalance = balance - selectedTier.price;
@@ -155,7 +199,9 @@ const ProductDetail = () => {
 
       toast({
         title: "Order Placed Successfully!",
-        description: "Your order has been placed. Check your orders page for updates.",
+        description: product.isSocialMedia 
+          ? "Your order is being processed. Delivery within 24-48 hours."
+          : "Your order has been placed. Check your orders page for updates.",
       });
     } catch (error) {
       console.error("Error placing order:", error);
@@ -264,11 +310,11 @@ const ProductDetail = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="userId" className="font-body text-foreground">
-                      Player ID *
+                      {product.isSocialMedia ? "Profile/Post URL *" : "Player ID *"}
                     </Label>
                     <Input
                       id="userId"
-                      placeholder="Enter your Player ID"
+                      placeholder={product.isSocialMedia ? "Enter your profile or post URL" : "Enter your Player ID"}
                       value={userId}
                       onChange={(e) => setUserId(e.target.value)}
                       className="bg-secondary border-border"

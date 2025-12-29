@@ -14,6 +14,8 @@ export interface PricingTier {
   amount: string;
   price: number;
   bonus?: string;
+  smmServiceId?: string; // SMM Panel service ID for social media products
+  quantity?: number;     // Quantity for SMM orders
 }
 
 export interface Product {
@@ -25,6 +27,7 @@ export interface Product {
   description: string;
   pricingTiers: PricingTier[];
   instructions?: string[];
+  isSocialMedia?: boolean; // Flag for social media products that use SMM API
 }
 
 export const mobileLegendsProducts: Product[] = [
@@ -206,14 +209,16 @@ export const socialMediaProducts: Product[] = [
     inStock: true,
     category: "Social Media",
     description: "Boost your Instagram presence with followers, likes, and engagement.",
+    isSocialMedia: true,
     pricingTiers: [
-      { id: "ig-1", amount: "1000 Followers", price: 199 },
-      { id: "ig-2", amount: "5000 Followers", price: 899 },
-      { id: "ig-3", amount: "10000 Followers", price: 1699 },
-      { id: "ig-4", amount: "1000 Likes", price: 99 },
-      { id: "ig-5", amount: "5000 Likes", price: 449 },
+      // Update these smmServiceId values with your actual SMM panel service IDs
+      { id: "ig-1", amount: "1000 Followers", price: 199, smmServiceId: "1", quantity: 1000 },
+      { id: "ig-2", amount: "5000 Followers", price: 899, smmServiceId: "1", quantity: 5000 },
+      { id: "ig-3", amount: "10000 Followers", price: 1699, smmServiceId: "1", quantity: 10000 },
+      { id: "ig-4", amount: "1000 Likes", price: 99, smmServiceId: "2", quantity: 1000 },
+      { id: "ig-5", amount: "5000 Likes", price: 449, smmServiceId: "2", quantity: 5000 },
     ],
-    instructions: ["Enter your Instagram username", "Make sure your account is public", "Select the service", "Complete payment", "Service will be delivered within 24-48 hours"],
+    instructions: ["Enter your Instagram username or post URL", "Make sure your account is public", "Select the service", "Complete payment", "Service will be delivered within 24-48 hours"],
   },
   {
     id: "youtube",
@@ -222,14 +227,16 @@ export const socialMediaProducts: Product[] = [
     inStock: true,
     category: "Social Media",
     description: "Grow your YouTube channel with subscribers and views.",
+    isSocialMedia: true,
     pricingTiers: [
-      { id: "yt-1", amount: "1000 Subscribers", price: 499 },
-      { id: "yt-2", amount: "5000 Subscribers", price: 2299 },
-      { id: "yt-3", amount: "1000 Views", price: 99 },
-      { id: "yt-4", amount: "10000 Views", price: 899 },
-      { id: "yt-5", amount: "100000 Views", price: 7999 },
+      // Update these smmServiceId values with your actual SMM panel service IDs
+      { id: "yt-1", amount: "1000 Subscribers", price: 499, smmServiceId: "3", quantity: 1000 },
+      { id: "yt-2", amount: "5000 Subscribers", price: 2299, smmServiceId: "3", quantity: 5000 },
+      { id: "yt-3", amount: "1000 Views", price: 99, smmServiceId: "4", quantity: 1000 },
+      { id: "yt-4", amount: "10000 Views", price: 899, smmServiceId: "4", quantity: 10000 },
+      { id: "yt-5", amount: "100000 Views", price: 7999, smmServiceId: "4", quantity: 100000 },
     ],
-    instructions: ["Enter your YouTube channel URL", "Select the service", "Complete payment", "Service will be delivered within 24-72 hours"],
+    instructions: ["Enter your YouTube channel or video URL", "Select the service", "Complete payment", "Service will be delivered within 24-72 hours"],
   },
 ];
 
