@@ -1,18 +1,19 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ArrowLeft, Check, AlertCircle, Wallet, Loader2, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { getProductById, PricingTier } from "@/data/products";
+import { getProductById, getInstagramProductsByCategory, PricingTier, InstagramSubCategory } from "@/data/products";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TransactionReceipt from "@/components/TransactionReceipt";
+import InstagramCategorySelector, { InstagramCategory } from "@/components/InstagramCategorySelector";
 
 interface ReceiptData {
   orderId: string;
@@ -33,14 +34,29 @@ const ProductDetail = () => {
   const { user } = useAuth();
   const { balance, wallet } = useWallet();
   
-  const product = getProductById(productId || "");
+  const baseProduct = getProductById(productId || "");
+  const isInstagramMainProduct = productId === "instagram";
   
+  const [selectedCategory, setSelectedCategory] = useState<InstagramCategory>("followers");
   const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
   const [userId, setUserId] = useState("");
   const [zoneId, setZoneId] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+
+  // Get the active product based on category selection for Instagram
+  const product = useMemo(() => {
+    if (isInstagramMainProduct) {
+      return getInstagramProductsByCategory(selectedCategory as InstagramSubCategory) || baseProduct;
+    }
+    return baseProduct;
+  }, [isInstagramMainProduct, selectedCategory, baseProduct]);
+
+  // Reset selected tier when category changes
+  useEffect(() => {
+    setSelectedTier(null);
+  }, [selectedCategory]);
 
   if (!product) {
     return (
@@ -294,12 +310,22 @@ const ProductDetail = () => {
                   {product.category}
                 </Badge>
                 <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-2">
-                  {product.name}
+                  {isInstagramMainProduct ? "INSTAGRAM SERVICE" : product.name}
                 </h1>
                 <p className="font-body text-muted-foreground">
-                  {product.description}
+                  {isInstagramMainProduct 
+                    ? "Boost your Instagram presence with followers, likes, views, comments, and saves."
+                    : product.description}
                 </p>
               </div>
+
+              {/* Instagram Category Selector */}
+              {isInstagramMainProduct && (
+                <InstagramCategorySelector
+                  selectedCategory={selectedCategory}
+                  onCategoryChange={setSelectedCategory}
+                />
+              )}
 
               {/* User Details Form - MOVED TO TOP */}
               <div className="bg-card border border-border rounded-xl p-6 space-y-4">

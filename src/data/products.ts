@@ -18,6 +18,8 @@ export interface PricingTier {
   quantity?: number;     // Quantity for SMM orders
 }
 
+export type InstagramSubCategory = "followers" | "likes" | "views" | "comments" | "saves";
+
 export interface Product {
   id: string;
   name: string;
@@ -28,6 +30,7 @@ export interface Product {
   pricingTiers: PricingTier[];
   instructions?: string[];
   isSocialMedia?: boolean; // Flag for social media products that use SMM API
+  instagramSubCategory?: InstagramSubCategory; // Subcategory for Instagram products
 }
 
 export const mobileLegendsProducts: Product[] = [
@@ -208,26 +211,103 @@ export const socialMediaProducts: Product[] = [
     image: instagramService,
     inStock: true,
     category: "Social Media",
-    description: "Boost your Instagram presence with followers, likes, and engagement.",
+    description: "Boost your Instagram presence with followers, likes, views, comments, and saves.",
     isSocialMedia: true,
-    pricingTiers: [
-      // Update these smmServiceId values with your actual SMM panel service IDs
-      { id: "ig-1", amount: "1000 Followers", price: 199, smmServiceId: "1", quantity: 1000 },
-      { id: "ig-2", amount: "5000 Followers", price: 899, smmServiceId: "1", quantity: 5000 },
-      { id: "ig-3", amount: "10000 Followers", price: 1699, smmServiceId: "1", quantity: 10000 },
-      { id: "ig-0", amount: "10 Likes", price: 1, smmServiceId: "1767", quantity: 10 },
-      { id: "ig-4", amount: "1000 Likes", price: 5, smmServiceId: "1767", quantity: 1000 },
-      { id: "ig-5", amount: "2000 Likes", price: 10, smmServiceId: "1767", quantity: 2000 },
-      { id: "ig-6", amount: "3000 Likes", price: 15, smmServiceId: "1767", quantity: 3000 },
-      { id: "ig-7", amount: "4000 Likes", price: 20, smmServiceId: "1767", quantity: 4000 },
-      { id: "ig-8", amount: "5000 Likes", price: 25, smmServiceId: "1767", quantity: 5000 },
-      { id: "ig-9", amount: "6000 Likes", price: 30, smmServiceId: "1767", quantity: 6000 },
-      { id: "ig-10", amount: "7000 Likes", price: 35, smmServiceId: "1767", quantity: 7000 },
-      { id: "ig-11", amount: "8000 Likes", price: 40, smmServiceId: "1767", quantity: 8000 },
-      { id: "ig-12", amount: "9000 Likes", price: 45, smmServiceId: "1767", quantity: 9000 },
-      { id: "ig-13", amount: "10000 Likes", price: 50, smmServiceId: "1767", quantity: 10000 },
-    ],
+    pricingTiers: [], // Tiers are now in sub-products
     instructions: ["Enter your Instagram username or post URL", "Make sure your account is public", "Select the service", "Complete payment", "Service will be delivered within 24-48 hours"],
+  },
+  {
+    id: "instagram-followers",
+    name: "Instagram Followers",
+    image: instagramService,
+    inStock: true,
+    category: "Social Media",
+    description: "Grow your Instagram followers with real accounts.",
+    isSocialMedia: true,
+    instagramSubCategory: "followers",
+    pricingTiers: [
+      { id: "ig-f-1", amount: "100 Followers", price: 25, smmServiceId: "1", quantity: 100 },
+      { id: "ig-f-2", amount: "500 Followers", price: 99, smmServiceId: "1", quantity: 500 },
+      { id: "ig-f-3", amount: "1000 Followers", price: 199, smmServiceId: "1", quantity: 1000 },
+      { id: "ig-f-4", amount: "5000 Followers", price: 899, smmServiceId: "1", quantity: 5000 },
+      { id: "ig-f-5", amount: "10000 Followers", price: 1699, smmServiceId: "1", quantity: 10000 },
+    ],
+    instructions: ["Enter your Instagram username", "Make sure your account is public", "Select the follower pack", "Complete payment", "Followers will be delivered within 24-48 hours"],
+  },
+  {
+    id: "instagram-likes",
+    name: "Instagram Likes",
+    image: instagramService,
+    inStock: true,
+    category: "Social Media",
+    description: "Get more likes on your Instagram posts.",
+    isSocialMedia: true,
+    instagramSubCategory: "likes",
+    pricingTiers: [
+      { id: "ig-l-0", amount: "10 Likes", price: 1, smmServiceId: "1767", quantity: 10 },
+      { id: "ig-l-1", amount: "100 Likes", price: 5, smmServiceId: "1767", quantity: 100 },
+      { id: "ig-l-2", amount: "500 Likes", price: 15, smmServiceId: "1767", quantity: 500 },
+      { id: "ig-l-3", amount: "1000 Likes", price: 25, smmServiceId: "1767", quantity: 1000 },
+      { id: "ig-l-4", amount: "2000 Likes", price: 45, smmServiceId: "1767", quantity: 2000 },
+      { id: "ig-l-5", amount: "5000 Likes", price: 99, smmServiceId: "1767", quantity: 5000 },
+      { id: "ig-l-6", amount: "10000 Likes", price: 179, smmServiceId: "1767", quantity: 10000 },
+    ],
+    instructions: ["Enter your Instagram post URL", "Make sure your post is public", "Select the likes pack", "Complete payment", "Likes will be delivered within 1-24 hours"],
+  },
+  {
+    id: "instagram-views",
+    name: "Instagram Views",
+    image: instagramService,
+    inStock: true,
+    category: "Social Media",
+    description: "Boost views on your Instagram reels and videos.",
+    isSocialMedia: true,
+    instagramSubCategory: "views",
+    pricingTiers: [
+      { id: "ig-v-1", amount: "500 Views", price: 10, smmServiceId: "5", quantity: 500 },
+      { id: "ig-v-2", amount: "1000 Views", price: 19, smmServiceId: "5", quantity: 1000 },
+      { id: "ig-v-3", amount: "5000 Views", price: 79, smmServiceId: "5", quantity: 5000 },
+      { id: "ig-v-4", amount: "10000 Views", price: 149, smmServiceId: "5", quantity: 10000 },
+      { id: "ig-v-5", amount: "50000 Views", price: 599, smmServiceId: "5", quantity: 50000 },
+      { id: "ig-v-6", amount: "100000 Views", price: 999, smmServiceId: "5", quantity: 100000 },
+    ],
+    instructions: ["Enter your Instagram reel/video URL", "Select the views pack", "Complete payment", "Views will be delivered within 1-24 hours"],
+  },
+  {
+    id: "instagram-comments",
+    name: "Instagram Comments",
+    image: instagramService,
+    inStock: true,
+    category: "Social Media",
+    description: "Get meaningful comments on your Instagram posts.",
+    isSocialMedia: true,
+    instagramSubCategory: "comments",
+    pricingTiers: [
+      { id: "ig-c-1", amount: "10 Comments", price: 25, smmServiceId: "6", quantity: 10 },
+      { id: "ig-c-2", amount: "25 Comments", price: 55, smmServiceId: "6", quantity: 25 },
+      { id: "ig-c-3", amount: "50 Comments", price: 99, smmServiceId: "6", quantity: 50 },
+      { id: "ig-c-4", amount: "100 Comments", price: 179, smmServiceId: "6", quantity: 100 },
+      { id: "ig-c-5", amount: "250 Comments", price: 399, smmServiceId: "6", quantity: 250 },
+    ],
+    instructions: ["Enter your Instagram post URL", "Make sure your post is public", "Select the comments pack", "Complete payment", "Comments will be delivered within 24-48 hours"],
+  },
+  {
+    id: "instagram-saves",
+    name: "Instagram Saves",
+    image: instagramService,
+    inStock: true,
+    category: "Social Media",
+    description: "Increase saves on your Instagram posts for better reach.",
+    isSocialMedia: true,
+    instagramSubCategory: "saves",
+    pricingTiers: [
+      { id: "ig-s-1", amount: "100 Saves", price: 15, smmServiceId: "7", quantity: 100 },
+      { id: "ig-s-2", amount: "500 Saves", price: 59, smmServiceId: "7", quantity: 500 },
+      { id: "ig-s-3", amount: "1000 Saves", price: 99, smmServiceId: "7", quantity: 1000 },
+      { id: "ig-s-4", amount: "2500 Saves", price: 229, smmServiceId: "7", quantity: 2500 },
+      { id: "ig-s-5", amount: "5000 Saves", price: 429, smmServiceId: "7", quantity: 5000 },
+    ],
+    instructions: ["Enter your Instagram post URL", "Make sure your post is public", "Select the saves pack", "Complete payment", "Saves will be delivered within 24-48 hours"],
   },
   {
     id: "youtube",
@@ -248,6 +328,11 @@ export const socialMediaProducts: Product[] = [
     instructions: ["Enter your YouTube channel or video URL", "Select the service", "Complete payment", "Service will be delivered within 24-72 hours"],
   },
 ];
+
+// Helper function to get Instagram products by subcategory
+export const getInstagramProductsByCategory = (subCategory: InstagramSubCategory): Product | undefined => {
+  return socialMediaProducts.find(p => p.instagramSubCategory === subCategory);
+};
 
 // Helper function to get all products
 export const getAllProducts = (): Product[] => {
