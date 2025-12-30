@@ -21,11 +21,14 @@ const Index = () => {
       <MarqueeBanner />
 
       {/* Product Sections */}
-      <main id="games" className="pb-20 md:pb-8">
+      <main id="games" className="pb-8">
         <ProductSection
           title="Mobile Legends"
           products={mobileLegendsProducts}
         />
+
+        {/* Quick Actions - Easy access to wallet features */}
+        <QuickActions />
 
         <ProductSection
           title="Mobile Games"
