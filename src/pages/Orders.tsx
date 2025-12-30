@@ -8,7 +8,8 @@ import QuickActions from "@/components/QuickActions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Package, Clock, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Package, Clock, CheckCircle, XCircle, Loader2, RefreshCw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface Order {
   id: string;
@@ -19,6 +20,7 @@ interface Order {
   status: string;
   user_game_id: string;
   zone_id: string | null;
+  smm_order_id: string | null;
   contact_number: string;
   created_at: string;
 }
@@ -28,6 +30,7 @@ const Orders = () => {
   const { user, isLoading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -61,6 +64,8 @@ const Orders = () => {
     }
   }, [user, authLoading, navigate]);
 
+  const { toast } = useToast();
+
   const fetchOrders = async () => {
     if (!user) return;
 
@@ -76,6 +81,42 @@ const Orders = () => {
       setOrders(data || []);
     }
     setIsLoading(false);
+  };
+
+  // Sync order statuses with SMM API
+  const syncOrderStatuses = async () => {
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-order-status', {
+        body: {}
+      });
+
+      if (error) throw error;
+
+      if (data.updatedCount > 0) {
+        toast({
+          title: "Orders Updated",
+          description: `${data.updatedCount} order(s) status updated.`,
+        });
+      } else {
+        toast({
+          title: "Orders Synced",
+          description: "All orders are up to date.",
+        });
+      }
+      
+      // Refresh orders after sync
+      await fetchOrders();
+    } catch (error) {
+      console.error("Error syncing orders:", error);
+      toast({
+        title: "Sync Failed",
+        description: "Failed to sync order statuses. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -154,11 +195,22 @@ const Orders = () => {
         </Button>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <CardTitle className="text-xl font-display flex items-center gap-2">
               <Package className="w-6 h-6" />
               My Orders
             </CardTitle>
+            {orders.some(o => o.smm_order_id || o.zone_id?.startsWith("SMM#")) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={syncOrderStatuses}
+                disabled={isSyncing}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'Syncing...' : 'Sync Status'}
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             {orders.length === 0 ? (
@@ -220,10 +272,12 @@ const Orders = () => {
                           <span className="ml-2">{order.zone_id}</span>
                         </div>
                       )}
-                      {order.zone_id?.startsWith("SMM#") && (
+                      {(order.smm_order_id || order.zone_id?.startsWith("SMM#")) && (
                         <div>
-                          <span className="text-muted-foreground">Order ID:</span>
-                          <span className="ml-2 text-primary">{order.zone_id}</span>
+                          <span className="text-muted-foreground">SMM Order:</span>
+                          <span className="ml-2 text-primary">
+                            #{order.smm_order_id || order.zone_id?.replace("SMM#", "")}
+                          </span>
                         </div>
                       )}
                       <div>

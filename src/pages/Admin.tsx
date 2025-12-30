@@ -32,6 +32,7 @@ interface Order {
   price: number;
   user_game_id: string;
   zone_id: string | null;
+  smm_order_id: string | null;
   contact_number: string;
   status: string;
   created_at: string;
@@ -100,6 +101,40 @@ const Admin = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [productFilter, setProductFilter] = useState<string>("all");
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Sync order statuses with SMM API
+  const syncOrderStatuses = async () => {
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-order-status', {
+        body: {}
+      });
+
+      if (error) throw error;
+
+      if (data.updatedCount > 0) {
+        toast({
+          title: "Orders Updated",
+          description: `${data.updatedCount} order(s) status synced from SMM API.`,
+        });
+      } else {
+        toast({
+          title: "Orders Synced",
+          description: "All SMM orders are up to date.",
+        });
+      }
+    } catch (error) {
+      console.error("Error syncing orders:", error);
+      toast({
+        title: "Sync Failed",
+        description: "Failed to sync order statuses from SMM API.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Memoized filtered orders
   const filteredOrders = useMemo(() => {
@@ -786,6 +821,16 @@ const Admin = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={syncOrderStatuses}
+                      disabled={isSyncing}
+                      className="whitespace-nowrap"
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                      {isSyncing ? 'Syncing...' : 'Sync SMM'}
+                    </Button>
                     {(searchQuery || statusFilter !== "all" || productFilter !== "all") && (
                       <Button
                         variant="outline"
@@ -851,7 +896,10 @@ const Admin = () => {
                                 </td>
                                 <td className="p-4">
                                   <p className="font-body text-foreground">{order.user_game_id}</p>
-                                  {order.zone_id && <p className="font-body text-sm text-muted-foreground">Zone: {order.zone_id}</p>}
+                                  {order.zone_id && !order.zone_id.startsWith("SMM#") && <p className="font-body text-sm text-muted-foreground">Zone: {order.zone_id}</p>}
+                                  {(order.smm_order_id || order.zone_id?.startsWith("SMM#")) && (
+                                    <p className="font-body text-sm text-primary">SMM #{order.smm_order_id || order.zone_id?.replace("SMM#", "")}</p>
+                                  )}
                                 </td>
                                 <td className="p-4">
                                   <p className="font-body text-foreground">{order.contact_number}</p>
@@ -913,7 +961,10 @@ const Admin = () => {
                             <div>
                               <p className="text-muted-foreground">Game ID</p>
                               <p className="font-body text-foreground">{order.user_game_id}</p>
-                              {order.zone_id && <p className="text-muted-foreground text-xs">Zone: {order.zone_id}</p>}
+                              {order.zone_id && !order.zone_id.startsWith("SMM#") && <p className="text-muted-foreground text-xs">Zone: {order.zone_id}</p>}
+                              {(order.smm_order_id || order.zone_id?.startsWith("SMM#")) && (
+                                <p className="text-primary text-xs">SMM #{order.smm_order_id || order.zone_id?.replace("SMM#", "")}</p>
+                              )}
                             </div>
                             <div>
                               <p className="text-muted-foreground">Contact</p>
@@ -1294,7 +1345,10 @@ const Admin = () => {
                       <div>
                         <p className="text-muted-foreground">Game ID</p>
                         <p className="font-body text-foreground">{order.user_game_id}</p>
-                        {order.zone_id && <p className="text-muted-foreground">Zone: {order.zone_id}</p>}
+                        {order.zone_id && !order.zone_id.startsWith("SMM#") && <p className="text-muted-foreground">Zone: {order.zone_id}</p>}
+                        {(order.smm_order_id || order.zone_id?.startsWith("SMM#")) && (
+                          <p className="text-primary text-xs">SMM #{order.smm_order_id || order.zone_id?.replace("SMM#", "")}</p>
+                        )}
                       </div>
                       <div>
                         <p className="text-muted-foreground">Contact</p>

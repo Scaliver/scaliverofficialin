@@ -2,3 +2,6 @@ project_id = "rhfpvuwefqfdqxscnquf"
 
 [functions.smm-order]
 verify_jwt = false
+
+[functions.sync-order-status]
+verify_jwt = false

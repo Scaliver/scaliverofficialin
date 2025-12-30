@@ -53,6 +53,7 @@ export type Database = {
           price: number
           product_id: string
           product_name: string
+          smm_order_id: string | null
           status: string
           updated_at: string
           user_game_id: string
@@ -67,6 +68,7 @@ export type Database = {
           price: number
           product_id: string
           product_name: string
+          smm_order_id?: string | null
           status?: string
           updated_at?: string
           user_game_id: string
@@ -81,6 +83,7 @@ export type Database = {
           price?: number
           product_id?: string
           product_name?: string
+          smm_order_id?: string | null
           status?: string
           updated_at?: string
           user_game_id?: string
