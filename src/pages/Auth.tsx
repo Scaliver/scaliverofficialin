@@ -26,22 +26,36 @@ const signupSchema = z.object({
   path: ["confirmPassword"],
 });
 
+const phoneSignupSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters").max(20, "Username must be less than 20 characters").regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+  phone: z.string().min(10, "Phone number must be at least 10 digits").max(15, "Phone number is too long").regex(/^[0-9+\-\s]+$/, "Please enter a valid phone number"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+type AuthMode = "login" | "signup" | "phone-signup";
+
 const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { user, signUp, signIn, signOut, isLoading: authLoading } = useAuth();
   
-  const [isLogin, setIsLogin] = useState(!searchParams.get("signup"));
+  const [authMode, setAuthMode] = useState<AuthMode>(searchParams.get("signup") ? "signup" : "login");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showVerificationMessage, setShowVerificationMessage] = useState(false);
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
+  const [showPhoneSignupOTP, setShowPhoneSignupOTP] = useState(false);
   const [show2FA, setShow2FA] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [otpCode, setOtpCode] = useState("");
   const [twoFACode, setTwoFACode] = useState("");
+  const [phoneSignupOTP, setPhoneSignupOTP] = useState("");
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
@@ -52,6 +66,7 @@ const Auth = () => {
   
   const [formData, setFormData] = useState({
     displayName: "",
+    username: "",
     email: "",
     phone: "",
     password: "",
@@ -63,7 +78,7 @@ const Auth = () => {
   // Handle signup query param
   useEffect(() => {
     if (searchParams.get("signup") === "true") {
-      setIsLogin(false);
+      setAuthMode("signup");
     }
   }, [searchParams]);
 
@@ -290,7 +305,7 @@ const Auth = () => {
     setErrors({});
 
     try {
-      if (isLogin) {
+      if (authMode === "login") {
         const result = loginSchema.safeParse({
           email: formData.email,
           password: formData.password,
@@ -354,7 +369,7 @@ const Auth = () => {
             }
           }
         }
-      } else {
+      } else if (authMode === "signup") {
         const result = signupSchema.safeParse(formData);
 
         if (!result.success) {
@@ -392,6 +407,53 @@ const Auth = () => {
             description: "Please check your email to verify your account.",
           });
         }
+      } else if (authMode === "phone-signup") {
+        // Phone signup - validate and send OTP
+        const result = phoneSignupSchema.safeParse({
+          username: formData.username,
+          phone: formData.phone,
+          password: formData.password,
+          confirmPassword: formData.confirmPassword,
+        });
+
+        if (!result.success) {
+          const fieldErrors: Record<string, string> = {};
+          result.error.errors.forEach((err) => {
+            if (err.path[0]) {
+              fieldErrors[err.path[0] as string] = err.message;
+            }
+          });
+          setErrors(fieldErrors);
+          setIsLoading(false);
+          return;
+        }
+
+        // Send OTP to phone for verification
+        const response = await supabase.functions.invoke("sms-otp/phone-signup-send", {
+          body: {
+            phone: formData.phone,
+            username: formData.username,
+          },
+        });
+
+        if (response.error) {
+          throw new Error(response.error.message || "Failed to send OTP");
+        }
+
+        if (response.data?.error) {
+          toast({
+            title: "Signup Failed",
+            description: response.data.error,
+            variant: "destructive",
+          });
+        } else {
+          setShowPhoneSignupOTP(true);
+          setResendCooldown(60);
+          toast({
+            title: "OTP Sent!",
+            description: `Verification code sent to ${formData.phone}`,
+          });
+        }
       }
     } catch {
       toast({
@@ -401,6 +463,100 @@ const Auth = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handlePhoneSignupVerify = async () => {
+    if (phoneSignupOTP.length !== 6) {
+      toast({
+        title: "Invalid Code",
+        description: "Please enter the 6-digit verification code.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setVerifyingOtp(true);
+    try {
+      const response = await supabase.functions.invoke("sms-otp/phone-signup-verify", {
+        body: {
+          phone: formData.phone,
+          otp: phoneSignupOTP,
+          username: formData.username,
+          password: formData.password,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Verification failed");
+      }
+
+      if (response.data?.error) {
+        toast({
+          title: "Verification Failed",
+          description: response.data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Sign in the user after successful registration
+      const { error: signInError } = await signIn(response.data.email, formData.password);
+      
+      if (signInError) {
+        toast({
+          title: "Account Created!",
+          description: "Your account was created. Please login with your credentials.",
+        });
+        setShowPhoneSignupOTP(false);
+        setAuthMode("login");
+      } else {
+        toast({
+          title: "Welcome to Scaliver!",
+          description: "Your account has been created successfully.",
+        });
+        navigate("/");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Verification Failed",
+        description: error.message || "Invalid or expired verification code.",
+        variant: "destructive",
+      });
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  const handleResendPhoneSignupOTP = async () => {
+    if (resendCooldown > 0) return;
+    
+    setSendingOtp(true);
+    try {
+      const response = await supabase.functions.invoke("sms-otp/phone-signup-send", {
+        body: {
+          phone: formData.phone,
+          username: formData.username,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Failed to send OTP");
+      }
+
+      setResendCooldown(60);
+      toast({
+        title: "OTP Sent!",
+        description: `Verification code sent to ${formData.phone}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to Send OTP",
+        description: error.message || "Could not send verification code.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingOtp(false);
     }
   };
 
@@ -670,7 +826,7 @@ const Auth = () => {
                   className="w-full"
                   onClick={() => {
                     setShowVerificationMessage(false);
-                    setIsLogin(true);
+                    setAuthMode("login");
                   }}
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
@@ -696,6 +852,93 @@ const Auth = () => {
                 <p className="font-body text-sm text-muted-foreground">
                   Didn't receive the email? Check your spam folder.
                 </p>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Phone signup OTP verification screen
+  if (showPhoneSignupOTP) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <header className="border-b border-border/50 bg-background/95 backdrop-blur">
+          <div className="container flex h-16 items-center">
+            <Button 
+              variant="ghost" 
+              onClick={() => {
+                setShowPhoneSignupOTP(false);
+                setPhoneSignupOTP("");
+              }}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+          </div>
+        </header>
+
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-md text-center">
+            <div className="bg-card border border-border rounded-2xl p-8">
+              <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6">
+                <Phone className="w-8 h-8 text-primary" />
+              </div>
+              <h1 className="font-display text-2xl font-bold text-foreground mb-4">
+                Verify Your Phone
+              </h1>
+              <p className="font-body text-muted-foreground mb-6">
+                Enter the 6-digit code sent to {formData.phone}
+              </p>
+
+              <div className="space-y-4">
+                <div className="flex justify-center">
+                  <InputOTP
+                    maxLength={6}
+                    value={phoneSignupOTP}
+                    onChange={(value) => setPhoneSignupOTP(value)}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+
+                <Button 
+                  variant="gaming" 
+                  className="w-full"
+                  onClick={handlePhoneSignupVerify}
+                  disabled={verifyingOtp || phoneSignupOTP.length !== 6}
+                >
+                  {verifyingOtp ? (
+                    <span className="animate-pulse">Creating Account...</span>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Create Account
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleResendPhoneSignupOTP}
+                  disabled={sendingOtp || resendCooldown > 0}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${sendingOtp ? 'animate-spin' : ''}`} />
+                  {resendCooldown > 0 
+                    ? `Resend in ${resendCooldown}s` 
+                    : "Resend Code"
+                  }
+                </Button>
               </div>
             </div>
           </div>
@@ -731,38 +974,56 @@ const Auth = () => {
               Scaliver Official
             </h1>
             <p className="font-body text-muted-foreground mt-2">
-              {isLogin ? "Welcome back! Sign in to continue." : "Create an account to get started."}
+              {authMode === "login" 
+                ? "Welcome back! Sign in to continue." 
+                : authMode === "phone-signup"
+                  ? "Sign up with your phone number."
+                  : "Create an account to get started."
+              }
             </p>
           </div>
 
           <div className="bg-card border border-border rounded-2xl p-8">
-            <div className="flex gap-2 mb-6">
+            {/* Auth mode tabs */}
+            <div className="flex gap-1 mb-6 bg-secondary/50 p-1 rounded-xl">
               <button
-                onClick={() => setIsLogin(true)}
-                className={`flex-1 py-3 rounded-xl font-display font-bold transition-all ${
-                  isLogin
+                onClick={() => setAuthMode("login")}
+                className={`flex-1 py-2.5 rounded-lg font-display font-bold text-sm transition-all ${
+                  authMode === "login"
                     ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <LogIn className="w-4 h-4 inline mr-2" />
+                <LogIn className="w-4 h-4 inline mr-1" />
                 Login
               </button>
               <button
-                onClick={() => setIsLogin(false)}
-                className={`flex-1 py-3 rounded-xl font-display font-bold transition-all ${
-                  !isLogin
+                onClick={() => setAuthMode("signup")}
+                className={`flex-1 py-2.5 rounded-lg font-display font-bold text-sm transition-all ${
+                  authMode === "signup"
                     ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <UserPlus className="w-4 h-4 inline mr-2" />
-                Sign Up
+                <Mail className="w-4 h-4 inline mr-1" />
+                Email
+              </button>
+              <button
+                onClick={() => setAuthMode("phone-signup")}
+                className={`flex-1 py-2.5 rounded-lg font-display font-bold text-sm transition-all ${
+                  authMode === "phone-signup"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Phone className="w-4 h-4 inline mr-1" />
+                Phone
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {!isLogin && (
+              {/* Email signup fields */}
+              {authMode === "signup" && (
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="displayName" className="font-body text-foreground">
@@ -785,7 +1046,7 @@ const Auth = () => {
                   <div className="space-y-2">
                     <Label htmlFor="phone" className="font-body text-foreground flex items-center gap-2">
                       Phone Number * 
-                      <span className="text-xs text-muted-foreground">(for 2FA, with country code)</span>
+                      <span className="text-xs text-muted-foreground">(for 2FA)</span>
                     </Label>
                     <Input
                       id="phone"
@@ -803,23 +1064,89 @@ const Auth = () => {
                 </>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="email" className="font-body text-foreground">
-                  Email Address *
-                </Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className={`bg-secondary border-border ${errors.email ? "border-destructive" : ""}`}
-                />
-                {errors.email && (
-                  <p className="text-sm text-destructive">{errors.email}</p>
-                )}
-              </div>
+              {/* Phone signup fields */}
+              {authMode === "phone-signup" && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="username" className="font-body text-foreground">
+                      Username *
+                    </Label>
+                    <Input
+                      id="username"
+                      name="username"
+                      type="text"
+                      placeholder="Choose a username"
+                      value={formData.username}
+                      onChange={handleInputChange}
+                      className={`bg-secondary border-border ${errors.username ? "border-destructive" : ""}`}
+                    />
+                    {errors.username && (
+                      <p className="text-sm text-destructive">{errors.username}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="phone" className="font-body text-foreground flex items-center gap-2">
+                      Phone Number * 
+                      <span className="text-xs text-muted-foreground">(with country code)</span>
+                    </Label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      placeholder="+91 1234567890"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      className={`bg-secondary border-border ${errors.phone ? "border-destructive" : ""}`}
+                    />
+                    {errors.phone && (
+                      <p className="text-sm text-destructive">{errors.phone}</p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Login email field */}
+              {authMode === "login" && (
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="font-body text-foreground">
+                    Email Address *
+                  </Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className={`bg-secondary border-border ${errors.email ? "border-destructive" : ""}`}
+                  />
+                  {errors.email && (
+                    <p className="text-sm text-destructive">{errors.email}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Email signup email field */}
+              {authMode === "signup" && (
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="font-body text-foreground">
+                    Email Address *
+                  </Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className={`bg-secondary border-border ${errors.email ? "border-destructive" : ""}`}
+                  />
+                  {errors.email && (
+                    <p className="text-sm text-destructive">{errors.email}</p>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="font-body text-foreground">
@@ -848,7 +1175,7 @@ const Auth = () => {
                 )}
               </div>
 
-              {!isLogin && (
+              {(authMode === "signup" || authMode === "phone-signup") && (
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword" className="font-body text-foreground">
                     Confirm Password *
@@ -876,10 +1203,15 @@ const Auth = () => {
               >
                 {isLoading ? (
                   <span className="animate-pulse">Processing...</span>
-                ) : isLogin ? (
+                ) : authMode === "login" ? (
                   <>
                     <LogIn className="w-5 h-5 mr-2" />
                     Sign In
+                  </>
+                ) : authMode === "phone-signup" ? (
+                  <>
+                    <Phone className="w-5 h-5 mr-2" />
+                    Send OTP & Sign Up
                   </>
                 ) : (
                   <>
@@ -890,7 +1222,7 @@ const Auth = () => {
               </Button>
 
               {/* Phone verification prompt for logged in users */}
-              {user && !isLogin && (
+              {user && authMode === "signup" && (
                 <Button
                   type="button"
                   variant="outline"
@@ -904,10 +1236,18 @@ const Auth = () => {
             </form>
 
             {/* 2FA info for login */}
-            {isLogin && (
+            {authMode === "login" && (
               <p className="font-body text-xs text-muted-foreground text-center mt-4">
                 <Shield className="w-3 h-3 inline mr-1" />
                 Protected with two-factor authentication
+              </p>
+            )}
+
+            {/* Phone signup info */}
+            {authMode === "phone-signup" && (
+              <p className="font-body text-xs text-muted-foreground text-center mt-4">
+                <Phone className="w-3 h-3 inline mr-1" />
+                Phone verification required • 2FA enabled by default
               </p>
             )}
           </div>
