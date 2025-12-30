@@ -56,7 +56,7 @@ const HeroBanner = () => {
                 <img 
                   src={banner.image} 
                   alt={banner.title}
-                  className="absolute inset-0 w-full h-full object-cover object-center"
+                  className="absolute inset-0 w-full h-full object-contain object-center bg-gradient-to-br from-blue-900 to-indigo-900"
                 />
               )}
               
