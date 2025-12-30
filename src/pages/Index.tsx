@@ -22,13 +22,13 @@ const Index = () => {
 
       {/* Product Sections */}
       <main id="games" className="pb-8">
+        {/* Quick Actions - Easy access to wallet features */}
+        <QuickActions />
+
         <ProductSection
           title="Mobile Legends"
           products={mobileLegendsProducts}
         />
-
-        {/* Quick Actions - Easy access to wallet features */}
-        <QuickActions />
 
         <ProductSection
           title="Mobile Games"
