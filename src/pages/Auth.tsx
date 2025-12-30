@@ -248,7 +248,8 @@ const Auth = () => {
                 Click the link in the email to verify your account.
               </p>
               
-              {/* Phone verification info */}
+              
+              {/* Phone info notice */}
               {formData.phone && (
                 <div className="bg-secondary/50 rounded-xl p-4 mb-6">
                   <div className="flex items-center gap-2 text-muted-foreground mb-2">
@@ -256,7 +257,7 @@ const Auth = () => {
                     <span className="font-body text-sm">Phone: {formData.phone}</span>
                   </div>
                   <p className="font-body text-xs text-muted-foreground">
-                    Your phone number has been saved to your profile.
+                    Your phone number is securely stored and only visible to admins.
                   </p>
                 </div>
               )}

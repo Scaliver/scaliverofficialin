@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Phone, MapPin, Save, ArrowLeft, Package, LogOut } from "lucide-react";
+import { User, Save, ArrowLeft, Package, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,8 +13,6 @@ import Footer from "@/components/Footer";
 
 interface Profile {
   display_name: string | null;
-  phone: string | null;
-  address: string | null;
 }
 
 interface Order {
@@ -33,8 +31,6 @@ const Profile = () => {
   
   const [profile, setProfile] = useState<Profile>({
     display_name: "",
-    phone: "",
-    address: "",
   });
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,7 +53,7 @@ const Profile = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("display_name, phone, address")
+        .select("display_name")
         .eq("id", user!.id)
         .maybeSingle();
 
@@ -66,8 +62,6 @@ const Profile = () => {
       if (data) {
         setProfile({
           display_name: data.display_name || "",
-          phone: data.phone || "",
-          address: data.address || "",
         });
       }
     } catch (error) {
@@ -99,8 +93,6 @@ const Profile = () => {
         .from("profiles")
         .update({
           display_name: profile.display_name,
-          phone: profile.phone,
-          address: profile.address,
         })
         .eq("id", user!.id);
 
@@ -188,32 +180,6 @@ const Profile = () => {
                       id="displayName"
                       value={profile.display_name || ""}
                       onChange={(e) => setProfile({ ...profile, display_name: e.target.value })}
-                      className="bg-secondary border-border"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="phone" className="font-body text-foreground flex items-center gap-2">
-                      <Phone className="w-4 h-4" />
-                      Phone Number
-                    </Label>
-                    <Input
-                      id="phone"
-                      value={profile.phone || ""}
-                      onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                      className="bg-secondary border-border"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="address" className="font-body text-foreground flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      Address
-                    </Label>
-                    <Input
-                      id="address"
-                      value={profile.address || ""}
-                      onChange={(e) => setProfile({ ...profile, address: e.target.value })}
                       className="bg-secondary border-border"
                     />
                   </div>
