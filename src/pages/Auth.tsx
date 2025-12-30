@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
-import { Eye, EyeOff, LogIn, UserPlus, ArrowLeft, Mail, CheckCircle, RefreshCw, Phone } from "lucide-react";
+import { Eye, EyeOff, LogIn, UserPlus, ArrowLeft, Mail, CheckCircle, RefreshCw, Phone, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -35,8 +36,14 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showVerificationMessage, setShowVerificationMessage] = useState(false);
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [otpCode, setOtpCode] = useState("");
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
   
   const [formData, setFormData] = useState({
     displayName: "",
@@ -94,7 +101,7 @@ const Auth = () => {
         title: "Email Sent!",
         description: "A new verification email has been sent to your inbox.",
       });
-      setResendCooldown(60); // 60 second cooldown
+      setResendCooldown(60);
     } catch (error: any) {
       toast({
         title: "Failed to Resend",
@@ -103,6 +110,86 @@ const Auth = () => {
       });
     } finally {
       setResendingEmail(false);
+    }
+  };
+
+  const handleSendOtp = async () => {
+    if (!user) {
+      toast({
+        title: "Not Logged In",
+        description: "Please login first to verify your phone number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSendingOtp(true);
+    try {
+      const response = await supabase.functions.invoke("sms-otp/send", {
+        body: {
+          phone: formData.phone,
+          userId: user.id,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Failed to send OTP");
+      }
+
+      setOtpSent(true);
+      setResendCooldown(60);
+      toast({
+        title: "OTP Sent!",
+        description: `Verification code sent to ${formData.phone}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to Send OTP",
+        description: error.message || "Could not send verification code.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!user || otpCode.length !== 6) {
+      toast({
+        title: "Invalid Code",
+        description: "Please enter the 6-digit verification code.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setVerifyingOtp(true);
+    try {
+      const response = await supabase.functions.invoke("sms-otp/verify", {
+        body: {
+          phone: formData.phone,
+          otp: otpCode,
+          userId: user.id,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Invalid or expired code");
+      }
+
+      setPhoneVerified(true);
+      toast({
+        title: "Phone Verified!",
+        description: "Your phone number has been verified successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Verification Failed",
+        description: error.message || "Invalid or expired verification code.",
+        variant: "destructive",
+      });
+    } finally {
+      setVerifyingOtp(false);
     }
   };
 
@@ -217,6 +304,130 @@ const Auth = () => {
     );
   }
 
+  // Phone verification screen (after email verified and logged in)
+  if (showPhoneVerification && user) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <header className="border-b border-border/50 bg-background/95 backdrop-blur">
+          <div className="container flex h-16 items-center">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate("/")}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Skip for Now
+            </Button>
+          </div>
+        </header>
+
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-md text-center">
+            <div className="bg-card border border-border rounded-2xl p-8">
+              {phoneVerified ? (
+                <>
+                  <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
+                    <CheckCircle className="w-8 h-8 text-green-400" />
+                  </div>
+                  <h1 className="font-display text-2xl font-bold text-foreground mb-4">
+                    Phone Verified!
+                  </h1>
+                  <p className="font-body text-muted-foreground mb-6">
+                    Your phone number has been verified successfully.
+                  </p>
+                  <Button variant="gaming" className="w-full" onClick={() => navigate("/")}>
+                    Continue to App
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6">
+                    <Smartphone className="w-8 h-8 text-primary" />
+                  </div>
+                  <h1 className="font-display text-2xl font-bold text-foreground mb-4">
+                    Verify Phone Number
+                  </h1>
+                  <p className="font-body text-muted-foreground mb-6">
+                    {otpSent 
+                      ? `Enter the 6-digit code sent to ${formData.phone}`
+                      : `We'll send a verification code to ${formData.phone}`
+                    }
+                  </p>
+
+                  {!otpSent ? (
+                    <Button 
+                      variant="gaming" 
+                      className="w-full"
+                      onClick={handleSendOtp}
+                      disabled={sendingOtp}
+                    >
+                      {sendingOtp ? (
+                        <span className="animate-pulse">Sending...</span>
+                      ) : (
+                        <>
+                          <Phone className="w-4 h-4 mr-2" />
+                          Send Verification Code
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex justify-center">
+                        <InputOTP
+                          maxLength={6}
+                          value={otpCode}
+                          onChange={(value) => setOtpCode(value)}
+                        >
+                          <InputOTPGroup>
+                            <InputOTPSlot index={0} />
+                            <InputOTPSlot index={1} />
+                            <InputOTPSlot index={2} />
+                            <InputOTPSlot index={3} />
+                            <InputOTPSlot index={4} />
+                            <InputOTPSlot index={5} />
+                          </InputOTPGroup>
+                        </InputOTP>
+                      </div>
+
+                      <Button 
+                        variant="gaming" 
+                        className="w-full"
+                        onClick={handleVerifyOtp}
+                        disabled={verifyingOtp || otpCode.length !== 6}
+                      >
+                        {verifyingOtp ? (
+                          <span className="animate-pulse">Verifying...</span>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Verify Code
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleSendOtp}
+                        disabled={sendingOtp || resendCooldown > 0}
+                      >
+                        <RefreshCw className={`w-4 h-4 mr-2 ${sendingOtp ? 'animate-spin' : ''}`} />
+                        {resendCooldown > 0 
+                          ? `Resend in ${resendCooldown}s` 
+                          : "Resend Code"
+                        }
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   // Email verification success message
   if (showVerificationMessage) {
     return (
@@ -248,7 +459,6 @@ const Auth = () => {
                 Click the link in the email to verify your account.
               </p>
               
-              
               {/* Phone info notice */}
               {formData.phone && (
                 <div className="bg-secondary/50 rounded-xl p-4 mb-6">
@@ -257,7 +467,7 @@ const Auth = () => {
                     <span className="font-body text-sm">Phone: {formData.phone}</span>
                   </div>
                   <p className="font-body text-xs text-muted-foreground">
-                    Your phone number is securely stored and only visible to admins.
+                    After email verification, you can verify your phone number via SMS.
                   </p>
                 </div>
               )}
@@ -382,13 +592,13 @@ const Auth = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="phone" className="font-body text-foreground">
-                      Phone Number *
+                      Phone Number * <span className="text-xs text-muted-foreground">(with country code, e.g., +91...)</span>
                     </Label>
                     <Input
                       id="phone"
                       name="phone"
                       type="tel"
-                      placeholder="Enter your phone number"
+                      placeholder="+91 1234567890"
                       value={formData.phone}
                       onChange={handleInputChange}
                       className={`bg-secondary border-border ${errors.phone ? "border-destructive" : ""}`}
@@ -485,6 +695,19 @@ const Auth = () => {
                   </>
                 )}
               </Button>
+
+              {/* Phone verification prompt for logged in users */}
+              {user && !isLogin && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setShowPhoneVerification(true)}
+                >
+                  <Phone className="w-4 h-4 mr-2" />
+                  Verify Phone Number
+                </Button>
+              )}
             </form>
           </div>
         </div>

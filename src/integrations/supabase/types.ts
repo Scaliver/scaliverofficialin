@@ -92,6 +92,36 @@ export type Database = {
         }
         Relationships: []
       }
+      phone_verifications: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          otp_code: string
+          phone: string
+          user_id: string
+          verified: boolean
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          otp_code: string
+          phone: string
+          user_id: string
+          verified?: boolean
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          otp_code?: string
+          phone?: string
+          user_id?: string
+          verified?: boolean
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -122,6 +152,7 @@ export type Database = {
           created_at: string
           id: string
           phone: string | null
+          phone_verified: boolean
           updated_at: string
           user_id: string
         }
@@ -130,6 +161,7 @@ export type Database = {
           created_at?: string
           id?: string
           phone?: string | null
+          phone_verified?: boolean
           updated_at?: string
           user_id: string
         }
@@ -138,6 +170,7 @@ export type Database = {
           created_at?: string
           id?: string
           phone?: string | null
+          phone_verified?: boolean
           updated_at?: string
           user_id?: string
         }
