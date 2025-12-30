@@ -1,0 +1,190 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface SendOTPRequest {
+  phone: string;
+  userId: string;
+}
+
+interface VerifyOTPRequest {
+  phone: string;
+  otp: string;
+  userId: string;
+}
+
+const generateOTP = (): string => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+const sendSMS = async (phone: string, message: string): Promise<boolean> => {
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const twilioPhone = Deno.env.get("TWILIO_PHONE_NUMBER");
+
+  if (!accountSid || !authToken || !twilioPhone) {
+    console.error("Twilio credentials not configured");
+    throw new Error("SMS service not configured");
+  }
+
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      To: phone,
+      From: twilioPhone,
+      Body: message,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.text();
+    console.error("Twilio API error:", errorData);
+    throw new Error("Failed to send SMS");
+  }
+
+  console.log("SMS sent successfully to:", phone);
+  return true;
+};
+
+serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const url = new URL(req.url);
+    const action = url.pathname.split("/").pop();
+
+    if (action === "send") {
+      const { phone, userId }: SendOTPRequest = await req.json();
+
+      if (!phone || !userId) {
+        return new Response(
+          JSON.stringify({ error: "Phone and userId are required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Generate OTP and expiry (10 minutes from now)
+      const otp = generateOTP();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+      // Delete any existing unverified OTPs for this phone
+      await supabase
+        .from("phone_verifications")
+        .delete()
+        .eq("phone", phone)
+        .eq("verified", false);
+
+      // Store the OTP
+      const { error: insertError } = await supabase
+        .from("phone_verifications")
+        .insert({
+          user_id: userId,
+          phone: phone,
+          otp_code: otp,
+          expires_at: expiresAt,
+          verified: false,
+        });
+
+      if (insertError) {
+        console.error("Error storing OTP:", insertError);
+        return new Response(
+          JSON.stringify({ error: "Failed to generate OTP" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Send SMS
+      const message = `Your Scaliver verification code is: ${otp}. Valid for 10 minutes.`;
+      await sendSMS(phone, message);
+
+      console.log("OTP sent successfully for user:", userId);
+      return new Response(
+        JSON.stringify({ success: true, message: "OTP sent successfully" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+
+    } else if (action === "verify") {
+      const { phone, otp, userId }: VerifyOTPRequest = await req.json();
+
+      if (!phone || !otp || !userId) {
+        return new Response(
+          JSON.stringify({ error: "Phone, OTP, and userId are required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Find valid OTP
+      const { data: verification, error: fetchError } = await supabase
+        .from("phone_verifications")
+        .select("*")
+        .eq("phone", phone)
+        .eq("otp_code", otp)
+        .eq("verified", false)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fetchError || !verification) {
+        console.log("Invalid or expired OTP for phone:", phone);
+        return new Response(
+          JSON.stringify({ error: "Invalid or expired OTP" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Mark OTP as verified
+      await supabase
+        .from("phone_verifications")
+        .update({ verified: true })
+        .eq("id", verification.id);
+
+      // Update user_contacts to mark phone as verified
+      const { error: updateError } = await supabase
+        .from("user_contacts")
+        .update({ phone_verified: true })
+        .eq("user_id", userId)
+        .eq("phone", phone);
+
+      if (updateError) {
+        console.error("Error updating phone verification status:", updateError);
+      }
+
+      console.log("Phone verified successfully for user:", userId);
+      return new Response(
+        JSON.stringify({ success: true, message: "Phone verified successfully" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+
+    } else {
+      return new Response(
+        JSON.stringify({ error: "Invalid action. Use /send or /verify" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+  } catch (error: any) {
+    console.error("Error in sms-otp function:", error);
+    return new Response(
+      JSON.stringify({ error: error.message || "Internal server error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
