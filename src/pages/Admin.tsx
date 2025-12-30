@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search, ShieldCheck, ShieldAlert, Mail, Phone, Lock } from "lucide-react";
+import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search, ShieldCheck, ShieldAlert, Mail, Phone, Lock, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
+import { useAuditLog } from "@/hooks/useAuditLog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -61,6 +62,17 @@ interface UserProfile {
   } | null;
 }
 
+interface AuditLog {
+  id: string;
+  admin_id: string;
+  action: string;
+  resource_type: string;
+  resource_id: string | null;
+  details: Record<string, unknown> | null;
+  created_at: string;
+  admin_name?: string;
+}
+
 interface CoinTransaction {
   id: string;
   user_id: string;
@@ -76,16 +88,19 @@ const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, isAdmin, isLoading: authLoading } = useAuth();
+  const { logAction } = useAuditLog();
   
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
-  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history" | "security">("orders");
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history" | "security" | "audit">("orders");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userOrdersDialogOpen, setUserOrdersDialogOpen] = useState(false);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const initialLoadRef = useRef(true);
+  const hasLoggedInitialView = useRef(false);
   
   // Credit coins state
   const [creditDialogOpen, setCreditDialogOpen] = useState(false);
@@ -185,6 +200,17 @@ const Admin = () => {
       fetchOrders();
       fetchUsers();
       fetchTransactions();
+      fetchAuditLogs();
+      
+      // Log initial admin view (only once)
+      if (!hasLoggedInitialView.current) {
+        hasLoggedInitialView.current = true;
+        logAction({
+          action: 'view_orders',
+          resourceType: 'orders',
+          details: { initial_load: true }
+        });
+      }
       
       // Set up real-time subscriptions
       const ordersChannel = supabase
@@ -408,6 +434,38 @@ const Admin = () => {
     }
   };
 
+  const fetchAuditLogs = async () => {
+    try {
+      const { data: logsData, error } = await supabase
+        .from('audit_logs' as any)
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      // Get admin names for each log
+      const logsWithAdminNames = await Promise.all(
+        ((logsData as any[]) || []).map(async (log) => {
+          const profileResult = await supabase
+            .from("profiles")
+            .select("display_name")
+            .eq("id", log.admin_id)
+            .maybeSingle();
+          
+          return {
+            ...log,
+            admin_name: profileResult.data?.display_name || 'Unknown Admin',
+          };
+        })
+      );
+
+      setAuditLogs(logsWithAdminNames);
+    } catch (error) {
+      console.error("Error fetching audit logs:", error);
+    }
+  };
+
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
       const { error } = await supabase
@@ -418,6 +476,18 @@ const Admin = () => {
       if (error) throw error;
 
       const order = orders.find(o => o.id === orderId);
+      
+      // Log the status update
+      logAction({
+        action: 'update_order_status',
+        resourceType: 'orders',
+        resourceId: orderId,
+        details: { 
+          new_status: newStatus, 
+          product_name: order?.product_name,
+          previous_status: order?.status 
+        }
+      });
       
       setOrders(orders.map(order => 
         order.id === orderId ? { ...order, status: newStatus } : order
@@ -554,6 +624,19 @@ const Admin = () => {
 
       if (txError) throw txError;
 
+      // Log the wallet credit action
+      logAction({
+        action: 'update_wallet',
+        resourceType: 'wallets',
+        resourceId: selectedUser.wallet?.id,
+        details: {
+          type: 'credit',
+          amount,
+          user_name: selectedUser.display_name,
+          description: creditDescription || "Admin credit - Payment verified"
+        }
+      });
+
       toast({
         title: "Coins Credited Successfully",
         description: `₹${amount} credited to ${selectedUser.display_name || "User"}'s wallet.`,
@@ -620,6 +703,19 @@ const Admin = () => {
         });
 
       if (txError) throw txError;
+
+      // Log the wallet debit action
+      logAction({
+        action: 'update_wallet',
+        resourceType: 'wallets',
+        resourceId: selectedUser.wallet?.id,
+        details: {
+          type: 'debit',
+          amount,
+          user_name: selectedUser.display_name,
+          description: debitDescription || "Admin debit - Refund/Correction"
+        }
+      });
 
       toast({
         title: "Coins Deducted Successfully",
@@ -727,7 +823,10 @@ const Admin = () => {
               )}
             </button>
             <button
-              onClick={() => setActiveTab("users")}
+              onClick={() => {
+                setActiveTab("users");
+                logAction({ action: 'view_users_list', resourceType: 'users' });
+              }}
               className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${
                 activeTab === "users"
                   ? "bg-primary text-primary-foreground"
@@ -760,7 +859,10 @@ const Admin = () => {
               Wallet History
             </button>
             <button
-              onClick={() => setActiveTab("security")}
+              onClick={() => {
+                setActiveTab("security");
+                logAction({ action: 'view_user_security', resourceType: 'security' });
+              }}
               className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${
                 activeTab === "security"
                   ? "bg-primary text-primary-foreground"
@@ -769,6 +871,20 @@ const Admin = () => {
             >
               <Lock className="w-4 h-4" />
               Security
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("audit");
+                fetchAuditLogs();
+              }}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${
+                activeTab === "audit"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              Audit Logs
             </button>
           </div>
 
@@ -1536,6 +1652,125 @@ const Admin = () => {
                               <p className="text-muted-foreground">Joined</p>
                               <p className="font-body text-foreground text-xs">{date}</p>
                             </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Audit Logs Tab */}
+          {activeTab === "audit" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-lg font-bold text-foreground flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-primary" />
+                  Admin Activity Audit Logs
+                </h2>
+                <Button variant="outline" size="sm" onClick={fetchAuditLogs}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
+              
+              <p className="text-sm text-muted-foreground">
+                Track when admins view or modify sensitive user data for compliance purposes.
+              </p>
+
+              {auditLogs.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No audit logs recorded yet</p>
+                </div>
+              ) : (
+                <>
+                  {/* Desktop Table */}
+                  <div className="hidden md:block bg-card border border-border rounded-xl overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-secondary/50">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-display font-bold text-foreground">Admin</th>
+                          <th className="px-4 py-3 text-left font-display font-bold text-foreground">Action</th>
+                          <th className="px-4 py-3 text-left font-display font-bold text-foreground">Resource</th>
+                          <th className="px-4 py-3 text-left font-display font-bold text-foreground">Details</th>
+                          <th className="px-4 py-3 text-left font-display font-bold text-foreground">Timestamp</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {auditLogs.map((log) => {
+                          const { date, time } = formatDateTime(log.created_at);
+                          return (
+                            <tr key={log.id} className="hover:bg-secondary/30 transition-colors">
+                              <td className="px-4 py-3">
+                                <p className="font-display font-semibold text-foreground">{log.admin_name}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <Badge className={
+                                  log.action.includes('view') 
+                                    ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                    : "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                                }>
+                                  {log.action.replace(/_/g, ' ')}
+                                </Badge>
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="font-body text-foreground">{log.resource_type}</p>
+                                {log.resource_id && (
+                                  <p className="text-xs text-muted-foreground font-mono">{log.resource_id.slice(0, 8)}...</p>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                {log.details ? (
+                                  <div className="text-xs text-muted-foreground max-w-xs truncate">
+                                    {JSON.stringify(log.details)}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="font-body text-foreground text-sm">{date}</p>
+                                <p className="font-body text-muted-foreground text-xs">{time}</p>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile Cards */}
+                  <div className="md:hidden space-y-3">
+                    {auditLogs.map((log) => {
+                      const { date, time } = formatDateTime(log.created_at);
+                      return (
+                        <div key={log.id} className="bg-card border border-border rounded-xl p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <p className="font-display font-bold text-foreground">{log.admin_name}</p>
+                              <Badge className={
+                                log.action.includes('view') 
+                                  ? "bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs mt-1"
+                                  : "bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs mt-1"
+                              }>
+                                {log.action.replace(/_/g, ' ')}
+                              </Badge>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-body text-foreground text-sm">{date}</p>
+                              <p className="font-body text-muted-foreground text-xs">{time}</p>
+                            </div>
+                          </div>
+                          <div className="text-sm">
+                            <p className="text-muted-foreground">Resource: <span className="text-foreground">{log.resource_type}</span></p>
+                            {log.details && (
+                              <p className="text-xs text-muted-foreground mt-1 truncate">
+                                {JSON.stringify(log.details)}
+                              </p>
+                            )}
                           </div>
                         </div>
                       );
