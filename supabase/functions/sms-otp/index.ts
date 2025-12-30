@@ -17,6 +17,14 @@ interface VerifyOTPRequest {
   userId: string;
 }
 
+interface Check2FARequest {
+  userId: string;
+}
+
+interface Send2FARequest {
+  userId: string;
+}
+
 const generateOTP = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
@@ -70,7 +78,178 @@ serve(async (req) => {
     const url = new URL(req.url);
     const action = url.pathname.split("/").pop();
 
-    if (action === "send") {
+    // Check if user has 2FA enabled (verified phone)
+    if (action === "check-2fa") {
+      const { userId }: Check2FARequest = await req.json();
+
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ error: "userId is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: contact, error } = await supabase
+        .from("user_contacts")
+        .select("phone, phone_verified")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error checking 2FA status:", error);
+        return new Response(
+          JSON.stringify({ error: "Failed to check 2FA status" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const has2FA = contact?.phone_verified === true && !!contact?.phone;
+      const maskedPhone = contact?.phone 
+        ? contact.phone.slice(0, 4) + "****" + contact.phone.slice(-2) 
+        : null;
+
+      console.log("2FA check for user:", userId, "has2FA:", has2FA);
+      return new Response(
+        JSON.stringify({ 
+          has2FA, 
+          maskedPhone,
+          phone: contact?.phone // Full phone for internal use
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+
+    // Send 2FA OTP to user's verified phone
+    } else if (action === "send-2fa") {
+      const { userId }: Send2FARequest = await req.json();
+
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ error: "userId is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get user's verified phone
+      const { data: contact, error: contactError } = await supabase
+        .from("user_contacts")
+        .select("phone, phone_verified")
+        .eq("user_id", userId)
+        .eq("phone_verified", true)
+        .maybeSingle();
+
+      if (contactError || !contact?.phone) {
+        console.error("No verified phone for user:", userId);
+        return new Response(
+          JSON.stringify({ error: "No verified phone number found" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Generate OTP and expiry (5 minutes for 2FA)
+      const otp = generateOTP();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+
+      // Delete any existing unverified OTPs for this phone
+      await supabase
+        .from("phone_verifications")
+        .delete()
+        .eq("phone", contact.phone)
+        .eq("verified", false);
+
+      // Store the OTP
+      const { error: insertError } = await supabase
+        .from("phone_verifications")
+        .insert({
+          user_id: userId,
+          phone: contact.phone,
+          otp_code: otp,
+          expires_at: expiresAt,
+          verified: false,
+        });
+
+      if (insertError) {
+        console.error("Error storing OTP:", insertError);
+        return new Response(
+          JSON.stringify({ error: "Failed to generate OTP" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Send SMS
+      const message = `Your Scaliver 2FA code is: ${otp}. Valid for 5 minutes. Do not share this code.`;
+      await sendSMS(contact.phone, message);
+
+      const maskedPhone = contact.phone.slice(0, 4) + "****" + contact.phone.slice(-2);
+      console.log("2FA OTP sent for user:", userId);
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: "2FA code sent",
+          maskedPhone,
+          phone: contact.phone
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+
+    // Verify 2FA OTP
+    } else if (action === "verify-2fa") {
+      const { otp, userId }: { otp: string; userId: string } = await req.json();
+
+      if (!otp || !userId) {
+        return new Response(
+          JSON.stringify({ error: "OTP and userId are required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get user's verified phone
+      const { data: contact } = await supabase
+        .from("user_contacts")
+        .select("phone")
+        .eq("user_id", userId)
+        .eq("phone_verified", true)
+        .maybeSingle();
+
+      if (!contact?.phone) {
+        return new Response(
+          JSON.stringify({ error: "No verified phone found" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Find valid OTP
+      const { data: verification, error: fetchError } = await supabase
+        .from("phone_verifications")
+        .select("*")
+        .eq("phone", contact.phone)
+        .eq("otp_code", otp)
+        .eq("verified", false)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fetchError || !verification) {
+        console.log("Invalid or expired 2FA OTP for user:", userId);
+        return new Response(
+          JSON.stringify({ error: "Invalid or expired code" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Mark OTP as verified
+      await supabase
+        .from("phone_verifications")
+        .update({ verified: true })
+        .eq("id", verification.id);
+
+      console.log("2FA verified successfully for user:", userId);
+      return new Response(
+        JSON.stringify({ success: true, message: "2FA verification successful" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+
+    } else if (action === "send") {
       const { phone, userId }: SendOTPRequest = await req.json();
 
       if (!phone || !userId) {
@@ -175,7 +354,7 @@ serve(async (req) => {
 
     } else {
       return new Response(
-        JSON.stringify({ error: "Invalid action. Use /send or /verify" }),
+        JSON.stringify({ error: "Invalid action" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
-import { Eye, EyeOff, LogIn, UserPlus, ArrowLeft, Mail, CheckCircle, RefreshCw, Phone, Smartphone } from "lucide-react";
+import { Eye, EyeOff, LogIn, UserPlus, ArrowLeft, Mail, CheckCircle, RefreshCw, Phone, Smartphone, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,20 +30,25 @@ const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const { user, signUp, signIn, isLoading: authLoading } = useAuth();
+  const { user, signUp, signIn, signOut, isLoading: authLoading } = useAuth();
   
   const [isLogin, setIsLogin] = useState(!searchParams.get("signup"));
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showVerificationMessage, setShowVerificationMessage] = useState(false);
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
+  const [show2FA, setShow2FA] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [otpCode, setOtpCode] = useState("");
+  const [twoFACode, setTwoFACode] = useState("");
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [maskedPhone, setMaskedPhone] = useState("");
+  const [pending2FAUserId, setPending2FAUserId] = useState<string | null>(null);
+  const [userPhone, setUserPhone] = useState("");
   
   const [formData, setFormData] = useState({
     displayName: "",
@@ -62,12 +67,12 @@ const Auth = () => {
     }
   }, [searchParams]);
 
-  // Redirect if already logged in
+  // Redirect if already logged in and not in 2FA flow
   useEffect(() => {
-    if (user && !authLoading) {
+    if (user && !authLoading && !show2FA) {
       navigate("/");
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, show2FA]);
 
   // Cooldown timer for resend
   useEffect(() => {
@@ -180,7 +185,7 @@ const Auth = () => {
       setPhoneVerified(true);
       toast({
         title: "Phone Verified!",
-        description: "Your phone number has been verified successfully.",
+        description: "Your phone number has been verified. 2FA is now enabled.",
       });
     } catch (error: any) {
       toast({
@@ -191,6 +196,92 @@ const Auth = () => {
     } finally {
       setVerifyingOtp(false);
     }
+  };
+
+  const handleSend2FA = async (userId: string) => {
+    setSendingOtp(true);
+    try {
+      const response = await supabase.functions.invoke("sms-otp/send-2fa", {
+        body: { userId },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Failed to send 2FA code");
+      }
+
+      const data = response.data;
+      setMaskedPhone(data.maskedPhone);
+      setUserPhone(data.phone);
+      setResendCooldown(60);
+      toast({
+        title: "2FA Code Sent!",
+        description: `Verification code sent to ${data.maskedPhone}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to Send 2FA Code",
+        description: error.message || "Could not send verification code.",
+        variant: "destructive",
+      });
+      // Sign out if we can't send 2FA
+      await signOut();
+      setShow2FA(false);
+      setPending2FAUserId(null);
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerify2FA = async () => {
+    if (!pending2FAUserId || twoFACode.length !== 6) {
+      toast({
+        title: "Invalid Code",
+        description: "Please enter the 6-digit verification code.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setVerifyingOtp(true);
+    try {
+      const response = await supabase.functions.invoke("sms-otp/verify-2fa", {
+        body: {
+          otp: twoFACode,
+          userId: pending2FAUserId,
+        },
+      });
+
+      if (response.error || !response.data?.success) {
+        throw new Error(response.error?.message || response.data?.error || "Invalid code");
+      }
+
+      toast({
+        title: "Welcome back!",
+        description: "2FA verification successful.",
+      });
+      setShow2FA(false);
+      setPending2FAUserId(null);
+      navigate("/");
+    } catch (error: any) {
+      toast({
+        title: "2FA Failed",
+        description: error.message || "Invalid or expired verification code.",
+        variant: "destructive",
+      });
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  const handleCancel2FA = async () => {
+    await signOut();
+    setShow2FA(false);
+    setPending2FAUserId(null);
+    setTwoFACode("");
+    toast({
+      title: "Login Cancelled",
+      description: "You've been signed out.",
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -240,11 +331,28 @@ const Auth = () => {
             });
           }
         } else {
-          toast({
-            title: "Welcome back!",
-            description: "You have successfully logged in.",
-          });
-          navigate("/");
+          // Check if user has 2FA enabled
+          const { data: { user: loggedInUser } } = await supabase.auth.getUser();
+          
+          if (loggedInUser) {
+            const check2FAResponse = await supabase.functions.invoke("sms-otp/check-2fa", {
+              body: { userId: loggedInUser.id },
+            });
+
+            if (check2FAResponse.data?.has2FA) {
+              // User has 2FA enabled, show 2FA screen
+              setPending2FAUserId(loggedInUser.id);
+              setShow2FA(true);
+              await handleSend2FA(loggedInUser.id);
+            } else {
+              // No 2FA, proceed to home
+              toast({
+                title: "Welcome back!",
+                description: "You have successfully logged in.",
+              });
+              navigate("/");
+            }
+          }
         }
       } else {
         const result = signupSchema.safeParse(formData);
@@ -304,6 +412,90 @@ const Auth = () => {
     );
   }
 
+  // 2FA verification screen
+  if (show2FA) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <header className="border-b border-border/50 bg-background/95 backdrop-blur">
+          <div className="container flex h-16 items-center">
+            <Button 
+              variant="ghost" 
+              onClick={handleCancel2FA}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Cancel Login
+            </Button>
+          </div>
+        </header>
+
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-md text-center">
+            <div className="bg-card border border-border rounded-2xl p-8">
+              <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6">
+                <Shield className="w-8 h-8 text-primary" />
+              </div>
+              <h1 className="font-display text-2xl font-bold text-foreground mb-4">
+                Two-Factor Authentication
+              </h1>
+              <p className="font-body text-muted-foreground mb-6">
+                Enter the 6-digit code sent to {maskedPhone}
+              </p>
+
+              <div className="space-y-4">
+                <div className="flex justify-center">
+                  <InputOTP
+                    maxLength={6}
+                    value={twoFACode}
+                    onChange={(value) => setTwoFACode(value)}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+
+                <Button 
+                  variant="gaming" 
+                  className="w-full"
+                  onClick={handleVerify2FA}
+                  disabled={verifyingOtp || twoFACode.length !== 6}
+                >
+                  {verifyingOtp ? (
+                    <span className="animate-pulse">Verifying...</span>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Verify & Login
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => pending2FAUserId && handleSend2FA(pending2FAUserId)}
+                  disabled={sendingOtp || resendCooldown > 0}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${sendingOtp ? 'animate-spin' : ''}`} />
+                  {resendCooldown > 0 
+                    ? `Resend in ${resendCooldown}s` 
+                    : "Resend Code"
+                  }
+                </Button>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   // Phone verification screen (after email verified and logged in)
   if (showPhoneVerification && user) {
     return (
@@ -330,10 +522,10 @@ const Auth = () => {
                     <CheckCircle className="w-8 h-8 text-green-400" />
                   </div>
                   <h1 className="font-display text-2xl font-bold text-foreground mb-4">
-                    Phone Verified!
+                    Phone Verified & 2FA Enabled!
                   </h1>
                   <p className="font-body text-muted-foreground mb-6">
-                    Your phone number has been verified successfully.
+                    Your phone number has been verified. Two-factor authentication is now active for your account.
                   </p>
                   <Button variant="gaming" className="w-full" onClick={() => navigate("/")}>
                     Continue to App
@@ -345,7 +537,7 @@ const Auth = () => {
                     <Smartphone className="w-8 h-8 text-primary" />
                   </div>
                   <h1 className="font-display text-2xl font-bold text-foreground mb-4">
-                    Verify Phone Number
+                    Enable 2FA - Verify Phone
                   </h1>
                   <p className="font-body text-muted-foreground mb-6">
                     {otpSent 
@@ -400,7 +592,7 @@ const Auth = () => {
                         ) : (
                           <>
                             <CheckCircle className="w-4 h-4 mr-2" />
-                            Verify Code
+                            Verify & Enable 2FA
                           </>
                         )}
                       </Button>
@@ -463,11 +655,11 @@ const Auth = () => {
               {formData.phone && (
                 <div className="bg-secondary/50 rounded-xl p-4 mb-6">
                   <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                    <Phone className="w-4 h-4" />
-                    <span className="font-body text-sm">Phone: {formData.phone}</span>
+                    <Shield className="w-4 h-4" />
+                    <span className="font-body text-sm font-medium">2FA Setup Required</span>
                   </div>
                   <p className="font-body text-xs text-muted-foreground">
-                    After email verification, you can verify your phone number via SMS.
+                    After email verification, verify your phone ({formData.phone}) to enable two-factor authentication.
                   </p>
                 </div>
               )}
@@ -591,8 +783,9 @@ const Auth = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="phone" className="font-body text-foreground">
-                      Phone Number * <span className="text-xs text-muted-foreground">(with country code, e.g., +91...)</span>
+                    <Label htmlFor="phone" className="font-body text-foreground flex items-center gap-2">
+                      Phone Number * 
+                      <span className="text-xs text-muted-foreground">(for 2FA, with country code)</span>
                     </Label>
                     <Input
                       id="phone"
@@ -704,11 +897,19 @@ const Auth = () => {
                   className="w-full"
                   onClick={() => setShowPhoneVerification(true)}
                 >
-                  <Phone className="w-4 h-4 mr-2" />
-                  Verify Phone Number
+                  <Shield className="w-4 h-4 mr-2" />
+                  Enable 2FA - Verify Phone
                 </Button>
               )}
             </form>
+
+            {/* 2FA info for login */}
+            {isLogin && (
+              <p className="font-body text-xs text-muted-foreground text-center mt-4">
+                <Shield className="w-3 h-3 inline mr-1" />
+                Protected with two-factor authentication
+              </p>
+            )}
           </div>
         </div>
       </main>
