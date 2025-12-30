@@ -40,8 +40,8 @@ interface Order {
   user_id: string;
   profiles: {
     display_name: string | null;
-    phone: string | null;
   } | null;
+  user_phone?: string | null;
 }
 
 interface UserProfile {
@@ -145,7 +145,7 @@ const Admin = () => {
         order.product_name.toLowerCase().includes(searchLower) ||
         order.user_game_id.toLowerCase().includes(searchLower) ||
         order.profiles?.display_name?.toLowerCase().includes(searchLower) ||
-        order.profiles?.phone?.toLowerCase().includes(searchLower) ||
+        order.user_phone?.toLowerCase().includes(searchLower) ||
         order.contact_number.toLowerCase().includes(searchLower);
 
       // Status filter
@@ -280,15 +280,23 @@ const Admin = () => {
 
       const ordersWithProfiles = await Promise.all(
         (ordersData || []).map(async (order) => {
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("display_name, phone")
-            .eq("id", order.user_id)
-            .maybeSingle();
+          const [profileResult, contactResult] = await Promise.all([
+            supabase
+              .from("profiles")
+              .select("display_name")
+              .eq("id", order.user_id)
+              .maybeSingle(),
+            supabase
+              .from("user_contacts")
+              .select("phone")
+              .eq("user_id", order.user_id)
+              .maybeSingle()
+          ]);
           
           return {
             ...order,
-            profiles: profileData,
+            profiles: profileResult.data,
+            user_phone: contactResult.data?.phone,
           };
         })
       );
@@ -312,7 +320,7 @@ const Admin = () => {
 
       const usersWithData = await Promise.all(
         (profilesData || []).map(async (profile) => {
-          const [rolesResult, ordersResult, walletResult] = await Promise.all([
+          const [rolesResult, ordersResult, walletResult, contactResult] = await Promise.all([
             supabase
               .from("user_roles")
               .select("role")
@@ -326,15 +334,24 @@ const Admin = () => {
               .from("wallets")
               .select("id, balance")
               .eq("user_id", profile.id)
+              .maybeSingle(),
+            supabase
+              .from("user_contacts")
+              .select("phone")
+              .eq("user_id", profile.id)
               .maybeSingle()
           ]);
           
+          const userPhone = contactResult.data?.phone || null;
+          
           return {
             ...profile,
+            phone: userPhone,
             user_roles: rolesResult.data || [],
             orders: (ordersResult.data || []).map(order => ({
               ...order,
-              profiles: { display_name: profile.display_name, phone: profile.phone }
+              profiles: { display_name: profile.display_name },
+              user_phone: userPhone
             })),
             wallet: walletResult.data,
           };
@@ -356,19 +373,26 @@ const Admin = () => {
 
       if (error) throw error;
 
-      // Get user profiles for each transaction
+      // Get user profiles and contacts for each transaction
       const txWithProfiles = await Promise.all(
         (txData || []).map(async (tx) => {
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("display_name, phone")
-            .eq("id", tx.user_id)
-            .maybeSingle();
+          const [profileResult, contactResult] = await Promise.all([
+            supabase
+              .from("profiles")
+              .select("display_name")
+              .eq("id", tx.user_id)
+              .maybeSingle(),
+            supabase
+              .from("user_contacts")
+              .select("phone")
+              .eq("user_id", tx.user_id)
+              .maybeSingle()
+          ]);
           
           return {
             ...tx,
-            user_display_name: profileData?.display_name,
-            user_phone: profileData?.phone,
+            user_display_name: profileResult.data?.display_name,
+            user_phone: contactResult.data?.phone,
           };
         })
       );
@@ -890,8 +914,8 @@ const Admin = () => {
                                 </td>
                                 <td className="p-4">
                                   <p className="font-body text-foreground">{order.profiles?.display_name || "Unknown"}</p>
-                                  {order.profiles?.phone && (
-                                    <p className="font-body text-sm text-muted-foreground">{order.profiles.phone}</p>
+                                  {order.user_phone && (
+                                    <p className="font-body text-sm text-muted-foreground">{order.user_phone}</p>
                                   )}
                                 </td>
                                 <td className="p-4">
