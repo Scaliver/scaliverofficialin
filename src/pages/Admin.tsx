@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search } from "lucide-react";
+import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search, ShieldCheck, ShieldAlert, Mail, Phone, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -48,6 +48,8 @@ interface UserProfile {
   id: string;
   display_name: string | null;
   phone: string | null;
+  phone_verified: boolean;
+  email_verified: boolean;
   created_at: string;
   user_roles: {
     role: string;
@@ -78,7 +80,7 @@ const Admin = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
-  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history" | "security">("orders");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userOrdersDialogOpen, setUserOrdersDialogOpen] = useState(false);
@@ -337,16 +339,19 @@ const Admin = () => {
               .maybeSingle(),
             supabase
               .from("user_contacts")
-              .select("phone")
+              .select("phone, phone_verified")
               .eq("user_id", profile.id)
               .maybeSingle()
           ]);
           
           const userPhone = contactResult.data?.phone || null;
+          const phoneVerified = contactResult.data?.phone_verified || false;
           
           return {
             ...profile,
             phone: userPhone,
+            phone_verified: phoneVerified,
+            email_verified: true, // Users who can log in have verified email
             user_roles: rolesResult.data || [],
             orders: (ordersResult.data || []).map(order => ({
               ...order,
@@ -754,6 +759,17 @@ const Admin = () => {
               <History className="w-4 h-4" />
               Wallet History
             </button>
+            <button
+              onClick={() => setActiveTab("security")}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${
+                activeTab === "security"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Lock className="w-4 h-4" />
+              Security
+            </button>
           </div>
 
           {/* Dashboard Stats */}
@@ -1038,6 +1054,7 @@ const Admin = () => {
                             <th className="text-left p-4 font-display text-sm text-foreground">Name</th>
                             <th className="text-left p-4 font-display text-sm text-foreground">Phone</th>
                             <th className="text-left p-4 font-display text-sm text-foreground">Role</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">2FA</th>
                             <th className="text-left p-4 font-display text-sm text-foreground">Total Orders</th>
                             <th className="text-left p-4 font-display text-sm text-foreground">Total Spent</th>
                             <th className="text-left p-4 font-display text-sm text-foreground">Joined</th>
@@ -1059,6 +1076,17 @@ const Admin = () => {
                                 <td className="p-4">
                                   <Badge variant={u.user_roles?.some(r => r.role === "admin") ? "default" : "secondary"}>
                                     {u.user_roles?.some(r => r.role === "admin") ? "Admin" : "User"}
+                                  </Badge>
+                                </td>
+                                <td className="p-4">
+                                  <Badge className={u.phone_verified 
+                                    ? "bg-green-500/20 text-green-400 border-green-500/30" 
+                                    : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                                  }>
+                                    <span className="flex items-center gap-1">
+                                      {u.phone_verified ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
+                                      {u.phone_verified ? "On" : "Off"}
+                                    </span>
                                   </Badge>
                                 </td>
                                 <td className="p-4">
@@ -1089,7 +1117,7 @@ const Admin = () => {
                   <div className="lg:hidden space-y-3">
                     {users.map((u) => {
                       const totalSpent = u.orders.reduce((sum, order) => sum + Number(order.price), 0);
-                      const { date, time } = formatDateTime(u.created_at);
+                      const { date } = formatDateTime(u.created_at);
                       return (
                         <div key={u.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
                           <div className="flex items-start justify-between">
@@ -1097,9 +1125,17 @@ const Admin = () => {
                               <p className="font-display font-bold text-foreground">{u.display_name || "Unknown"}</p>
                               <p className="font-body text-sm text-muted-foreground">{u.phone || "No phone"}</p>
                             </div>
-                            <Badge variant={u.user_roles?.some(r => r.role === "admin") ? "default" : "secondary"}>
-                              {u.user_roles?.some(r => r.role === "admin") ? "Admin" : "User"}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge className={u.phone_verified 
+                                ? "bg-green-500/20 text-green-400 border-green-500/30 text-xs" 
+                                : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs"
+                              }>
+                                {u.phone_verified ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
+                              </Badge>
+                              <Badge variant={u.user_roles?.some(r => r.role === "admin") ? "default" : "secondary"}>
+                                {u.user_roles?.some(r => r.role === "admin") ? "Admin" : "User"}
+                              </Badge>
+                            </div>
                           </div>
                           
                           <div className="grid grid-cols-3 gap-3 text-sm">
@@ -1330,6 +1366,177 @@ const Admin = () => {
                           <p className="font-body text-sm text-muted-foreground border-t border-border pt-2">
                             {tx.description}
                           </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Security Tab */}
+          {activeTab === "security" && (
+            <div className="space-y-4">
+              {/* Security Stats */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="bg-card border border-border rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                      <Users className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total Users</p>
+                      <p className="text-xl font-bold text-foreground">{users.length}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                      <ShieldCheck className="w-5 h-5 text-green-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">2FA Enabled</p>
+                      <p className="text-xl font-bold text-foreground">{users.filter(u => u.phone_verified).length}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                      <ShieldAlert className="w-5 h-5 text-yellow-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">2FA Disabled</p>
+                      <p className="text-xl font-bold text-foreground">{users.filter(u => !u.phone_verified).length}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                      <Mail className="w-5 h-5 text-blue-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Email Verified</p>
+                      <p className="text-xl font-bold text-foreground">{users.filter(u => u.email_verified).length}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {users.length === 0 ? (
+                <div className="bg-card border border-border rounded-2xl text-center py-12">
+                  <Lock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="font-body text-muted-foreground">No users yet</p>
+                </div>
+              ) : (
+                <>
+                  {/* Desktop Table */}
+                  <div className="hidden lg:block bg-card border border-border rounded-2xl overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-secondary/50">
+                          <tr>
+                            <th className="text-left p-4 font-display text-sm text-foreground">User</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Phone</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Role</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Email Verified</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">2FA Status</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">Joined</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {users.map((u) => {
+                            const { date, time } = formatDateTime(u.created_at);
+                            return (
+                              <tr key={u.id} className="border-t border-border">
+                                <td className="p-4">
+                                  <p className="font-display font-bold text-foreground">{u.display_name || "Unknown"}</p>
+                                </td>
+                                <td className="p-4">
+                                  <p className="font-body text-foreground">{u.phone || "-"}</p>
+                                </td>
+                                <td className="p-4">
+                                  <Badge variant={u.user_roles?.some(r => r.role === "admin") ? "default" : "secondary"}>
+                                    {u.user_roles?.some(r => r.role === "admin") ? "Admin" : "User"}
+                                  </Badge>
+                                </td>
+                                <td className="p-4">
+                                  <Badge className={u.email_verified 
+                                    ? "bg-green-500/20 text-green-400 border-green-500/30" 
+                                    : "bg-red-500/20 text-red-400 border-red-500/30"
+                                  }>
+                                    <span className="flex items-center gap-1">
+                                      {u.email_verified ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                                      {u.email_verified ? "Verified" : "Pending"}
+                                    </span>
+                                  </Badge>
+                                </td>
+                                <td className="p-4">
+                                  <Badge className={u.phone_verified 
+                                    ? "bg-green-500/20 text-green-400 border-green-500/30" 
+                                    : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                                  }>
+                                    <span className="flex items-center gap-1">
+                                      {u.phone_verified ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
+                                      {u.phone_verified ? "Enabled" : "Disabled"}
+                                    </span>
+                                  </Badge>
+                                </td>
+                                <td className="p-4">
+                                  <p className="font-body text-foreground">{date}</p>
+                                  <p className="font-body text-sm text-muted-foreground">{time}</p>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Mobile Cards */}
+                  <div className="lg:hidden space-y-3">
+                    {users.map((u) => {
+                      const { date } = formatDateTime(u.created_at);
+                      return (
+                        <div key={u.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="font-display font-bold text-foreground">{u.display_name || "Unknown"}</p>
+                              <p className="font-body text-sm text-muted-foreground">{u.phone || "No phone"}</p>
+                            </div>
+                            <Badge variant={u.user_roles?.some(r => r.role === "admin") ? "default" : "secondary"}>
+                              {u.user_roles?.some(r => r.role === "admin") ? "Admin" : "User"}
+                            </Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-3 gap-3 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Email</p>
+                              <Badge className={u.email_verified 
+                                ? "bg-green-500/20 text-green-400 border-green-500/30 text-xs" 
+                                : "bg-red-500/20 text-red-400 border-red-500/30 text-xs"
+                              }>
+                                {u.email_verified ? "✓" : "✗"}
+                              </Badge>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">2FA</p>
+                              <Badge className={u.phone_verified 
+                                ? "bg-green-500/20 text-green-400 border-green-500/30 text-xs" 
+                                : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs"
+                              }>
+                                {u.phone_verified ? "On" : "Off"}
+                              </Badge>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Joined</p>
+                              <p className="font-body text-foreground text-xs">{date}</p>
+                            </div>
+                          </div>
                         </div>
                       );
                     })}
