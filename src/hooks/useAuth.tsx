@@ -43,14 +43,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!isMounted) return;
         
         setSession(session);
         setUser(session?.user ?? null);
         
+        // Use setTimeout to defer Supabase calls and avoid deadlock
         if (session?.user) {
-          await checkAdminStatus(session.user.id);
+          setTimeout(() => {
+            if (isMounted) {
+              checkAdminStatus(session.user.id);
+            }
+          }, 0);
         } else {
           setIsAdmin(false);
         }
@@ -59,17 +64,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // THEN check for existing session
     const initSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!isMounted) return;
-      
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        await checkAdminStatus(session.user.id);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await checkAdminStatus(session.user.id);
+        }
+      } catch (error) {
+        console.error("Error initializing session:", error);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-      
-      setIsLoading(false);
     };
 
     initSession();
