@@ -158,12 +158,12 @@ const ProductDetail = () => {
             throw new Error(smmData.error);
           }
 
-          // Update order with SMM order ID
+          // Update order with SMM order ID in dedicated column
           await supabase
             .from("orders")
             .update({ 
               status: "processing",
-              zone_id: smmData.order ? `SMM#${smmData.order}` : zoneId 
+              smm_order_id: smmData.order ? String(smmData.order) : null 
             })
             .eq("id", orderData.id);
 
