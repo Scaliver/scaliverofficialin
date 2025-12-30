@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
+import whyChooseUsImage from "@/assets/why-choose-us.png";
 
 const banners = [
   {
@@ -8,18 +9,21 @@ const banners = [
     title: "MOBILE LEGENDS TOP UP",
     subtitle: "Get the best prices on diamonds and passes",
     gradient: "from-blue-600 via-blue-800 to-indigo-900",
+    image: null,
   },
   {
     id: 2,
     title: "INSTANT DELIVERY",
     subtitle: "Experience the fastest and most reliable way to top up",
     gradient: "from-cyan-600 via-blue-700 to-blue-900",
+    image: null,
   },
   {
     id: 3,
     title: "WHY CHOOSE US?",
-    subtitle: "Safe transactions • Best Prices • 24/7 Support",
+    subtitle: "",
     gradient: "from-indigo-600 via-blue-700 to-cyan-800",
+    image: whyChooseUsImage,
   },
 ];
 
@@ -46,29 +50,44 @@ const HeroBanner = () => {
               index === currentSlide ? "opacity-100 scale-100" : "opacity-0 scale-105"
             }`}
           >
-            <div className={`h-full w-full bg-gradient-to-br ${banner.gradient} relative`}>
-              {/* Animated Background Pattern */}
-              <div className="absolute inset-0 opacity-20">
-                <div className="absolute top-10 left-10 w-32 h-32 bg-primary/30 rounded-full blur-3xl animate-float" />
-                <div className="absolute bottom-10 right-10 w-40 h-40 bg-accent/30 rounded-full blur-3xl animate-float" style={{ animationDelay: "1s" }} />
-                <div className="absolute top-1/2 left-1/2 w-24 h-24 bg-primary/20 rounded-full blur-2xl animate-float" style={{ animationDelay: "0.5s" }} />
-              </div>
+            <div className={`h-full w-full ${banner.image ? '' : `bg-gradient-to-br ${banner.gradient}`} relative`}>
+              {/* Background Image for specific banners */}
+              {banner.image && (
+                <img 
+                  src={banner.image} 
+                  alt={banner.title}
+                  className="absolute inset-0 w-full h-full object-cover object-center"
+                />
+              )}
               
-              {/* Grid Pattern Overlay */}
-              <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:50px_50px]" />
+              {/* Animated Background Pattern - only show when no image */}
+              {!banner.image && (
+                <div className="absolute inset-0 opacity-20">
+                  <div className="absolute top-10 left-10 w-32 h-32 bg-primary/30 rounded-full blur-3xl animate-float" />
+                  <div className="absolute bottom-10 right-10 w-40 h-40 bg-accent/30 rounded-full blur-3xl animate-float" style={{ animationDelay: "1s" }} />
+                  <div className="absolute top-1/2 left-1/2 w-24 h-24 bg-primary/20 rounded-full blur-2xl animate-float" style={{ animationDelay: "0.5s" }} />
+                </div>
+              )}
               
-              {/* Content */}
-              <div className="container relative h-full flex flex-col justify-center items-center text-center">
-                <h2 className="font-display text-3xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 animate-fade-in">
-                  {banner.title}
-                </h2>
-                <p className="font-body text-lg md:text-xl text-foreground/80 max-w-2xl animate-fade-in" style={{ animationDelay: "0.2s" }}>
-                  {banner.subtitle}
-                </p>
-                <Button variant="gaming" size="lg" className="mt-8 animate-fade-in" style={{ animationDelay: "0.4s" }}>
-                  Shop Now
-                </Button>
-              </div>
+              {/* Grid Pattern Overlay - only show when no image */}
+              {!banner.image && (
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:50px_50px]" />
+              )}
+              
+              {/* Content - only show when no image */}
+              {!banner.image && (
+                <div className="container relative h-full flex flex-col justify-center items-center text-center">
+                  <h2 className="font-display text-3xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 animate-fade-in">
+                    {banner.title}
+                  </h2>
+                  <p className="font-body text-lg md:text-xl text-foreground/80 max-w-2xl animate-fade-in" style={{ animationDelay: "0.2s" }}>
+                    {banner.subtitle}
+                  </p>
+                  <Button variant="gaming" size="lg" className="mt-8 animate-fade-in" style={{ animationDelay: "0.4s" }}>
+                    Shop Now
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         ))}
