@@ -42,7 +42,7 @@ const HeroBanner = () => {
 
   return (
     <section className="relative overflow-hidden">
-      <div className="relative h-[180px] md:h-[240px] lg:h-[280px]">
+      <div className="relative h-[280px] md:h-[360px] lg:h-[420px]">
         {banners.map((banner, index) => (
           <div
             key={banner.id}
@@ -56,7 +56,7 @@ const HeroBanner = () => {
                 <img 
                   src={banner.image} 
                   alt={banner.title}
-                  className="absolute inset-0 w-full h-full object-contain object-center bg-gradient-to-br from-blue-900 to-indigo-900"
+                  className="absolute inset-0 w-full h-full object-cover object-top"
                 />
               )}
               
