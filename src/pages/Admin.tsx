@@ -114,6 +114,11 @@ const Admin = () => {
   const [debitDescription, setDebitDescription] = useState("");
   const [isDebitLoading, setIsDebitLoading] = useState(false);
 
+  // 2FA management state
+  const [twoFADialogOpen, setTwoFADialogOpen] = useState(false);
+  const [twoFAAction, setTwoFAAction] = useState<"enable" | "disable">("enable");
+  const [isTwoFALoading, setIsTwoFALoading] = useState(false);
+
   // Search and filter state for orders
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -733,6 +738,60 @@ const Admin = () => {
       });
     } finally {
       setIsDebitLoading(false);
+    }
+  };
+
+  // Open 2FA dialog
+  const openTwoFADialog = (user: UserProfile, action: "enable" | "disable") => {
+    setSelectedUser(user);
+    setTwoFAAction(action);
+    setTwoFADialogOpen(true);
+  };
+
+  // Handle 2FA toggle
+  const handleToggleTwoFA = async () => {
+    if (!selectedUser) return;
+    
+    setIsTwoFALoading(true);
+    
+    try {
+      const newStatus = twoFAAction === "enable";
+      
+      // Update phone_verified status in user_contacts
+      const { error } = await supabase
+        .from("user_contacts")
+        .update({ phone_verified: newStatus })
+        .eq("user_id", selectedUser.id);
+
+      if (error) throw error;
+
+      // Log the 2FA change action
+      logAction({
+        action: newStatus ? 'enable_2fa' : 'disable_2fa',
+        resourceType: 'user_contacts',
+        resourceId: selectedUser.id,
+        details: {
+          user_name: selectedUser.display_name,
+          new_status: newStatus ? "enabled" : "disabled"
+        }
+      });
+
+      toast({
+        title: `2FA ${newStatus ? "Enabled" : "Disabled"}`,
+        description: `Two-factor authentication ${newStatus ? "enabled" : "disabled"} for ${selectedUser.display_name || "User"}.`,
+      });
+
+      setTwoFADialogOpen(false);
+      fetchUsers(); // Refresh users to show updated status
+    } catch (error) {
+      console.error("Error updating 2FA status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update 2FA status. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTwoFALoading(false);
     }
   };
 
@@ -1561,6 +1620,7 @@ const Admin = () => {
                             <th className="text-left p-4 font-display text-sm text-foreground">Email Verified</th>
                             <th className="text-left p-4 font-display text-sm text-foreground">2FA Status</th>
                             <th className="text-left p-4 font-display text-sm text-foreground">Joined</th>
+                            <th className="text-left p-4 font-display text-sm text-foreground">2FA Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1604,6 +1664,33 @@ const Admin = () => {
                                 <td className="p-4">
                                   <p className="font-body text-foreground">{date}</p>
                                   <p className="font-body text-sm text-muted-foreground">{time}</p>
+                                </td>
+                                <td className="p-4">
+                                  {u.phone ? (
+                                    u.phone_verified ? (
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        onClick={() => openTwoFADialog(u, "disable")}
+                                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10 gap-1"
+                                      >
+                                        <ShieldAlert className="w-4 h-4" />
+                                        Disable 2FA
+                                      </Button>
+                                    ) : (
+                                      <Button 
+                                        size="sm" 
+                                        variant="default" 
+                                        onClick={() => openTwoFADialog(u, "enable")}
+                                        className="gap-1"
+                                      >
+                                        <ShieldCheck className="w-4 h-4" />
+                                        Enable 2FA
+                                      </Button>
+                                    )
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">No phone</span>
+                                  )}
                                 </td>
                               </tr>
                             );
@@ -1653,6 +1740,33 @@ const Admin = () => {
                               <p className="font-body text-foreground text-xs">{date}</p>
                             </div>
                           </div>
+
+                          {/* 2FA Action Button for Mobile */}
+                          {u.phone && (
+                            <div className="pt-2 border-t border-border">
+                              {u.phone_verified ? (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => openTwoFADialog(u, "disable")}
+                                  className="w-full text-red-400 hover:text-red-300 hover:bg-red-500/10 gap-1"
+                                >
+                                  <ShieldAlert className="w-4 h-4" />
+                                  Disable 2FA
+                                </Button>
+                              ) : (
+                                <Button 
+                                  size="sm" 
+                                  variant="default" 
+                                  onClick={() => openTwoFADialog(u, "enable")}
+                                  className="w-full gap-1"
+                                >
+                                  <ShieldCheck className="w-4 h-4" />
+                                  Enable 2FA
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1949,6 +2063,61 @@ const Admin = () => {
               variant="destructive"
             >
               {isDebitLoading ? "Processing..." : "Deduct Coins"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 2FA Toggle Dialog */}
+      <Dialog open={twoFADialogOpen} onOpenChange={setTwoFADialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl flex items-center gap-2">
+              {twoFAAction === "enable" ? (
+                <ShieldCheck className="w-5 h-5 text-green-500" />
+              ) : (
+                <ShieldAlert className="w-5 h-5 text-red-500" />
+              )}
+              {twoFAAction === "enable" ? "Enable 2FA" : "Disable 2FA"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <p className="text-muted-foreground">
+              {twoFAAction === "enable" ? (
+                <>
+                  Are you sure you want to <span className="text-green-400 font-semibold">enable</span> two-factor authentication for <span className="text-foreground font-semibold">{selectedUser?.display_name || "this user"}</span>?
+                  <br /><br />
+                  This will require them to verify their phone number on next login.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to <span className="text-red-400 font-semibold">disable</span> two-factor authentication for <span className="text-foreground font-semibold">{selectedUser?.display_name || "this user"}</span>?
+                  <br /><br />
+                  <span className="text-yellow-400">⚠️ Warning:</span> This will reduce the security of their account.
+                </>
+              )}
+            </p>
+            
+            {selectedUser?.phone && (
+              <div className="mt-4 p-3 bg-secondary/50 rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  Phone: <span className="text-foreground font-mono">{selectedUser.phone}</span>
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTwoFADialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleToggleTwoFA} 
+              disabled={isTwoFALoading}
+              variant={twoFAAction === "enable" ? "default" : "destructive"}
+            >
+              {isTwoFALoading ? "Processing..." : (twoFAAction === "enable" ? "Enable 2FA" : "Disable 2FA")}
             </Button>
           </DialogFooter>
         </DialogContent>
