@@ -6,7 +6,9 @@ type AuditAction =
   | 'view_user_contacts'
   | 'view_orders'
   | 'update_wallet'
-  | 'update_order_status';
+  | 'update_order_status'
+  | 'enable_2fa'
+  | 'disable_2fa';
 
 type ResourceType = 'users' | 'orders' | 'wallets' | 'user_contacts' | 'security';
 
