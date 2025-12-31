@@ -447,17 +447,19 @@ const Auth = () => {
           },
         });
 
-        if (response.error) {
-          throw new Error(response.error.message || "Failed to send OTP");
-        }
-
-        if (response.data?.error) {
+        // Handle error from edge function (could be in response.error or response.data.error)
+        const errorMessage = response.data?.error || response.error?.message;
+        if (errorMessage) {
           toast({
             title: "Signup Failed",
-            description: response.data.error,
+            description: errorMessage,
             variant: "destructive",
           });
-        } else {
+          setIsLoading(false);
+          return;
+        }
+        
+        if (response.data?.success) {
           setShowPhoneSignupOTP(true);
           setResendCooldown(60);
           toast({
