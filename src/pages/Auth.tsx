@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
-import { Eye, EyeOff, LogIn, UserPlus, ArrowLeft, Mail, CheckCircle, RefreshCw, Phone, Smartphone, Shield, Chrome } from "lucide-react";
+import { Eye, EyeOff, LogIn, UserPlus, ArrowLeft, Mail, CheckCircle, RefreshCw, Phone, Smartphone, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { Separator } from "@/components/ui/separator";
+
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -402,11 +402,21 @@ const Auth = () => {
             });
           }
         } else {
-          setShowVerificationMessage(true);
+          // Auto-confirm is enabled, so user is logged in automatically
+          // Prompt phone verification for 2FA setup
           toast({
-            title: "Verification Email Sent!",
-            description: "Please check your email to verify your account.",
+            title: "Account Created!",
+            description: "Now verify your phone to enable 2FA security.",
           });
+          
+          // Wait for auth state to update and then show phone verification
+          setTimeout(() => {
+            if (formData.phone) {
+              setShowPhoneVerification(true);
+            } else {
+              navigate("/");
+            }
+          }, 500);
         }
       } else if (authMode === "phone-signup") {
         // Phone signup - validate and send OTP
@@ -561,33 +571,6 @@ const Auth = () => {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/`,
-        },
-      });
-      
-      if (error) {
-        toast({
-          title: "Google Sign-in Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Google Sign-in Failed",
-        description: "An unexpected error occurred.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   if (authLoading) {
     return (
@@ -1050,30 +1033,8 @@ const Auth = () => {
               </button>
             </div>
 
-            {/* Google Sign-in Button */}
-            <div className="space-y-4">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={handleGoogleSignIn}
-                disabled={isLoading}
-              >
-                <Chrome className="w-4 h-4 mr-2" />
-                {authMode === "login" ? "Sign in with Google" : "Sign up with Google"}
-              </Button>
-              
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <Separator className="w-full" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">
-                    Or continue with {authMode === "login" ? "email" : authMode === "phone-signup" ? "phone" : "email"}
-                  </span>
-                </div>
-              </div>
-            </div>
+            {/* Separator before form */}
+            <div className="mb-4" />
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Email signup fields */}
