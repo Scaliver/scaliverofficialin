@@ -1,4 +1,3 @@
-import { forwardRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Wallet, ShoppingCart, Clock, PlusCircle } from "lucide-react";
 
@@ -9,11 +8,11 @@ const actions = [
   { icon: Clock, label: "History", path: "/history" },
 ];
 
-const QuickActions = forwardRef<HTMLDivElement>((_, ref) => {
+const QuickActions = () => {
   const navigate = useNavigate();
 
   return (
-    <div ref={ref} className="px-4 py-6">
+    <div className="px-4 py-6">
       <div className="grid grid-cols-4 gap-3 max-w-md mx-auto md:max-w-2xl">
         {actions.map((action) => (
           <button
@@ -32,8 +31,6 @@ const QuickActions = forwardRef<HTMLDivElement>((_, ref) => {
       </div>
     </div>
   );
-});
-
-QuickActions.displayName = "QuickActions";
+};
 
 export default QuickActions;
