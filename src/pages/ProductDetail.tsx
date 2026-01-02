@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Check, AlertCircle, Wallet, Loader2, CreditCard } from "lucide-react";
+import { ArrowLeft, Check, AlertCircle, Wallet, Loader2, CreditCard, Copy, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,10 @@ import TransactionReceipt from "@/components/TransactionReceipt";
 import InstagramCategorySelector, { InstagramCategory } from "@/components/InstagramCategorySelector";
 import FacebookCategorySelector, { FacebookCategory } from "@/components/FacebookCategorySelector";
 import TikTokCategorySelector, { TikTokCategory } from "@/components/TikTokCategorySelector";
+import upiQrImage from "@/assets/upi-qr.jpeg";
+
+const UPI_ID = "7637851804@pthdfc";
+const WHATSAPP_NUMBER = "917637851804";
 
 interface ReceiptData {
   orderId: string;
@@ -49,6 +53,9 @@ const ProductDetail = () => {
   const [zoneId, setZoneId] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [showUpiPayment, setShowUpiPayment] = useState(false);
+  const [utrNumber, setUtrNumber] = useState("");
+  const [copied, setCopied] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   // Get the active product based on category selection for Instagram, Facebook, or TikTok
@@ -243,25 +250,67 @@ const ProductDetail = () => {
     }
   };
 
+  const copyUpiId = () => {
+    navigator.clipboard.writeText(UPI_ID);
+    setCopied(true);
+    toast({
+      title: "Copied!",
+      description: "UPI ID copied to clipboard",
+    });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const validateUTR = (utr: string) => {
+    const cleanUtr = utr.replace(/\s/g, "");
+    return cleanUtr.length >= 12 && /^\d+$/.test(cleanUtr);
+  };
+
   const handleUPIPayment = () => {
     if (!validateForm() || !selectedTier) return;
+    setShowUpiPayment(true);
+  };
 
-    toast({
-      title: "UPI Payment",
-      description: "Please contact us to complete your UPI payment.",
-    });
-    
+  const handleSubmitUPIPayment = () => {
+    if (!selectedTier) return;
+
+    if (!utrNumber.trim()) {
+      toast({
+        title: "UTR Required",
+        description: "Please enter the UTR number from your payment",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!validateUTR(utrNumber)) {
+      toast({
+        title: "Invalid UTR",
+        description: "Please enter a valid UTR number (minimum 12 digits)",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const message = encodeURIComponent(
-      `🎮 *UPI Payment Request - Scaliver Official*\n\n` +
+      `🎮 *UPI ORDER - Scaliver Official*\n\n` +
       `📦 Product: ${product.name}\n` +
       `💎 Pack: ${selectedTier.amount}\n` +
       `💰 Price: ₹${selectedTier.price}\n` +
-      `🆔 Player ID: ${userId}\n` +
-      `${zoneId ? `🌐 Zone/Server: ${zoneId}\n` : ""}\n` +
-      `I want to pay via UPI.`
+      `🆔 ${product.isSocialMedia ? "Profile/Post URL" : "Player ID"}: ${userId}\n` +
+      `${zoneId ? `🌐 Zone/Server: ${zoneId}\n` : ""}` +
+      `🔢 UTR Number: ${utrNumber.trim()}\n\n` +
+      `Please verify payment and process order.`
     );
 
-    window.open(`https://wa.me/911234567890?text=${message}`, "_blank");
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank");
+
+    toast({
+      title: "Order Submitted",
+      description: "Your order details have been sent. Order will be processed after payment verification.",
+    });
+
+    setShowUpiPayment(false);
+    setUtrNumber("");
   };
 
   const canPayWithWallet = user && wallet && selectedTier && balance >= selectedTier.price;
@@ -494,41 +543,121 @@ const ProductDetail = () => {
                 </div>
               )}
 
+              {/* UPI Payment Section */}
+              {showUpiPayment && selectedTier && (
+                <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+                  <h3 className="font-display text-lg font-bold text-foreground text-center">
+                    Scan & Pay ₹{selectedTier.price}
+                  </h3>
+                  
+                  {/* QR Code */}
+                  <div className="flex justify-center">
+                    <div className="bg-white p-4 rounded-xl">
+                      <img 
+                        src={upiQrImage} 
+                        alt="UPI QR Code" 
+                        className="w-48 h-48 object-contain"
+                      />
+                    </div>
+                  </div>
+
+                  {/* UPI ID */}
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-sm text-muted-foreground">UPI ID:</span>
+                    <code className="bg-secondary px-3 py-1 rounded text-sm font-mono">{UPI_ID}</code>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={copyUpiId}
+                      className="p-2 h-auto"
+                    >
+                      {copied ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+
+                  <p className="text-center text-sm text-muted-foreground">
+                    Scan with any UPI app (GPay, PhonePe, Paytm, etc.)
+                  </p>
+
+                  {/* UTR Input */}
+                  <div className="space-y-2 pt-4 border-t border-border">
+                    <Label htmlFor="utrNumber" className="font-medium">
+                      Enter UTR Number *
+                    </Label>
+                    <Input
+                      id="utrNumber"
+                      placeholder="Enter 12-digit UTR from payment confirmation"
+                      value={utrNumber}
+                      onChange={(e) => setUtrNumber(e.target.value)}
+                      className="text-center font-mono tracking-wider"
+                      maxLength={22}
+                    />
+                    <p className="text-xs text-muted-foreground text-center">
+                      You'll find UTR/Reference number in your payment confirmation
+                    </p>
+                  </div>
+
+                  {/* Submit Button */}
+                  <Button
+                    onClick={handleSubmitUPIPayment}
+                    disabled={!utrNumber.trim()}
+                    className="w-full bg-gradient-to-r from-primary to-red-600 hover:from-primary/90 hover:to-red-600/90"
+                    size="lg"
+                  >
+                    Submit Payment
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowUpiPayment(false)}
+                    className="w-full"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+
               {/* Payment Buttons */}
-              <div className="space-y-3">
-                {user && (
+              {!showUpiPayment && (
+                <div className="space-y-3">
+                  {user && (
+                    <Button 
+                      variant="gaming" 
+                      size="lg" 
+                      className="w-full text-lg py-6"
+                      onClick={handleWalletPayment}
+                      disabled={!canPayWithWallet || isProcessing}
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Wallet className="w-5 h-5 mr-2" />
+                          Pay with Coins {selectedTier ? `(₹${selectedTier.price})` : ""}
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  
                   <Button 
-                    variant="gaming" 
+                    variant={user ? "outline" : "gaming"} 
                     size="lg" 
                     className="w-full text-lg py-6"
-                    onClick={handleWalletPayment}
-                    disabled={!canPayWithWallet || isProcessing}
+                    onClick={handleUPIPayment}
+                    disabled={isProcessing}
                   >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Wallet className="w-5 h-5 mr-2" />
-                        Pay with Coins {selectedTier ? `(₹${selectedTier.price})` : ""}
-                      </>
-                    )}
+                    <CreditCard className="w-5 h-5 mr-2" />
+                    Pay with UPI
                   </Button>
-                )}
-                
-                <Button 
-                  variant={user ? "outline" : "gaming"} 
-                  size="lg" 
-                  className="w-full text-lg py-6"
-                  onClick={handleUPIPayment}
-                  disabled={isProcessing}
-                >
-                  <CreditCard className="w-5 h-5 mr-2" />
-                  Pay with UPI
-                </Button>
-              </div>
+                </div>
+              )}
 
               {!user && (
                 <p className="text-center font-body text-sm text-muted-foreground">
