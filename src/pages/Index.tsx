@@ -17,13 +17,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 const Index = () => {
   const [showAlert, setShowAlert] = useState(false);
+  const [dontShowAgain, setDontShowAgain] = useState(false);
 
   useEffect(() => {
-    setShowAlert(true);
+    const hideAlert = localStorage.getItem("hideGamesApiAlert");
+    if (!hideAlert) {
+      setShowAlert(true);
+    }
   }, []);
+
+  const handleClose = () => {
+    if (dontShowAgain) {
+      localStorage.setItem("hideGamesApiAlert", "true");
+    }
+    setShowAlert(false);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -36,8 +49,18 @@ const Index = () => {
               Kindly please order only <strong>Social Media services</strong> as the Games API has not been integrated yet. Thank you for your understanding!
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="flex items-center space-x-2 py-2">
+            <Checkbox 
+              id="dontShowAgain" 
+              checked={dontShowAgain}
+              onCheckedChange={(checked) => setDontShowAgain(checked === true)}
+            />
+            <Label htmlFor="dontShowAgain" className="text-sm cursor-pointer">
+              Don't show this again
+            </Label>
+          </div>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setShowAlert(false)}>
+            <AlertDialogAction onClick={handleClose}>
               I Understand
             </AlertDialogAction>
           </AlertDialogFooter>
