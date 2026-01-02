@@ -8,6 +8,8 @@ import instagramService from "@/assets/instagram-hero.jpg";
 import youtubeService from "@/assets/youtube-hero.jpg";
 import hokTokens from "@/assets/hok-hero.jpg";
 import bgmiUc from "@/assets/bgmi-hero.webp";
+import facebookLogo from "@/assets/facebook-logo.jpeg";
+import tiktokLogo from "@/assets/tiktok-logo.jpeg";
 
 export interface PricingTier {
   id: string;
@@ -335,7 +337,7 @@ export const facebookProducts: Product[] = [
   {
     id: "facebook",
     name: "FACEBOOK SERVICE",
-    image: youtubeService, // Placeholder - user can provide Facebook hero image
+    image: facebookLogo,
     inStock: true,
     category: "Social Media",
     description: "Boost your Facebook presence with followers, likes, views, watch time, and reactions.",
@@ -447,7 +449,7 @@ export const tiktokProducts: Product[] = [
   {
     id: "tiktok",
     name: "TIKTOK SERVICE",
-    image: youtubeService, // Placeholder - user can provide TikTok hero image
+    image: tiktokLogo,
     inStock: true,
     category: "Social Media",
     description: "Boost your TikTok presence with followers, likes, and views.",
@@ -458,19 +460,23 @@ export const tiktokProducts: Product[] = [
   {
     id: "tiktok-followers",
     name: "TikTok Followers",
-    image: youtubeService,
+    image: tiktokLogo,
     inStock: true,
     category: "Social Media",
     description: "Grow your TikTok followers.",
     isSocialMedia: true,
     tiktokSubCategory: "followers",
-    pricingTiers: [], // User will add pricing and service ID later
+    pricingTiers: [
+      { id: "tt-f-1", amount: "150 Followers", price: 18.7, smmServiceId: "1286", quantity: 150 },
+      { id: "tt-f-2", amount: "1000 Followers", price: 150, smmServiceId: "1286", quantity: 1000 },
+      { id: "tt-f-3", amount: "5000 Followers", price: 680, smmServiceId: "1286", quantity: 5000 },
+    ],
     instructions: ["Enter your TikTok username", "Make sure your account is public", "Select the follower pack", "Complete payment", "Followers will be delivered within 24-48 hours"],
   },
   {
     id: "tiktok-likes",
     name: "TikTok Likes",
-    image: youtubeService,
+    image: tiktokLogo,
     inStock: true,
     category: "Social Media",
     description: "Get more likes on your TikTok videos.",
@@ -482,13 +488,16 @@ export const tiktokProducts: Product[] = [
   {
     id: "tiktok-views",
     name: "TikTok Views",
-    image: youtubeService,
+    image: tiktokLogo,
     inStock: true,
     category: "Social Media",
     description: "Boost views on your TikTok videos.",
     isSocialMedia: true,
     tiktokSubCategory: "views",
-    pricingTiers: [], // User will add pricing and service ID later
+    pricingTiers: [
+      { id: "tt-v-1", amount: "5000 Views", price: 30, smmServiceId: "1367", quantity: 5000 },
+      { id: "tt-v-2", amount: "10000 Views", price: 45, smmServiceId: "1367", quantity: 10000 },
+    ],
     instructions: ["Enter your TikTok video URL", "Select the views pack", "Complete payment", "Views will be delivered within 1-24 hours"],
   },
 ];
