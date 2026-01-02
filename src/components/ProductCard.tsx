@@ -28,8 +28,8 @@ const ProductCard = ({ name, image, inStock = true, onClick }: ProductCardProps)
       </div>
 
       {/* Content */}
-      <div className="relative p-4 bg-gradient-to-r from-primary to-accent">
-        <h3 className="font-display text-sm md:text-base font-bold text-primary-foreground text-center uppercase tracking-wide truncate">
+      <div className="relative p-2 bg-gradient-to-r from-primary to-accent">
+        <h3 className="font-display text-xs md:text-sm font-bold text-primary-foreground text-center uppercase tracking-wide truncate">
           {name}
         </h3>
       </div>
