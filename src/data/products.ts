@@ -20,6 +20,7 @@ export interface PricingTier {
 
 export type InstagramSubCategory = "followers" | "likes" | "views" | "comments" | "saves";
 export type FacebookSubCategory = "profile-followers" | "page-followers" | "likes" | "views" | "watch-time" | "reactions";
+export type TikTokSubCategory = "followers" | "likes" | "views";
 
 export interface Product {
   id: string;
@@ -33,6 +34,7 @@ export interface Product {
   isSocialMedia?: boolean; // Flag for social media products that use SMM API
   instagramSubCategory?: InstagramSubCategory; // Subcategory for Instagram products
   facebookSubCategory?: FacebookSubCategory; // Subcategory for Facebook products
+  tiktokSubCategory?: TikTokSubCategory; // Subcategory for TikTok products
 }
 
 export const mobileLegendsProducts: Product[] = [
@@ -440,12 +442,63 @@ export const facebookProducts: Product[] = [
   },
 ];
 
-// Combine social media products with Facebook products
-const allSocialMediaProducts = [...socialMediaProducts, ...facebookProducts];
+// TikTok products - main display product and sub-products
+export const tiktokProducts: Product[] = [
+  {
+    id: "tiktok",
+    name: "TIKTOK SERVICE",
+    image: youtubeService, // Placeholder - user can provide TikTok hero image
+    inStock: true,
+    category: "Social Media",
+    description: "Boost your TikTok presence with followers, likes, and views.",
+    isSocialMedia: true,
+    pricingTiers: [], // Tiers are in sub-products
+    instructions: ["Enter your TikTok profile/video URL", "Make sure your account is public", "Select the service", "Complete payment", "Service will be delivered within 24-48 hours"],
+  },
+  {
+    id: "tiktok-followers",
+    name: "TikTok Followers",
+    image: youtubeService,
+    inStock: true,
+    category: "Social Media",
+    description: "Grow your TikTok followers.",
+    isSocialMedia: true,
+    tiktokSubCategory: "followers",
+    pricingTiers: [], // User will add pricing and service ID later
+    instructions: ["Enter your TikTok username", "Make sure your account is public", "Select the follower pack", "Complete payment", "Followers will be delivered within 24-48 hours"],
+  },
+  {
+    id: "tiktok-likes",
+    name: "TikTok Likes",
+    image: youtubeService,
+    inStock: true,
+    category: "Social Media",
+    description: "Get more likes on your TikTok videos.",
+    isSocialMedia: true,
+    tiktokSubCategory: "likes",
+    pricingTiers: [], // User will add pricing and service ID later
+    instructions: ["Enter your TikTok video URL", "Select the likes pack", "Complete payment", "Likes will be delivered within 1-24 hours"],
+  },
+  {
+    id: "tiktok-views",
+    name: "TikTok Views",
+    image: youtubeService,
+    inStock: true,
+    category: "Social Media",
+    description: "Boost views on your TikTok videos.",
+    isSocialMedia: true,
+    tiktokSubCategory: "views",
+    pricingTiers: [], // User will add pricing and service ID later
+    instructions: ["Enter your TikTok video URL", "Select the views pack", "Complete payment", "Views will be delivered within 1-24 hours"],
+  },
+];
+
+// Combine social media products with Facebook and TikTok products
+const allSocialMediaProducts = [...socialMediaProducts, ...facebookProducts, ...tiktokProducts];
 
 // Filtered social media products for homepage display (excludes individual sub-products)
 export const socialMediaDisplayProducts: Product[] = allSocialMediaProducts.filter(
-  p => !p.instagramSubCategory && !p.facebookSubCategory
+  p => !p.instagramSubCategory && !p.facebookSubCategory && !p.tiktokSubCategory
 );
 
 // Helper function to get Instagram products by subcategory
@@ -456,6 +509,11 @@ export const getInstagramProductsByCategory = (subCategory: InstagramSubCategory
 // Helper function to get Facebook products by subcategory
 export const getFacebookProductsByCategory = (subCategory: FacebookSubCategory): Product | undefined => {
   return facebookProducts.find(p => p.facebookSubCategory === subCategory);
+};
+
+// Helper function to get TikTok products by subcategory
+export const getTikTokProductsByCategory = (subCategory: TikTokSubCategory): Product | undefined => {
+  return tiktokProducts.find(p => p.tiktokSubCategory === subCategory);
 };
 
 // Helper function to get all products
