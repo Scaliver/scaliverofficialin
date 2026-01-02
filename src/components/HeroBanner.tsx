@@ -2,21 +2,23 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import whyChooseUsImage from "@/assets/why-choose-us.png";
+import banner1Image from "@/assets/banner-1.jpeg";
+import banner2Image from "@/assets/banner-2.jpeg";
 
 const banners = [
   {
     id: 1,
-    title: "MOBILE LEGENDS TOP UP",
-    subtitle: "Get the best prices on diamonds and passes",
-    gradient: "from-blue-600 via-blue-800 to-indigo-900",
-    image: null,
+    title: "SCALIVER OFFICIAL",
+    subtitle: "",
+    gradient: "",
+    image: banner1Image,
   },
   {
     id: 2,
-    title: "INSTANT DELIVERY",
-    subtitle: "Experience the fastest and most reliable way to top up",
-    gradient: "from-cyan-600 via-blue-700 to-blue-900",
-    image: null,
+    title: "SCALIVER MLBB RECHARGE",
+    subtitle: "",
+    gradient: "",
+    image: banner2Image,
   },
   {
     id: 3,
@@ -42,7 +44,7 @@ const HeroBanner = () => {
 
   return (
     <section className="relative overflow-hidden">
-      <div className="relative h-[200px] md:h-[280px] lg:h-[320px]">
+      <div className="relative h-[220px] md:h-[320px] lg:h-[400px]">
         {banners.map((banner, index) => (
           <div
             key={banner.id}
@@ -56,7 +58,7 @@ const HeroBanner = () => {
                 <img 
                   src={banner.image} 
                   alt={banner.title}
-                  className="absolute inset-0 w-full h-full object-cover object-center"
+                  className="absolute inset-0 w-full h-full object-contain bg-black"
                 />
               )}
               
