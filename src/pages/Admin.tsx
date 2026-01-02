@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search, ShieldCheck, ShieldAlert, Mail, Phone, Lock, FileText } from "lucide-react";
+import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search, ShieldCheck, ShieldAlert, Mail, Phone, Lock, FileText, Megaphone, Power } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { Label } from "@/components/ui/label";
 import {
@@ -84,6 +86,16 @@ interface CoinTransaction {
   user_phone?: string;
 }
 
+interface SiteAlert {
+  id: string;
+  title: string;
+  message: string;
+  is_active: boolean;
+  alert_type: string;
+  created_at: string;
+  updated_at: string;
+}
+
 const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -94,7 +106,7 @@ const Admin = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history" | "security" | "audit">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history" | "security" | "audit" | "alerts">("orders");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userOrdersDialogOpen, setUserOrdersDialogOpen] = useState(false);
@@ -123,6 +135,14 @@ const Admin = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [productFilter, setProductFilter] = useState<string>("all");
+
+  // Site Alert state
+  const [siteAlert, setSiteAlert] = useState<SiteAlert | null>(null);
+  const [alertTitle, setAlertTitle] = useState("Important Notice");
+  const [alertMessage, setAlertMessage] = useState("");
+  const [alertType, setAlertType] = useState("info");
+  const [isAlertActive, setIsAlertActive] = useState(false);
+  const [isAlertLoading, setIsAlertLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Sync order statuses with SMM API
@@ -206,6 +226,7 @@ const Admin = () => {
       fetchUsers();
       fetchTransactions();
       fetchAuditLogs();
+      fetchSiteAlert();
       
       // Log initial admin view (only once)
       if (!hasLoggedInitialView.current) {
@@ -468,6 +489,122 @@ const Admin = () => {
       setAuditLogs(logsWithAdminNames);
     } catch (error) {
       console.error("Error fetching audit logs:", error);
+    }
+  };
+
+  const fetchSiteAlert = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('site_alerts' as any)
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        const alertData = data as unknown as SiteAlert;
+        setSiteAlert(alertData);
+        setAlertTitle(alertData.title);
+        setAlertMessage(alertData.message);
+        setAlertType(alertData.alert_type);
+        setIsAlertActive(alertData.is_active);
+      }
+    } catch (error) {
+      console.error("Error fetching site alert:", error);
+    }
+  };
+
+  const saveSiteAlert = async () => {
+    if (!alertMessage.trim()) {
+      toast({
+        title: "Message Required",
+        description: "Please enter an alert message.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAlertLoading(true);
+
+    try {
+      if (siteAlert) {
+        // Update existing alert
+        const { error } = await supabase
+          .from('site_alerts' as any)
+          .update({
+            title: alertTitle,
+            message: alertMessage,
+            alert_type: alertType,
+            is_active: isAlertActive,
+          } as any)
+          .eq('id', siteAlert.id);
+
+        if (error) throw error;
+      } else {
+        // Create new alert
+        const { error } = await supabase
+          .from('site_alerts' as any)
+          .insert({
+            title: alertTitle,
+            message: alertMessage,
+            alert_type: alertType,
+            is_active: isAlertActive,
+          } as any);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Alert Saved",
+        description: `Site alert has been ${siteAlert ? "updated" : "created"} successfully.`,
+      });
+
+      fetchSiteAlert();
+    } catch (error) {
+      console.error("Error saving site alert:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save the alert. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAlertLoading(false);
+    }
+  };
+
+  const toggleAlertStatus = async () => {
+    if (!siteAlert) return;
+
+    setIsAlertLoading(true);
+
+    try {
+      const newStatus = !isAlertActive;
+      
+      const { error } = await supabase
+        .from('site_alerts' as any)
+        .update({ is_active: newStatus } as any)
+        .eq('id', siteAlert.id);
+
+      if (error) throw error;
+
+      setIsAlertActive(newStatus);
+      toast({
+        title: `Alert ${newStatus ? "Enabled" : "Disabled"}`,
+        description: `Site alert is now ${newStatus ? "visible" : "hidden"} to users.`,
+      });
+
+      fetchSiteAlert();
+    } catch (error) {
+      console.error("Error toggling alert status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update alert status.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAlertLoading(false);
     }
   };
 
@@ -944,6 +1081,20 @@ const Admin = () => {
             >
               <FileText className="w-4 h-4" />
               Audit Logs
+            </button>
+            <button
+              onClick={() => setActiveTab("alerts")}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap relative ${
+                activeTab === "alerts"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Megaphone className="w-4 h-4" />
+              Alerts
+              {isAlertActive && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full"></span>
+              )}
             </button>
           </div>
 
@@ -1891,6 +2042,139 @@ const Admin = () => {
                     })}
                   </div>
                 </>
+              )}
+            </div>
+          )}
+
+          {/* Alerts Tab */}
+          {activeTab === "alerts" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-lg font-bold text-foreground flex items-center gap-2">
+                  <Megaphone className="w-5 h-5 text-primary" />
+                  Site Alert Management
+                </h2>
+                {siteAlert && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-muted-foreground">
+                      Alert Status:
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={isAlertActive}
+                        onCheckedChange={() => toggleAlertStatus()}
+                        disabled={isAlertLoading}
+                      />
+                      <Badge className={isAlertActive 
+                        ? "bg-green-500/20 text-green-400 border-green-500/30" 
+                        : "bg-muted text-muted-foreground"
+                      }>
+                        {isAlertActive ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                Create and manage site-wide alert messages that appear on the homepage.
+              </p>
+
+              <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="alert-title">Alert Title</Label>
+                  <Input
+                    id="alert-title"
+                    placeholder="e.g., Important Notice"
+                    value={alertTitle}
+                    onChange={(e) => setAlertTitle(e.target.value)}
+                    className="bg-secondary border-border"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="alert-message">Alert Message</Label>
+                  <Textarea
+                    id="alert-message"
+                    placeholder="Enter the message you want to display to users..."
+                    value={alertMessage}
+                    onChange={(e) => setAlertMessage(e.target.value)}
+                    className="bg-secondary border-border min-h-[100px]"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Alert Type</Label>
+                  <Select value={alertType} onValueChange={setAlertType}>
+                    <SelectTrigger className="w-full sm:w-[200px] bg-secondary border-border">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="info">ℹ️ Info</SelectItem>
+                      <SelectItem value="warning">⚠️ Warning</SelectItem>
+                      <SelectItem value="success">✅ Success</SelectItem>
+                      <SelectItem value="error">❌ Error</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <Switch
+                    id="alert-active"
+                    checked={isAlertActive}
+                    onCheckedChange={setIsAlertActive}
+                  />
+                  <Label htmlFor="alert-active" className="cursor-pointer">
+                    Enable alert immediately after saving
+                  </Label>
+                </div>
+
+                <div className="pt-4">
+                  <Button 
+                    onClick={saveSiteAlert} 
+                    disabled={isAlertLoading || !alertMessage.trim()}
+                    className="w-full sm:w-auto"
+                  >
+                    {isAlertLoading ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        {siteAlert ? "Update Alert" : "Create Alert"}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Preview Section */}
+              {alertMessage && (
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Preview</Label>
+                  <div className={`rounded-xl border p-4 ${
+                    alertType === "warning" ? "bg-yellow-500/10 border-yellow-500/30" :
+                    alertType === "success" ? "bg-green-500/10 border-green-500/30" :
+                    alertType === "error" ? "bg-red-500/10 border-red-500/30" :
+                    "bg-blue-500/10 border-blue-500/30"
+                  }`}>
+                    <h4 className={`font-display font-bold mb-1 ${
+                      alertType === "warning" ? "text-yellow-400" :
+                      alertType === "success" ? "text-green-400" :
+                      alertType === "error" ? "text-red-400" :
+                      "text-blue-400"
+                    }`}>
+                      {alertType === "warning" && "⚠️ "}
+                      {alertType === "success" && "✅ "}
+                      {alertType === "error" && "❌ "}
+                      {alertType === "info" && "ℹ️ "}
+                      {alertTitle}
+                    </h4>
+                    <p className="text-foreground text-sm">{alertMessage}</p>
+                  </div>
+                </div>
               )}
             </div>
           )}
