@@ -19,6 +19,7 @@ export interface PricingTier {
 }
 
 export type InstagramSubCategory = "followers" | "likes" | "views" | "comments" | "saves";
+export type FacebookSubCategory = "profile-followers" | "page-followers" | "likes" | "views" | "watch-time" | "reactions";
 
 export interface Product {
   id: string;
@@ -31,6 +32,7 @@ export interface Product {
   instructions?: string[];
   isSocialMedia?: boolean; // Flag for social media products that use SMM API
   instagramSubCategory?: InstagramSubCategory; // Subcategory for Instagram products
+  facebookSubCategory?: FacebookSubCategory; // Subcategory for Facebook products
 }
 
 export const mobileLegendsProducts: Product[] = [
@@ -326,9 +328,99 @@ export const socialMediaProducts: Product[] = [
   },
 ];
 
-// Filtered social media products for homepage display (excludes individual Instagram sub-products)
-export const socialMediaDisplayProducts: Product[] = socialMediaProducts.filter(
-  p => !p.instagramSubCategory
+// Facebook products - main display product and sub-products
+export const facebookProducts: Product[] = [
+  {
+    id: "facebook",
+    name: "FACEBOOK SERVICE",
+    image: youtubeService, // Placeholder - user can provide Facebook hero image
+    inStock: true,
+    category: "Social Media",
+    description: "Boost your Facebook presence with followers, likes, views, watch time, and reactions.",
+    isSocialMedia: true,
+    pricingTiers: [], // Tiers are in sub-products
+    instructions: ["Enter your Facebook profile/page URL or post URL", "Make sure your account/page is public", "Select the service", "Complete payment", "Service will be delivered within 24-48 hours"],
+  },
+  {
+    id: "facebook-profile-followers",
+    name: "Facebook Profile Followers",
+    image: youtubeService,
+    inStock: true,
+    category: "Social Media",
+    description: "Grow your Facebook profile followers.",
+    isSocialMedia: true,
+    facebookSubCategory: "profile-followers",
+    pricingTiers: [], // User will add pricing later
+    instructions: ["Enter your Facebook profile URL", "Make sure your profile is public", "Select the follower pack", "Complete payment", "Followers will be delivered within 24-48 hours"],
+  },
+  {
+    id: "facebook-page-followers",
+    name: "Facebook Page Followers",
+    image: youtubeService,
+    inStock: true,
+    category: "Social Media",
+    description: "Grow your Facebook page followers.",
+    isSocialMedia: true,
+    facebookSubCategory: "page-followers",
+    pricingTiers: [], // User will add pricing later
+    instructions: ["Enter your Facebook page URL", "Make sure your page is public", "Select the follower pack", "Complete payment", "Followers will be delivered within 24-48 hours"],
+  },
+  {
+    id: "facebook-likes",
+    name: "Facebook Likes",
+    image: youtubeService,
+    inStock: true,
+    category: "Social Media",
+    description: "Get more likes on your Facebook posts.",
+    isSocialMedia: true,
+    facebookSubCategory: "likes",
+    pricingTiers: [], // User will add pricing later
+    instructions: ["Enter your Facebook post URL", "Make sure your post is public", "Select the likes pack", "Complete payment", "Likes will be delivered within 1-24 hours"],
+  },
+  {
+    id: "facebook-views",
+    name: "Facebook Views",
+    image: youtubeService,
+    inStock: true,
+    category: "Social Media",
+    description: "Boost views on your Facebook videos.",
+    isSocialMedia: true,
+    facebookSubCategory: "views",
+    pricingTiers: [], // User will add pricing later
+    instructions: ["Enter your Facebook video URL", "Select the views pack", "Complete payment", "Views will be delivered within 1-24 hours"],
+  },
+  {
+    id: "facebook-watch-time",
+    name: "Facebook Watch Time",
+    image: youtubeService,
+    inStock: true,
+    category: "Social Media",
+    description: "Increase watch time on your Facebook videos.",
+    isSocialMedia: true,
+    facebookSubCategory: "watch-time",
+    pricingTiers: [], // User will add pricing later
+    instructions: ["Enter your Facebook video URL", "Select the watch time pack", "Complete payment", "Watch time will be delivered within 24-72 hours"],
+  },
+  {
+    id: "facebook-reactions",
+    name: "Facebook Reactions",
+    image: youtubeService,
+    inStock: true,
+    category: "Social Media",
+    description: "Get reactions on your Facebook posts.",
+    isSocialMedia: true,
+    facebookSubCategory: "reactions",
+    pricingTiers: [], // User will add pricing later
+    instructions: ["Enter your Facebook post URL", "Make sure your post is public", "Select the reactions pack", "Complete payment", "Reactions will be delivered within 1-24 hours"],
+  },
+];
+
+// Combine social media products with Facebook products
+const allSocialMediaProducts = [...socialMediaProducts, ...facebookProducts];
+
+// Filtered social media products for homepage display (excludes individual sub-products)
+export const socialMediaDisplayProducts: Product[] = allSocialMediaProducts.filter(
+  p => !p.instagramSubCategory && !p.facebookSubCategory
 );
 
 // Helper function to get Instagram products by subcategory
@@ -336,9 +428,14 @@ export const getInstagramProductsByCategory = (subCategory: InstagramSubCategory
   return socialMediaProducts.find(p => p.instagramSubCategory === subCategory);
 };
 
+// Helper function to get Facebook products by subcategory
+export const getFacebookProductsByCategory = (subCategory: FacebookSubCategory): Product | undefined => {
+  return facebookProducts.find(p => p.facebookSubCategory === subCategory);
+};
+
 // Helper function to get all products
 export const getAllProducts = (): Product[] => {
-  return [...mobileLegendsProducts, ...mobileGamesProducts, ...socialMediaProducts];
+  return [...mobileLegendsProducts, ...mobileGamesProducts, ...allSocialMediaProducts];
 };
 
 // Helper function to find product by ID
