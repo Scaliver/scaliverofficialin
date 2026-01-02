@@ -11,10 +11,10 @@ const ProductCard = ({ name, image, inStock = true, onClick }: ProductCardProps)
   return (
     <div
       onClick={onClick}
-      className="group relative overflow-hidden rounded-xl bg-card border border-border/50 cursor-pointer card-hover"
+      className="group relative overflow-hidden rounded-xl bg-card border border-border/50 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-primary/20"
     >
       {/* Image Container */}
-      <div className="relative aspect-[4/3] overflow-hidden">
+      <div className="relative aspect-[3/4] overflow-hidden">
         <img
           src={image}
           alt={name}
@@ -28,8 +28,8 @@ const ProductCard = ({ name, image, inStock = true, onClick }: ProductCardProps)
       </div>
 
       {/* Content */}
-      <div className="relative p-2 bg-gradient-to-r from-primary to-accent">
-        <h3 className="font-display text-xs md:text-sm font-bold text-primary-foreground text-center uppercase tracking-wide truncate">
+      <div className="relative py-1.5 px-2 bg-gradient-to-r from-primary to-accent">
+        <h3 className="font-display text-[10px] md:text-xs font-bold text-primary-foreground text-center uppercase tracking-wide truncate">
           {name}
         </h3>
       </div>
