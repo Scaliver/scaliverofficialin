@@ -350,7 +350,14 @@ export const facebookProducts: Product[] = [
     description: "Grow your Facebook profile followers.",
     isSocialMedia: true,
     facebookSubCategory: "profile-followers",
-    pricingTiers: [], // User will add pricing later
+    pricingTiers: [
+      { id: "fb-pf-1", amount: "125 Followers", price: 5.6, smmServiceId: "1554", quantity: 125 },
+      { id: "fb-pf-2", amount: "250 Followers", price: 11.2, smmServiceId: "1554", quantity: 250 },
+      { id: "fb-pf-3", amount: "1000 Followers", price: 45, smmServiceId: "1554", quantity: 1000 },
+      { id: "fb-pf-4", amount: "2000 Followers", price: 80, smmServiceId: "1554", quantity: 2000 },
+      { id: "fb-pf-5", amount: "4000 Followers", price: 140, smmServiceId: "1554", quantity: 4000 },
+      { id: "fb-pf-6", amount: "6000 Followers", price: 210, smmServiceId: "1554", quantity: 6000 },
+    ],
     instructions: ["Enter your Facebook profile URL", "Make sure your profile is public", "Select the follower pack", "Complete payment", "Followers will be delivered within 24-48 hours"],
   },
   {
