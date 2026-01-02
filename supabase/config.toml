@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.sms-otp]
 verify_jwt = false
+
+[functions.send-payment-notification]
+verify_jwt = false
