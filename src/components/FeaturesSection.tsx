@@ -33,12 +33,8 @@ const FeaturesSection = () => {
       <div className="container relative">
         {/* Section Header */}
         <div className="text-center mb-12">
-          <span className="font-display text-sm text-primary tracking-widest uppercase">
-            # Step into the World of Esports & Gaming
-          </span>
-          <h2 className="font-display text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mt-4">
-            Building Heroes in the{" "}
-            <span className="text-gradient">Gaming Universe</span>
+          <h2 className="font-display text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">
+            Why Choose <span className="text-gradient">Us</span>
           </h2>
         </div>
 
