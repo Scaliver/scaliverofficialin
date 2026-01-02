@@ -391,28 +391,24 @@ const Admin = () => {
 
       if (error) throw error;
 
-      const ordersWithProfiles = await Promise.all(
-        (ordersData || []).map(async (order) => {
-          const [profileResult, contactResult] = await Promise.all([
-            supabase
-              .from("profiles")
-              .select("display_name")
-              .eq("id", order.user_id)
-              .maybeSingle(),
-            supabase
-              .from("user_contacts")
-              .select("phone")
-              .eq("user_id", order.user_id)
-              .maybeSingle()
-          ]);
-          
-          return {
-            ...order,
-            profiles: profileResult.data,
-            user_phone: contactResult.data?.phone,
-          };
-        })
-      );
+      // Get unique user IDs
+      const userIds = [...new Set((ordersData || []).map(o => o.user_id))];
+      
+      // Batch fetch profiles and contacts for all users
+      const [profilesResult, contactsResult] = await Promise.all([
+        supabase.from("profiles").select("id, display_name").in("id", userIds),
+        supabase.from("user_contacts").select("user_id, phone").in("user_id", userIds)
+      ]);
+
+      // Create lookup maps
+      const profilesMap = new Map((profilesResult.data || []).map(p => [p.id, p]));
+      const contactsMap = new Map((contactsResult.data || []).map(c => [c.user_id, c]));
+
+      const ordersWithProfiles = (ordersData || []).map(order => ({
+        ...order,
+        profiles: profilesMap.get(order.user_id) || null,
+        user_phone: contactsMap.get(order.user_id)?.phone || null,
+      }));
 
       setOrders(ordersWithProfiles);
     } catch (error) {
@@ -431,48 +427,51 @@ const Admin = () => {
 
       if (error) throw error;
 
-      const usersWithData = await Promise.all(
-        (profilesData || []).map(async (profile) => {
-          const [rolesResult, ordersResult, walletResult, contactResult] = await Promise.all([
-            supabase
-              .from("user_roles")
-              .select("role")
-              .eq("user_id", profile.id),
-            supabase
-              .from("orders")
-              .select("*")
-              .eq("user_id", profile.id)
-              .order("created_at", { ascending: false }),
-            supabase
-              .from("wallets")
-              .select("id, balance")
-              .eq("user_id", profile.id)
-              .maybeSingle(),
-            supabase
-              .from("user_contacts")
-              .select("phone, phone_verified")
-              .eq("user_id", profile.id)
-              .maybeSingle()
-          ]);
-          
-          const userPhone = contactResult.data?.phone || null;
-          const phoneVerified = contactResult.data?.phone_verified || false;
-          
-          return {
-            ...profile,
-            phone: userPhone,
-            phone_verified: phoneVerified,
-            email_verified: true, // Users who can log in have verified email
-            user_roles: rolesResult.data || [],
-            orders: (ordersResult.data || []).map(order => ({
-              ...order,
-              profiles: { display_name: profile.display_name },
-              user_phone: userPhone
-            })),
-            wallet: walletResult.data,
-          };
-        })
-      );
+      const userIds = (profilesData || []).map(p => p.id);
+
+      // Batch fetch all related data
+      const [rolesResult, ordersResult, walletsResult, contactsResult] = await Promise.all([
+        supabase.from("user_roles").select("user_id, role").in("user_id", userIds),
+        supabase.from("orders").select("*").in("user_id", userIds).order("created_at", { ascending: false }),
+        supabase.from("wallets").select("id, balance, user_id").in("user_id", userIds),
+        supabase.from("user_contacts").select("user_id, phone, phone_verified").in("user_id", userIds)
+      ]);
+
+      // Create lookup maps
+      const rolesMap = new Map<string, { role: string }[]>();
+      (rolesResult.data || []).forEach(r => {
+        if (!rolesMap.has(r.user_id)) rolesMap.set(r.user_id, []);
+        rolesMap.get(r.user_id)!.push({ role: r.role });
+      });
+
+      const ordersMap = new Map<string, any[]>();
+      (ordersResult.data || []).forEach(o => {
+        if (!ordersMap.has(o.user_id)) ordersMap.set(o.user_id, []);
+        ordersMap.get(o.user_id)!.push(o);
+      });
+
+      const walletsMap = new Map((walletsResult.data || []).map(w => [w.user_id, { id: w.id, balance: w.balance }]));
+      const contactsMap = new Map((contactsResult.data || []).map(c => [c.user_id, c]));
+
+      const usersWithData = (profilesData || []).map(profile => {
+        const contact = contactsMap.get(profile.id);
+        const userPhone = contact?.phone || null;
+        const phoneVerified = contact?.phone_verified || false;
+
+        return {
+          ...profile,
+          phone: userPhone,
+          phone_verified: phoneVerified,
+          email_verified: true,
+          user_roles: rolesMap.get(profile.id) || [],
+          orders: (ordersMap.get(profile.id) || []).map(order => ({
+            ...order,
+            profiles: { display_name: profile.display_name },
+            user_phone: userPhone
+          })),
+          wallet: walletsMap.get(profile.id) || null,
+        };
+      });
 
       setUsers(usersWithData);
     } catch (error) {
@@ -489,29 +488,24 @@ const Admin = () => {
 
       if (error) throw error;
 
-      // Get user profiles and contacts for each transaction
-      const txWithProfiles = await Promise.all(
-        (txData || []).map(async (tx) => {
-          const [profileResult, contactResult] = await Promise.all([
-            supabase
-              .from("profiles")
-              .select("display_name")
-              .eq("id", tx.user_id)
-              .maybeSingle(),
-            supabase
-              .from("user_contacts")
-              .select("phone")
-              .eq("user_id", tx.user_id)
-              .maybeSingle()
-          ]);
-          
-          return {
-            ...tx,
-            user_display_name: profileResult.data?.display_name,
-            user_phone: contactResult.data?.phone,
-          };
-        })
-      );
+      // Get unique user IDs
+      const userIds = [...new Set((txData || []).map(tx => tx.user_id))];
+
+      // Batch fetch profiles and contacts
+      const [profilesResult, contactsResult] = await Promise.all([
+        supabase.from("profiles").select("id, display_name").in("id", userIds),
+        supabase.from("user_contacts").select("user_id, phone").in("user_id", userIds)
+      ]);
+
+      // Create lookup maps
+      const profilesMap = new Map((profilesResult.data || []).map(p => [p.id, p]));
+      const contactsMap = new Map((contactsResult.data || []).map(c => [c.user_id, c]));
+
+      const txWithProfiles = (txData || []).map(tx => ({
+        ...tx,
+        user_display_name: profilesMap.get(tx.user_id)?.display_name,
+        user_phone: contactsMap.get(tx.user_id)?.phone,
+      }));
 
       setTransactions(txWithProfiles);
     } catch (error) {
@@ -529,21 +523,21 @@ const Admin = () => {
 
       if (error) throw error;
 
-      // Get admin names for each log
-      const logsWithAdminNames = await Promise.all(
-        ((logsData as any[]) || []).map(async (log) => {
-          const profileResult = await supabase
-            .from("profiles")
-            .select("display_name")
-            .eq("id", log.admin_id)
-            .maybeSingle();
-          
-          return {
-            ...log,
-            admin_name: profileResult.data?.display_name || 'Unknown Admin',
-          };
-        })
-      );
+      // Get unique admin IDs
+      const adminIds = [...new Set(((logsData as any[]) || []).map(log => log.admin_id))];
+
+      // Batch fetch admin profiles
+      const profilesResult = await supabase
+        .from("profiles")
+        .select("id, display_name")
+        .in("id", adminIds);
+
+      const profilesMap = new Map((profilesResult.data || []).map(p => [p.id, p]));
+
+      const logsWithAdminNames = ((logsData as any[]) || []).map(log => ({
+        ...log,
+        admin_name: profilesMap.get(log.admin_id)?.display_name || 'Unknown Admin',
+      }));
 
       setAuditLogs(logsWithAdminNames);
     } catch (error) {
