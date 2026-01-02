@@ -6,7 +6,7 @@ import FeaturesSection from "@/components/FeaturesSection";
 import Footer from "@/components/Footer";
 import QuickActions from "@/components/QuickActions";
 import WhatsAppButton from "@/components/WhatsAppButton";
-import { mobileLegendsProducts, mobileGamesProducts, socialMediaProducts } from "@/data/products";
+import { mobileLegendsProducts, mobileGamesProducts, socialMediaDisplayProducts } from "@/data/products";
 
 const Index = () => {
   return (
@@ -37,7 +37,7 @@ const Index = () => {
 
         <ProductSection
           title="Social Media"
-          products={socialMediaProducts}
+          products={socialMediaDisplayProducts}
         />
 
         {/* Features Section */}
