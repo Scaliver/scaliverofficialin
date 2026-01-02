@@ -326,6 +326,11 @@ export const socialMediaProducts: Product[] = [
   },
 ];
 
+// Filtered social media products for homepage display (excludes individual Instagram sub-products)
+export const socialMediaDisplayProducts: Product[] = socialMediaProducts.filter(
+  p => !p.instagramSubCategory
+);
+
 // Helper function to get Instagram products by subcategory
 export const getInstagramProductsByCategory = (subCategory: InstagramSubCategory): Product | undefined => {
   return socialMediaProducts.find(p => p.instagramSubCategory === subCategory);
