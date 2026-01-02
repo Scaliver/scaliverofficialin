@@ -592,8 +592,26 @@ const Admin = () => {
 
       if (error) throw error;
 
-      // If completed and it's a coin recharge, credit the coins
       const payment = upiPayments.find(p => p.id === paymentId);
+
+      // Send verification email notification
+      if (newStatus === 'completed' && payment?.user_email) {
+        try {
+          await supabase.functions.invoke('send-payment-notification', {
+            body: {
+              email: payment.user_email,
+              type: 'verified',
+              amount: payment.amount,
+              utrNumber: payment.utr_number,
+              productName: payment.product_name || undefined,
+            }
+          });
+        } catch (emailError) {
+          console.error("Failed to send verification email:", emailError);
+        }
+      }
+
+      // If completed and it's a coin recharge, credit the coins
       if (newStatus === 'completed' && payment?.request_type === 'coin_recharge' && payment.user_id && payment.total_coins) {
         // Get current wallet balance
         const { data: walletData, error: walletFetchError } = await supabase
@@ -627,6 +645,23 @@ const Admin = () => {
             resourceId: payment.user_id,
             details: { amount: payment.total_coins, utr: payment.utr_number }
           });
+
+          // Send coins credited email notification
+          if (payment.user_email) {
+            try {
+              await supabase.functions.invoke('send-payment-notification', {
+                body: {
+                  email: payment.user_email,
+                  type: 'credited',
+                  amount: payment.amount,
+                  coins: payment.total_coins,
+                  utrNumber: payment.utr_number,
+                }
+              });
+            } catch (emailError) {
+              console.error("Failed to send coins credited email:", emailError);
+            }
+          }
         }
       }
 
