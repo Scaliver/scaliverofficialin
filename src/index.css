@@ -141,6 +141,53 @@
   animation: glow-pulse 2s ease-in-out infinite;
 }
 
+/* Gaming Pulse Ring Animations */
+@keyframes spin-glow {
+  0% {
+    transform: rotate(0deg);
+    box-shadow: 0 0 20px hsl(210, 100%, 50%, 0.5), inset 0 0 20px hsl(210, 100%, 50%, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 35px hsl(210, 100%, 50%, 0.7), inset 0 0 25px hsl(210, 100%, 50%, 0.2);
+  }
+  100% {
+    transform: rotate(360deg);
+    box-shadow: 0 0 20px hsl(210, 100%, 50%, 0.5), inset 0 0 20px hsl(210, 100%, 50%, 0.1);
+  }
+}
+
+@keyframes pulse-ring {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes text-flicker {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-spin-glow {
+  animation: spin-glow 1.2s linear infinite;
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 2s ease-in-out infinite;
+}
+
+.animate-text-flicker {
+  animation: text-flicker 1.5s ease-in-out infinite;
+}
+
 /* Floating Animation */
 @keyframes float {
   0%, 100% {

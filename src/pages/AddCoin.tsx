@@ -1,17 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import QuickActions from "@/components/QuickActions";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Coins, CreditCard, Smartphone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect } from "react";
 
 const coinPackages = [
   { amount: 50, bonus: 0 },
@@ -40,11 +40,7 @@ const AddCoin = () => {
   }, [user, authLoading, navigate]);
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-primary">Loading...</div>
-      </div>
-    );
+    return <LoadingSpinner fullScreen size="lg" />;
   }
 
   const getAmount = () => {

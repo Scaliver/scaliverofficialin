@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface Profile {
   display_name: string | null;
@@ -132,11 +133,7 @@ const Profile = () => {
   };
 
   if (authLoading || isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse font-display text-xl text-primary">Loading...</div>
-      </div>
-    );
+    return <LoadingSpinner fullScreen size="lg" />;
   }
 
   return (
