@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Coins, Copy, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import upiQrImage from "@/assets/upi-qr.jpeg";
 
 const coinPackages = [
@@ -85,7 +86,7 @@ const AddCoin = () => {
     return cleanUtr.length >= 12 && /^\d+$/.test(cleanUtr);
   };
 
-  const handleSubmitPayment = () => {
+  const handleSubmitPayment = async () => {
     const amount = getAmount();
     if (amount < 10) {
       toast({
@@ -116,25 +117,52 @@ const AddCoin = () => {
 
     setIsProcessing(true);
 
-    // Create WhatsApp message with payment details
-    const message = encodeURIComponent(
-      `💰 *COIN RECHARGE REQUEST - Scaliver Official*\n\n` +
-      `📧 User Email: ${user?.email || "N/A"}\n` +
-      `💵 Amount Paid: ₹${amount}\n` +
-      `🪙 Total Coins: ${getTotalCoins()} (including ${getBonus()} bonus)\n` +
-      `🔢 UTR Number: ${utrNumber.trim()}\n\n` +
-      `Please verify and credit coins.`
-    );
+    try {
+      // Save payment request to database
+      const { error } = await supabase
+        .from("upi_payment_requests")
+        .insert({
+          user_id: user?.id,
+          user_email: user?.email,
+          request_type: "coin_recharge",
+          amount: amount,
+          total_coins: getTotalCoins(),
+          bonus_coins: getBonus(),
+          utr_number: utrNumber.trim(),
+          status: "pending",
+        });
 
-    // Open WhatsApp with pre-filled message
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank");
+      if (error) throw error;
 
-    toast({
-      title: "Payment Submitted",
-      description: "Your payment details have been sent. Coins will be credited after verification.",
-    });
+      // Create WhatsApp message with payment details
+      const message = encodeURIComponent(
+        `💰 *COIN RECHARGE REQUEST - Scaliver Official*\n\n` +
+        `📧 User Email: ${user?.email || "N/A"}\n` +
+        `💵 Amount Paid: ₹${amount}\n` +
+        `🪙 Total Coins: ${getTotalCoins()} (including ${getBonus()} bonus)\n` +
+        `🔢 UTR Number: ${utrNumber.trim()}\n\n` +
+        `Please verify and credit coins.`
+      );
 
-    setIsProcessing(false);
+      // Open WhatsApp with pre-filled message
+      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank");
+
+      toast({
+        title: "Payment Submitted",
+        description: "Your payment details have been sent. Coins will be credited after verification.",
+      });
+
+      setUtrNumber("");
+    } catch (error) {
+      console.error("Error submitting payment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit payment request. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search, ShieldCheck, ShieldAlert, Mail, Phone, Lock, FileText, Megaphone, Power } from "lucide-react";
+import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search, ShieldCheck, ShieldAlert, Mail, Phone, Lock, FileText, Megaphone, Power, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -96,6 +96,24 @@ interface SiteAlert {
   updated_at: string;
 }
 
+interface UpiPaymentRequest {
+  id: string;
+  user_id: string | null;
+  user_email: string | null;
+  request_type: string;
+  amount: number;
+  total_coins: number | null;
+  bonus_coins: number | null;
+  product_name: string | null;
+  product_pack: string | null;
+  player_id: string | null;
+  zone_id: string | null;
+  utr_number: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
 const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -106,7 +124,7 @@ const Admin = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history" | "security" | "audit" | "alerts">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history" | "security" | "audit" | "alerts" | "upi">("orders");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userOrdersDialogOpen, setUserOrdersDialogOpen] = useState(false);
@@ -144,6 +162,11 @@ const Admin = () => {
   const [isAlertActive, setIsAlertActive] = useState(false);
   const [isAlertLoading, setIsAlertLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // UPI Payment Requests state
+  const [upiPayments, setUpiPayments] = useState<UpiPaymentRequest[]>([]);
+  const [newUpiCount, setNewUpiCount] = useState(0);
+  const [upiStatusFilter, setUpiStatusFilter] = useState<string>("pending");
 
   // Sync order statuses with SMM API
   const syncOrderStatuses = async () => {
@@ -227,6 +250,7 @@ const Admin = () => {
       fetchTransactions();
       fetchAuditLogs();
       fetchSiteAlert();
+      fetchUpiPayments();
       
       // Log initial admin view (only once)
       if (!hasLoggedInitialView.current) {
@@ -310,6 +334,40 @@ const Admin = () => {
         )
         .subscribe();
 
+      const upiChannel = supabase
+        .channel('admin-upi-realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'upi_payment_requests'
+          },
+          () => {
+            if (!initialLoadRef.current) {
+              setNewUpiCount(prev => prev + 1);
+              toast({
+                title: "🔔 New UPI Payment!",
+                description: "A new UPI payment request has been received.",
+                duration: 5000,
+              });
+            }
+            fetchUpiPayments();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'upi_payment_requests'
+          },
+          () => {
+            fetchUpiPayments();
+          }
+        )
+        .subscribe();
+
       // Mark initial load complete after first fetch
       setTimeout(() => {
         initialLoadRef.current = false;
@@ -319,6 +377,7 @@ const Admin = () => {
         supabase.removeChannel(ordersChannel);
         supabase.removeChannel(profilesChannel);
         supabase.removeChannel(transactionsChannel);
+        supabase.removeChannel(upiChannel);
       };
     }
   }, [isAdmin, toast]);
@@ -515,6 +574,89 @@ const Admin = () => {
       console.error("Error fetching site alert:", error);
     }
   };
+
+  const fetchUpiPayments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('upi_payment_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setUpiPayments((data as unknown as UpiPaymentRequest[]) || []);
+    } catch (error) {
+      console.error("Error fetching UPI payments:", error);
+    }
+  };
+
+  const updateUpiPaymentStatus = async (paymentId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('upi_payment_requests')
+        .update({ status: newStatus })
+        .eq('id', paymentId);
+
+      if (error) throw error;
+
+      // If completed and it's a coin recharge, credit the coins
+      const payment = upiPayments.find(p => p.id === paymentId);
+      if (newStatus === 'completed' && payment?.request_type === 'coin_recharge' && payment.user_id && payment.total_coins) {
+        // Get current wallet balance
+        const { data: walletData, error: walletFetchError } = await supabase
+          .from('wallets')
+          .select('balance')
+          .eq('user_id', payment.user_id)
+          .maybeSingle();
+
+        if (!walletFetchError && walletData) {
+          const newBalance = (walletData.balance || 0) + payment.total_coins;
+          
+          // Update wallet
+          await supabase
+            .from('wallets')
+            .update({ balance: newBalance })
+            .eq('user_id', payment.user_id);
+
+          // Record transaction
+          await supabase
+            .from('coin_transactions')
+            .insert({
+              user_id: payment.user_id,
+              amount: payment.total_coins,
+              type: 'credit',
+              description: `UPI Recharge - UTR: ${payment.utr_number}`,
+            });
+
+          logAction({
+            action: 'credit_coins_upi',
+            resourceType: 'wallets',
+            resourceId: payment.user_id,
+            details: { amount: payment.total_coins, utr: payment.utr_number }
+          });
+        }
+      }
+
+      toast({
+        title: "Status Updated",
+        description: `Payment status updated to ${newStatus}.`,
+      });
+
+      fetchUpiPayments();
+    } catch (error) {
+      console.error("Error updating UPI payment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update payment status.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const filteredUpiPayments = useMemo(() => {
+    return upiPayments.filter(payment => 
+      upiStatusFilter === "all" || payment.status === upiStatusFilter
+    );
+  }, [upiPayments, upiStatusFilter]);
 
   const saveSiteAlert = async () => {
     if (!alertMessage.trim()) {
@@ -1094,6 +1236,22 @@ const Admin = () => {
               Alerts
               {isAlertActive && (
                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full"></span>
+              )}
+            </button>
+            <button
+              onClick={() => { setActiveTab("upi"); setNewUpiCount(0); }}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap relative ${
+                activeTab === "upi"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <CreditCard className="w-4 h-4" />
+              UPI Payments ({upiPayments.filter(p => p.status === 'pending').length})
+              {newUpiCount > 0 && activeTab !== "upi" && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  {newUpiCount}
+                </span>
               )}
             </button>
           </div>
@@ -2176,6 +2334,192 @@ const Admin = () => {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* UPI Payments Tab */}
+          {activeTab === "upi" && (
+            <div className="space-y-6">
+              {/* Stats */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-card border border-border rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                      <Clock className="w-5 h-5 text-yellow-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Pending</p>
+                      <p className="text-xl font-bold text-foreground">{upiPayments.filter(p => p.status === 'pending').length}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                      <Check className="w-5 h-5 text-green-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Completed</p>
+                      <p className="text-xl font-bold text-foreground">{upiPayments.filter(p => p.status === 'completed').length}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
+                      <X className="w-5 h-5 text-red-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Cancelled</p>
+                      <p className="text-xl font-bold text-foreground">{upiPayments.filter(p => p.status === 'cancelled').length}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                      <Coins className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total Amount</p>
+                      <p className="text-xl font-bold text-foreground">₹{upiPayments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter */}
+              <div className="flex gap-2 flex-wrap">
+                <Select value={upiStatusFilter} onValueChange={setUpiStatusFilter}>
+                  <SelectTrigger className="w-[140px] bg-secondary border-border">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" onClick={fetchUpiPayments}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
+
+              {/* Payment List */}
+              <div className="space-y-4">
+                {filteredUpiPayments.length > 0 ? (
+                  filteredUpiPayments.map((payment) => {
+                    const createdDate = new Date(payment.created_at);
+                    const date = createdDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                    const time = createdDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                    
+                    return (
+                      <div key={payment.id} className="bg-card border border-border rounded-xl p-4">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                          <div className="flex-1 space-y-3">
+                            {/* Header */}
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <Badge className={
+                                payment.request_type === 'coin_recharge' 
+                                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                                  : 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                              }>
+                                {payment.request_type === 'coin_recharge' ? '💰 Coin Recharge' : '🎮 Product Order'}
+                              </Badge>
+                              <Badge className={
+                                payment.status === 'pending' 
+                                  ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                                  : payment.status === 'completed'
+                                  ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                                  : 'bg-red-500/20 text-red-400 border-red-500/30'
+                              }>
+                                {payment.status.toUpperCase()}
+                              </Badge>
+                            </div>
+
+                            {/* Details Grid */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <p className="text-muted-foreground">Amount</p>
+                                <p className="font-display font-bold text-primary">₹{payment.amount}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">UTR Number</p>
+                                <p className="font-mono text-foreground bg-secondary px-2 py-1 rounded text-xs">{payment.utr_number}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Date & Time</p>
+                                <p className="font-body text-foreground">{date}</p>
+                                <p className="font-body text-muted-foreground text-xs">{time}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">User</p>
+                                <p className="font-body text-foreground text-xs truncate">{payment.user_email || 'Guest'}</p>
+                              </div>
+                            </div>
+
+                            {/* Request-specific details */}
+                            {payment.request_type === 'coin_recharge' && (
+                              <div className="bg-secondary/50 rounded-lg p-3 text-sm">
+                                <p className="text-muted-foreground">
+                                  Total Coins: <span className="text-foreground font-bold">{payment.total_coins}</span>
+                                  {payment.bonus_coins && payment.bonus_coins > 0 && (
+                                    <span className="text-green-400 ml-2">(+{payment.bonus_coins} bonus)</span>
+                                  )}
+                                </p>
+                              </div>
+                            )}
+
+                            {payment.request_type === 'product_order' && (
+                              <div className="bg-secondary/50 rounded-lg p-3 text-sm space-y-1">
+                                <p className="text-muted-foreground">
+                                  Product: <span className="text-foreground font-bold">{payment.product_name}</span>
+                                </p>
+                                <p className="text-muted-foreground">
+                                  Pack: <span className="text-foreground">{payment.product_pack}</span>
+                                </p>
+                                <p className="text-muted-foreground">
+                                  Player ID: <span className="text-foreground font-mono">{payment.player_id}</span>
+                                  {payment.zone_id && <span className="ml-2">Zone: {payment.zone_id}</span>}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Action Buttons */}
+                          {payment.status === 'pending' && (
+                            <div className="flex flex-col gap-2 min-w-[120px]">
+                              <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() => updateUpiPaymentStatus(payment.id, 'completed')}
+                              >
+                                <Check className="w-4 h-4 mr-2" />
+                                Complete
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => updateUpiPaymentStatus(payment.id, 'cancelled')}
+                              >
+                                <X className="w-4 h-4 mr-2" />
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <CreditCard className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No UPI payment requests found</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

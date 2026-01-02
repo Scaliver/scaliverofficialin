@@ -270,7 +270,7 @@ const ProductDetail = () => {
     setShowUpiPayment(true);
   };
 
-  const handleSubmitUPIPayment = () => {
+  const handleSubmitUPIPayment = async () => {
     if (!selectedTier) return;
 
     if (!utrNumber.trim()) {
@@ -291,26 +291,53 @@ const ProductDetail = () => {
       return;
     }
 
-    const message = encodeURIComponent(
-      `🎮 *UPI ORDER - Scaliver Official*\n\n` +
-      `📦 Product: ${product.name}\n` +
-      `💎 Pack: ${selectedTier.amount}\n` +
-      `💰 Price: ₹${selectedTier.price}\n` +
-      `🆔 ${product.isSocialMedia ? "Profile/Post URL" : "Player ID"}: ${userId}\n` +
-      `${zoneId ? `🌐 Zone/Server: ${zoneId}\n` : ""}` +
-      `🔢 UTR Number: ${utrNumber.trim()}\n\n` +
-      `Please verify payment and process order.`
-    );
+    try {
+      // Save UPI order request to database
+      const { error } = await supabase
+        .from("upi_payment_requests")
+        .insert({
+          user_id: user?.id || null,
+          user_email: user?.email || null,
+          request_type: "product_order",
+          amount: selectedTier.price,
+          product_name: product.name,
+          product_pack: selectedTier.amount,
+          player_id: userId,
+          zone_id: zoneId || null,
+          utr_number: utrNumber.trim(),
+          status: "pending",
+        });
 
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank");
+      if (error) throw error;
 
-    toast({
-      title: "Order Submitted",
-      description: "Your order details have been sent. Order will be processed after payment verification.",
-    });
+      const message = encodeURIComponent(
+        `🎮 *UPI ORDER - Scaliver Official*\n\n` +
+        `📦 Product: ${product.name}\n` +
+        `💎 Pack: ${selectedTier.amount}\n` +
+        `💰 Price: ₹${selectedTier.price}\n` +
+        `🆔 ${product.isSocialMedia ? "Profile/Post URL" : "Player ID"}: ${userId}\n` +
+        `${zoneId ? `🌐 Zone/Server: ${zoneId}\n` : ""}` +
+        `🔢 UTR Number: ${utrNumber.trim()}\n\n` +
+        `Please verify payment and process order.`
+      );
 
-    setShowUpiPayment(false);
-    setUtrNumber("");
+      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank");
+
+      toast({
+        title: "Order Submitted",
+        description: "Your order details have been sent. Order will be processed after payment verification.",
+      });
+
+      setShowUpiPayment(false);
+      setUtrNumber("");
+    } catch (error) {
+      console.error("Error submitting UPI order:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit order. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const canPayWithWallet = user && wallet && selectedTier && balance >= selectedTier.price;
