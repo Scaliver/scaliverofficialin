@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { getProductById, getInstagramProductsByCategory, PricingTier, InstagramSubCategory } from "@/data/products";
+import { getProductById, getInstagramProductsByCategory, getFacebookProductsByCategory, PricingTier, InstagramSubCategory, FacebookSubCategory } from "@/data/products";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TransactionReceipt from "@/components/TransactionReceipt";
 import InstagramCategorySelector, { InstagramCategory } from "@/components/InstagramCategorySelector";
+import FacebookCategorySelector, { FacebookCategory } from "@/components/FacebookCategorySelector";
 
 interface ReceiptData {
   orderId: string;
@@ -36,8 +37,10 @@ const ProductDetail = () => {
   
   const baseProduct = getProductById(productId || "");
   const isInstagramMainProduct = productId === "instagram";
+  const isFacebookMainProduct = productId === "facebook";
   
   const [selectedCategory, setSelectedCategory] = useState<InstagramCategory>("followers");
+  const [selectedFbCategory, setSelectedFbCategory] = useState<FacebookCategory>("profile-followers");
   const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
   const [userId, setUserId] = useState("");
   const [zoneId, setZoneId] = useState("");
@@ -45,18 +48,21 @@ const ProductDetail = () => {
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
-  // Get the active product based on category selection for Instagram
+  // Get the active product based on category selection for Instagram or Facebook
   const product = useMemo(() => {
     if (isInstagramMainProduct) {
       return getInstagramProductsByCategory(selectedCategory as InstagramSubCategory) || baseProduct;
     }
+    if (isFacebookMainProduct) {
+      return getFacebookProductsByCategory(selectedFbCategory as FacebookSubCategory) || baseProduct;
+    }
     return baseProduct;
-  }, [isInstagramMainProduct, selectedCategory, baseProduct]);
+  }, [isInstagramMainProduct, isFacebookMainProduct, selectedCategory, selectedFbCategory, baseProduct]);
 
   // Reset selected tier when category changes
   useEffect(() => {
     setSelectedTier(null);
-  }, [selectedCategory]);
+  }, [selectedCategory, selectedFbCategory]);
 
   if (!product) {
     return (
@@ -310,11 +316,13 @@ const ProductDetail = () => {
                   {product.category}
                 </Badge>
                 <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-2">
-                  {isInstagramMainProduct ? "INSTAGRAM SERVICE" : product.name}
+                  {isInstagramMainProduct ? "INSTAGRAM SERVICE" : isFacebookMainProduct ? "FACEBOOK SERVICE" : product.name}
                 </h1>
                 <p className="font-body text-muted-foreground">
                   {isInstagramMainProduct 
                     ? "Boost your Instagram presence with followers, likes, views, comments, and saves."
+                    : isFacebookMainProduct
+                    ? "Boost your Facebook presence with followers, likes, views, watch time, and reactions."
                     : product.description}
                 </p>
               </div>
@@ -324,6 +332,14 @@ const ProductDetail = () => {
                 <InstagramCategorySelector
                   selectedCategory={selectedCategory}
                   onCategoryChange={setSelectedCategory}
+                />
+              )}
+
+              {/* Facebook Category Selector */}
+              {isFacebookMainProduct && (
+                <FacebookCategorySelector
+                  selectedCategory={selectedFbCategory}
+                  onCategoryChange={setSelectedFbCategory}
                 />
               )}
 
