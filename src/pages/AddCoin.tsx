@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Coins, CreditCard, Smartphone } from "lucide-react";
+import { ArrowLeft, Coins, Copy, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import upiQrImage from "@/assets/upi-qr.jpeg";
 
 const coinPackages = [
   { amount: 50, bonus: 0 },
@@ -22,6 +23,9 @@ const coinPackages = [
   { amount: 2000, bonus: 400 },
 ];
 
+const UPI_ID = "7637851804@pthdfc";
+const WHATSAPP_NUMBER = "917637851804";
+
 const AddCoin = () => {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
@@ -29,9 +33,9 @@ const AddCoin = () => {
   const { toast } = useToast();
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"upi" | "card" | null>(null);
-  const [upiId, setUpiId] = useState("");
+  const [utrNumber, setUtrNumber] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -65,25 +69,23 @@ const AddCoin = () => {
 
   const getTotalCoins = () => getAmount() + getBonus();
 
-  const handlePayment = async () => {
-    if (!paymentMethod) {
-      toast({
-        title: "Select Payment Method",
-        description: "Please select a payment method to continue",
-        variant: "destructive",
-      });
-      return;
-    }
+  const copyUpiId = () => {
+    navigator.clipboard.writeText(UPI_ID);
+    setCopied(true);
+    toast({
+      title: "Copied!",
+      description: "UPI ID copied to clipboard",
+    });
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-    if (paymentMethod === "upi" && !upiId) {
-      toast({
-        title: "Enter UPI ID",
-        description: "Please enter your UPI ID to continue",
-        variant: "destructive",
-      });
-      return;
-    }
+  const validateUTR = (utr: string) => {
+    // UTR numbers are typically 12 or 22 digits
+    const cleanUtr = utr.replace(/\s/g, "");
+    return cleanUtr.length >= 12 && /^\d+$/.test(cleanUtr);
+  };
 
+  const handleSubmitPayment = () => {
     const amount = getAmount();
     if (amount < 10) {
       toast({
@@ -94,23 +96,45 @@ const AddCoin = () => {
       return;
     }
 
+    if (!utrNumber.trim()) {
+      toast({
+        title: "UTR Required",
+        description: "Please enter the UTR number from your payment",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!validateUTR(utrNumber)) {
+      toast({
+        title: "Invalid UTR",
+        description: "Please enter a valid UTR number (minimum 12 digits)",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsProcessing(true);
 
-    // Simulate payment processing - In production, integrate actual payment gateway
+    // Create WhatsApp message with payment details
+    const message = encodeURIComponent(
+      `💰 *COIN RECHARGE REQUEST - Scaliver Official*\n\n` +
+      `📧 User Email: ${user?.email || "N/A"}\n` +
+      `💵 Amount Paid: ₹${amount}\n` +
+      `🪙 Total Coins: ${getTotalCoins()} (including ${getBonus()} bonus)\n` +
+      `🔢 UTR Number: ${utrNumber.trim()}\n\n` +
+      `Please verify and credit coins.`
+    );
+
+    // Open WhatsApp with pre-filled message
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank");
+
     toast({
-      title: "Payment Initiated",
-      description: `Processing payment of ₹${amount}. You will receive ${getTotalCoins()} coins after successful payment.`,
+      title: "Payment Submitted",
+      description: "Your payment details have been sent. Coins will be credited after verification.",
     });
 
-    // For demo, we'll show a message that payment is pending admin approval
-    setTimeout(() => {
-      setIsProcessing(false);
-      toast({
-        title: "Payment Pending",
-        description: "Your payment request has been submitted. Coins will be credited after admin verification.",
-      });
-      navigate("/wallet");
-    }, 2000);
+    setIsProcessing(false);
   };
 
   return (
@@ -189,58 +213,6 @@ const AddCoin = () => {
           </CardContent>
         </Card>
 
-        {/* Payment Method */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-lg font-display">Payment Method</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <button
-                onClick={() => setPaymentMethod("upi")}
-                className={`p-4 rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${
-                  paymentMethod === "upi"
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-primary/50"
-                }`}
-              >
-                <Smartphone className="w-5 h-5" />
-                <span>UPI</span>
-              </button>
-              <button
-                onClick={() => setPaymentMethod("card")}
-                className={`p-4 rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${
-                  paymentMethod === "card"
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-primary/50"
-                }`}
-              >
-                <CreditCard className="w-5 h-5" />
-                <span>Card</span>
-              </button>
-            </div>
-
-            {paymentMethod === "upi" && (
-              <div>
-                <Label htmlFor="upiId">UPI ID</Label>
-                <Input
-                  id="upiId"
-                  placeholder="Enter your UPI ID (e.g., name@upi)"
-                  value={upiId}
-                  onChange={(e) => setUpiId(e.target.value)}
-                  className="mt-2"
-                />
-              </div>
-            )}
-
-            {paymentMethod === "card" && (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                Card payment integration coming soon. Please use UPI for now.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Summary */}
         {getAmount() > 0 && (
           <Card className="mb-6">
@@ -268,21 +240,86 @@ const AddCoin = () => {
           </Card>
         )}
 
-        {/* Pay Button */}
+        {/* UPI QR Code Section */}
+        {getAmount() >= 10 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg font-display text-center">Scan & Pay ₹{getAmount()}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* QR Code */}
+              <div className="flex justify-center">
+                <div className="bg-white p-4 rounded-xl">
+                  <img 
+                    src={upiQrImage} 
+                    alt="UPI QR Code" 
+                    className="w-48 h-48 object-contain"
+                  />
+                </div>
+              </div>
+
+              {/* UPI ID */}
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-sm text-muted-foreground">UPI ID:</span>
+                <code className="bg-secondary px-3 py-1 rounded text-sm font-mono">{UPI_ID}</code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={copyUpiId}
+                  className="p-2 h-auto"
+                >
+                  {copied ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+
+              <p className="text-center text-sm text-muted-foreground">
+                Scan with any UPI app (GPay, PhonePe, Paytm, etc.)
+              </p>
+
+              {/* UTR Input */}
+              <div className="space-y-2 pt-4 border-t border-border">
+                <Label htmlFor="utrNumber" className="font-medium">
+                  Enter UTR Number *
+                </Label>
+                <Input
+                  id="utrNumber"
+                  placeholder="Enter 12-digit UTR from payment confirmation"
+                  value={utrNumber}
+                  onChange={(e) => setUtrNumber(e.target.value)}
+                  className="text-center font-mono tracking-wider"
+                  maxLength={22}
+                />
+                <p className="text-xs text-muted-foreground text-center">
+                  You'll find UTR/Reference number in your payment confirmation
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Submit Button */}
         <Button
-          onClick={handlePayment}
-          disabled={getAmount() < 10 || isProcessing}
+          onClick={handleSubmitPayment}
+          disabled={getAmount() < 10 || isProcessing || !utrNumber.trim()}
           className="w-full bg-gradient-to-r from-primary to-red-600 hover:from-primary/90 hover:to-red-600/90"
           size="lg"
         >
           {isProcessing ? (
-            "Processing..."
+            "Submitting..."
           ) : (
             <>
-              Pay ₹{getAmount()} & Get {getTotalCoins()} Coins
+              Submit Payment (₹{getAmount()})
             </>
           )}
         </Button>
+        
+        <p className="text-center text-xs text-muted-foreground mt-3">
+          Coins will be credited within 10-30 minutes after verification
+        </p>
       </main>
 
       <Footer />
