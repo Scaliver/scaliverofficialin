@@ -8,9 +8,11 @@ type AuditAction =
   | 'update_wallet'
   | 'update_order_status'
   | 'enable_2fa'
-  | 'disable_2fa';
+  | 'disable_2fa'
+  | 'credit_coins_upi'
+  | 'update_upi_status';
 
-type ResourceType = 'users' | 'orders' | 'wallets' | 'user_contacts' | 'security';
+type ResourceType = 'users' | 'orders' | 'wallets' | 'user_contacts' | 'security' | 'upi_payments';
 
 interface AuditLogParams {
   action: AuditAction;

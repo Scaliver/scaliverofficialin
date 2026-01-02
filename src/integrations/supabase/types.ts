@@ -212,6 +212,60 @@ export type Database = {
         }
         Relationships: []
       }
+      upi_payment_requests: {
+        Row: {
+          amount: number
+          bonus_coins: number | null
+          created_at: string
+          id: string
+          player_id: string | null
+          product_name: string | null
+          product_pack: string | null
+          request_type: string
+          status: string
+          total_coins: number | null
+          updated_at: string
+          user_email: string | null
+          user_id: string | null
+          utr_number: string
+          zone_id: string | null
+        }
+        Insert: {
+          amount: number
+          bonus_coins?: number | null
+          created_at?: string
+          id?: string
+          player_id?: string | null
+          product_name?: string | null
+          product_pack?: string | null
+          request_type?: string
+          status?: string
+          total_coins?: number | null
+          updated_at?: string
+          user_email?: string | null
+          user_id?: string | null
+          utr_number: string
+          zone_id?: string | null
+        }
+        Update: {
+          amount?: number
+          bonus_coins?: number | null
+          created_at?: string
+          id?: string
+          player_id?: string | null
+          product_name?: string | null
+          product_pack?: string | null
+          request_type?: string
+          status?: string
+          total_coins?: number | null
+          updated_at?: string
+          user_email?: string | null
+          user_id?: string | null
+          utr_number?: string
+          zone_id?: string | null
+        }
+        Relationships: []
+      }
       user_contacts: {
         Row: {
           address: string | null
