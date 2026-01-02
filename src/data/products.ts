@@ -381,7 +381,14 @@ export const facebookProducts: Product[] = [
     description: "Get more likes on your Facebook posts.",
     isSocialMedia: true,
     facebookSubCategory: "likes",
-    pricingTiers: [], // User will add pricing later
+    pricingTiers: [
+      { id: "fb-likes-1", amount: "125 Likes", price: 2.2, smmServiceId: "1569", quantity: 125 },
+      { id: "fb-likes-2", amount: "250 Likes", price: 4.5, smmServiceId: "1569", quantity: 250 },
+      { id: "fb-likes-3", amount: "1000 Likes", price: 18, smmServiceId: "1569", quantity: 1000 },
+      { id: "fb-likes-4", amount: "2000 Likes", price: 31, smmServiceId: "1569", quantity: 2000 },
+      { id: "fb-likes-5", amount: "4000 Likes", price: 60, smmServiceId: "1569", quantity: 4000 },
+      { id: "fb-likes-6", amount: "10000 Likes", price: 120, smmServiceId: "1569", quantity: 10000 },
+    ],
     instructions: ["Enter your Facebook post URL", "Make sure your post is public", "Select the likes pack", "Complete payment", "Likes will be delivered within 1-24 hours"],
   },
   {
@@ -393,7 +400,14 @@ export const facebookProducts: Product[] = [
     description: "Boost views on your Facebook videos.",
     isSocialMedia: true,
     facebookSubCategory: "views",
-    pricingTiers: [], // User will add pricing later
+    pricingTiers: [
+      { id: "fb-views-1", amount: "125 Views", price: 1.8, smmServiceId: "", quantity: 125 },
+      { id: "fb-views-2", amount: "250 Views", price: 3.7, smmServiceId: "", quantity: 250 },
+      { id: "fb-views-3", amount: "1000 Views", price: 15, smmServiceId: "", quantity: 1000 },
+      { id: "fb-views-4", amount: "2000 Views", price: 25, smmServiceId: "", quantity: 2000 },
+      { id: "fb-views-5", amount: "4000 Views", price: 45, smmServiceId: "", quantity: 4000 },
+      { id: "fb-views-6", amount: "10000 Views", price: 105, smmServiceId: "", quantity: 10000 },
+    ],
     instructions: ["Enter your Facebook video URL", "Select the views pack", "Complete payment", "Views will be delivered within 1-24 hours"],
   },
   {
@@ -405,7 +419,9 @@ export const facebookProducts: Product[] = [
     description: "Increase watch time on your Facebook videos.",
     isSocialMedia: true,
     facebookSubCategory: "watch-time",
-    pricingTiers: [], // User will add pricing later
+    pricingTiers: [
+      { id: "fb-wt-1", amount: "64K Min (3hr: C. 6HR+)", price: 85, smmServiceId: "1563", quantity: 64000 },
+    ],
     instructions: ["Enter your Facebook video URL", "Select the watch time pack", "Complete payment", "Watch time will be delivered within 24-72 hours"],
   },
   {
@@ -417,7 +433,9 @@ export const facebookProducts: Product[] = [
     description: "Get reactions on your Facebook posts.",
     isSocialMedia: true,
     facebookSubCategory: "reactions",
-    pricingTiers: [], // User will add pricing later
+    pricingTiers: [
+      { id: "fb-react-1", amount: "Love 💖 Reactions", price: 18, smmServiceId: "1570", quantity: 1 },
+    ],
     instructions: ["Enter your Facebook post URL", "Make sure your post is public", "Select the reactions pack", "Complete payment", "Reactions will be delivered within 1-24 hours"],
   },
 ];
