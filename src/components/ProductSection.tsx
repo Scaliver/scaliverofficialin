@@ -29,13 +29,15 @@ const ProductSection = ({ title, products, onViewMore }: ProductSectionProps) =>
               {title}
             </h2>
           </div>
-          <button 
-            onClick={onViewMore}
-            className="flex items-center gap-1 text-primary hover:text-accent transition-colors font-body font-medium"
-          >
-            View More
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          {onViewMore && (
+            <button 
+              onClick={onViewMore}
+              className="flex items-center gap-1 text-primary hover:text-accent transition-colors font-body font-medium"
+            >
+              View More
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Products Grid */}

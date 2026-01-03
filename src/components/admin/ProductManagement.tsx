@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, Edit2, Trash2, Package, ChevronDown, ChevronUp, Search, ToggleLeft, ToggleRight } from "lucide-react";
+import { useState, useRef } from "react";
+import { Plus, Edit2, Trash2, Package, ChevronDown, ChevronUp, Search, ToggleLeft, ToggleRight, Upload, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useProducts, Product, ProductFormData, PricingTierFormData } from "@/hooks/useProducts";
+import { useToast } from "@/hooks/use-toast";
 
 const CATEGORIES = [
   "Mobile Legends",
@@ -41,6 +42,7 @@ const SUB_CATEGORIES = [
 ];
 
 export const ProductManagement = () => {
+  const { toast } = useToast();
   const {
     products,
     isLoading,
@@ -50,6 +52,7 @@ export const ProductManagement = () => {
     createPricingTier,
     updatePricingTier,
     deletePricingTier,
+    uploadImage,
     isCreating,
     isUpdating,
   } = useProducts();
@@ -74,6 +77,8 @@ export const ProductManagement = () => {
     sort_order: 0,
   });
   const [instructionsText, setInstructionsText] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Tier dialog state
   const [tierDialogOpen, setTierDialogOpen] = useState(false);
@@ -133,6 +138,53 @@ export const ProductManagement = () => {
       setInstructionsText("");
     }
     setProductDialogOpen(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload an image file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Please upload an image smaller than 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const publicUrl = await uploadImage(file);
+      setProductForm({ ...productForm, image_url: publicUrl });
+      toast({
+        title: "Image Uploaded",
+        description: "Product image has been uploaded successfully.",
+      });
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload image.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleSaveProduct = async () => {
@@ -281,12 +333,16 @@ export const ProductManagement = () => {
                 onClick={() => setExpandedProduct(expandedProduct === product.id ? null : product.id)}
               >
                 <div className="flex items-center gap-4">
-                  {product.image_url && (
+                  {product.image_url ? (
                     <img 
                       src={product.image_url} 
                       alt={product.name}
                       className="w-12 h-12 rounded-lg object-cover"
                     />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
+                      <Image className="w-6 h-6 text-muted-foreground" />
+                    </div>
                   )}
                   <div>
                     <div className="flex items-center gap-2">
@@ -417,13 +473,46 @@ export const ProductManagement = () => {
               </div>
             </div>
 
+            {/* Image Upload Section */}
             <div className="space-y-2">
-              <Label>Image URL</Label>
-              <Input
-                placeholder="/assets/product-image.jpg or https://..."
-                value={productForm.image_url || ""}
-                onChange={(e) => setProductForm({ ...productForm, image_url: e.target.value })}
-              />
+              <Label>Product Image</Label>
+              <div className="flex gap-4 items-start">
+                {productForm.image_url ? (
+                  <img 
+                    src={productForm.image_url} 
+                    alt="Product preview" 
+                    className="w-24 h-24 rounded-lg object-cover border border-border"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-lg bg-secondary border border-border flex items-center justify-center">
+                    <Image className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1 space-y-2">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="w-full"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {isUploading ? "Uploading..." : "Upload Image"}
+                  </Button>
+                  <Input
+                    placeholder="Or enter image URL"
+                    value={productForm.image_url || ""}
+                    onChange={(e) => setProductForm({ ...productForm, image_url: e.target.value })}
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

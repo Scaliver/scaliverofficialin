@@ -52,6 +52,52 @@ export interface PricingTierFormData {
   sort_order: number;
 }
 
+// Legacy interface for compatibility with existing components
+export interface LegacyProduct {
+  id: string;
+  name: string;
+  image: string;
+  inStock: boolean;
+  category: string;
+  description: string;
+  instructions?: string[];
+  isSocialMedia?: boolean;
+  instagramSubCategory?: string;
+  facebookSubCategory?: string;
+  tiktokSubCategory?: string;
+  pricingTiers: {
+    id: string;
+    amount: string;
+    price: number;
+    bonus?: string;
+    smmServiceId?: string;
+    quantity?: number;
+  }[];
+}
+
+// Convert database product to legacy format for frontend components
+const toLegacyProduct = (product: Product): LegacyProduct => ({
+  id: product.slug, // Use slug as ID for URL compatibility
+  name: product.name,
+  image: product.image_url || '',
+  inStock: product.in_stock,
+  category: product.category,
+  description: product.description || '',
+  instructions: product.instructions,
+  isSocialMedia: product.is_social_media,
+  instagramSubCategory: product.sub_category && product.category === 'Social Media' && product.name.toLowerCase().includes('instagram') ? product.sub_category : undefined,
+  facebookSubCategory: product.sub_category && product.category === 'Social Media' && product.name.toLowerCase().includes('facebook') ? product.sub_category : undefined,
+  tiktokSubCategory: product.sub_category && product.category === 'Social Media' && product.name.toLowerCase().includes('tiktok') ? product.sub_category : undefined,
+  pricingTiers: (product.pricing_tiers || []).map(tier => ({
+    id: tier.id,
+    amount: tier.amount,
+    price: tier.price,
+    bonus: tier.bonus || undefined,
+    smmServiceId: tier.smm_service_id || undefined,
+    quantity: tier.quantity || undefined,
+  })),
+});
+
 export const useProducts = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -87,6 +133,9 @@ export const useProducts = () => {
     ...product,
     pricing_tiers: pricingTiersQuery.data?.filter(tier => tier.product_id === product.id) || [],
   }));
+
+  // Legacy format products for frontend compatibility
+  const legacyProducts = productsWithTiers?.map(toLegacyProduct) || [];
 
   const createProductMutation = useMutation({
     mutationFn: async (product: ProductFormData) => {
@@ -207,21 +256,55 @@ export const useProducts = () => {
     },
   });
 
-  // Helper functions to match old products.ts API
-  const getProductBySlug = (slug: string) => {
-    return productsWithTiers?.find(p => p.slug === slug);
+  // Upload product image
+  const uploadImage = async (file: File): Promise<string> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const filePath = `products/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('product-images')
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('product-images')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
   };
 
-  const getProductsByCategory = (category: string) => {
-    return productsWithTiers?.filter(p => p.category === category);
+  // Helper functions for frontend compatibility
+  const getProductBySlug = (slug: string): LegacyProduct | undefined => {
+    return legacyProducts.find(p => p.id === slug);
   };
 
-  const getProductBySubCategory = (subCategory: string) => {
-    return productsWithTiers?.find(p => p.sub_category === subCategory);
+  const getProductsByCategory = (category: string): LegacyProduct[] => {
+    return legacyProducts.filter(p => p.category === category);
+  };
+
+  const getProductBySubCategory = (subCategory: string): LegacyProduct | undefined => {
+    return legacyProducts.find(p => 
+      p.instagramSubCategory === subCategory || 
+      p.facebookSubCategory === subCategory || 
+      p.tiktokSubCategory === subCategory
+    );
+  };
+
+  // Get main products for display (exclude sub-products)
+  const getDisplayProducts = (category: string): LegacyProduct[] => {
+    return legacyProducts.filter(p => 
+      p.category === category && 
+      !p.instagramSubCategory && 
+      !p.facebookSubCategory && 
+      !p.tiktokSubCategory
+    );
   };
 
   return {
     products: productsWithTiers || [],
+    legacyProducts,
     isLoading: productsQuery.isLoading || pricingTiersQuery.isLoading,
     error: productsQuery.error || pricingTiersQuery.error,
     refetch: () => {
@@ -236,15 +319,17 @@ export const useProducts = () => {
     createPricingTier: createPricingTierMutation.mutateAsync,
     updatePricingTier: updatePricingTierMutation.mutateAsync,
     deletePricingTier: deletePricingTierMutation.mutateAsync,
+    uploadImage,
     
     // Loading states
     isCreating: createProductMutation.isPending,
     isUpdating: updateProductMutation.isPending,
     isDeleting: deleteProductMutation.isPending,
     
-    // Helpers
+    // Helpers for frontend
     getProductBySlug,
     getProductsByCategory,
     getProductBySubCategory,
+    getDisplayProducts,
   };
 };

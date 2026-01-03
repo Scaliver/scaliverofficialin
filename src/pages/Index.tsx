@@ -7,7 +7,7 @@ import FeaturesSection from "@/components/FeaturesSection";
 import Footer from "@/components/Footer";
 import QuickActions from "@/components/QuickActions";
 import WhatsAppButton from "@/components/WhatsAppButton";
-import { mobileLegendsProducts, mobileGamesProducts, socialMediaDisplayProducts } from "@/data/products";
+import { useProducts } from "@/hooks/useProducts";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog,
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 
 interface SiteAlert {
   id: string;
@@ -33,6 +34,12 @@ const Index = () => {
   const [showAlert, setShowAlert] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [siteAlert, setSiteAlert] = useState<SiteAlert | null>(null);
+  
+  const { getDisplayProducts, isLoading } = useProducts();
+  
+  const mobileLegendsProducts = getDisplayProducts("Mobile Legends");
+  const mobileGamesProducts = getDisplayProducts("Mobile Games");
+  const socialMediaProducts = getDisplayProducts("Social Media");
 
   useEffect(() => {
     const fetchActiveAlert = async () => {
@@ -87,6 +94,14 @@ const Index = () => {
 
   const alertStyles = siteAlert ? getAlertStyles(siteAlert.alert_type) : getAlertStyles("info");
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Alert Dialog */}
@@ -132,20 +147,26 @@ const Index = () => {
         {/* Quick Actions - Easy access to wallet features */}
         <QuickActions />
 
-        <ProductSection
-          title="Mobile Legends"
-          products={mobileLegendsProducts}
-        />
+        {mobileLegendsProducts.length > 0 && (
+          <ProductSection
+            title="Mobile Legends"
+            products={mobileLegendsProducts}
+          />
+        )}
 
-        <ProductSection
-          title="Mobile Games"
-          products={mobileGamesProducts}
-        />
+        {mobileGamesProducts.length > 0 && (
+          <ProductSection
+            title="Mobile Games"
+            products={mobileGamesProducts}
+          />
+        )}
 
-        <ProductSection
-          title="Social Media"
-          products={socialMediaDisplayProducts}
-        />
+        {socialMediaProducts.length > 0 && (
+          <ProductSection
+            title="Social Media"
+            products={socialMediaProducts}
+          />
+        )}
 
         {/* Features Section */}
         <FeaturesSection />
