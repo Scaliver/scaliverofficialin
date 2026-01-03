@@ -155,6 +155,98 @@ export type Database = {
         }
         Relationships: []
       }
+      pricing_tiers: {
+        Row: {
+          amount: string
+          bonus: string | null
+          created_at: string
+          id: string
+          price: number
+          product_id: string
+          quantity: number | null
+          smm_service_id: string | null
+          sort_order: number
+        }
+        Insert: {
+          amount: string
+          bonus?: string | null
+          created_at?: string
+          id?: string
+          price: number
+          product_id: string
+          quantity?: number | null
+          smm_service_id?: string | null
+          sort_order?: number
+        }
+        Update: {
+          amount?: string
+          bonus?: string | null
+          created_at?: string
+          id?: string
+          price?: number
+          product_id?: string
+          quantity?: number | null
+          smm_service_id?: string | null
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_tiers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          in_stock: boolean
+          instructions: string[] | null
+          is_social_media: boolean
+          name: string
+          slug: string
+          sort_order: number
+          sub_category: string | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          in_stock?: boolean
+          instructions?: string[] | null
+          is_social_media?: boolean
+          name: string
+          slug: string
+          sort_order?: number
+          sub_category?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          in_stock?: boolean
+          instructions?: string[] | null
+          is_social_media?: boolean
+          name?: string
+          slug?: string
+          sort_order?: number
+          sub_category?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
