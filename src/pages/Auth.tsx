@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
-import { Eye, EyeOff, LogIn, UserPlus, ArrowLeft, Mail, CheckCircle, RefreshCw, Phone, Smartphone, Shield } from "lucide-react";
+import { Eye, EyeOff, LogIn, UserPlus, ArrowLeft, Mail, CheckCircle, RefreshCw, Phone, Smartphone, Shield, AlertTriangle } from "lucide-react";
+import { validatePasswordStrength, getStrengthBarColor, getStrengthBarWidth } from "@/lib/passwordValidation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +21,7 @@ const signupSchema = z.object({
   displayName: z.string().min(2, "Name must be at least 2 characters").max(50, "Name must be less than 50 characters"),
   email: z.string().email("Please enter a valid email address"),
   phone: z.string().min(10, "Phone number must be at least 10 digits").max(15, "Phone number is too long").regex(/^[0-9+\-\s]+$/, "Please enter a valid phone number"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -30,7 +31,7 @@ const signupSchema = z.object({
 const phoneSignupSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters").max(20, "Username must be less than 20 characters").regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
   phone: z.string().min(10, "Phone number must be at least 10 digits").max(15, "Phone number is too long").regex(/^[0-9+\-\s]+$/, "Please enter a valid phone number"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -97,6 +98,14 @@ const Auth = () => {
       return () => clearTimeout(timer);
     }
   }, [resendCooldown]);
+
+  // Real-time password validation for signup
+  const passwordValidation = useMemo(() => {
+    if (authMode === "login" || !formData.password) {
+      return null;
+    }
+    return validatePasswordStrength(formData.password);
+  }, [formData.password, authMode]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -385,6 +394,19 @@ const Auth = () => {
           return;
         }
 
+        // Check password strength validation
+        const pwValidation = validatePasswordStrength(formData.password);
+        if (!pwValidation.isValid) {
+          setErrors({ password: pwValidation.errors[0] });
+          toast({
+            title: "Weak Password",
+            description: pwValidation.errors[0],
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+
         const { error } = await signUp(formData.email, formData.password, formData.displayName, formData.phone);
         
         if (error) {
@@ -435,6 +457,19 @@ const Auth = () => {
             }
           });
           setErrors(fieldErrors);
+          setIsLoading(false);
+          return;
+        }
+
+        // Check password strength validation
+        const pwValidation = validatePasswordStrength(formData.password);
+        if (!pwValidation.isValid) {
+          setErrors({ password: pwValidation.errors[0] });
+          toast({
+            title: "Weak Password",
+            description: pwValidation.errors[0],
+            variant: "destructive",
+          });
           setIsLoading(false);
           return;
         }
@@ -1189,6 +1224,33 @@ const Auth = () => {
                 </div>
                 {errors.password && (
                   <p className="text-sm text-destructive">{errors.password}</p>
+                )}
+                
+                {/* Password strength indicator for signup */}
+                {(authMode === "signup" || authMode === "phone-signup") && passwordValidation && (
+                  <div className="space-y-2 mt-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className={`h-full transition-all duration-300 ${getStrengthBarColor(passwordValidation.strength)} ${getStrengthBarWidth(passwordValidation.strength)}`} />
+                      </div>
+                      <span className={`text-xs font-medium capitalize ${
+                        passwordValidation.strength === 'strong' ? 'text-green-500' : 
+                        passwordValidation.strength === 'medium' ? 'text-yellow-500' : 'text-red-500'
+                      }`}>
+                        {passwordValidation.strength}
+                      </span>
+                    </div>
+                    {passwordValidation.errors.length > 0 && (
+                      <div className="space-y-1">
+                        {passwordValidation.errors.map((error, idx) => (
+                          <p key={idx} className="text-xs text-destructive flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            {error}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
