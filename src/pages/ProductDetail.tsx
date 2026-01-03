@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { getProductById, getInstagramProductsByCategory, getFacebookProductsByCategory, getTikTokProductsByCategory, PricingTier, InstagramSubCategory, FacebookSubCategory, TikTokSubCategory } from "@/data/products";
+import { useProducts, LegacyProduct } from "@/hooks/useProducts";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,14 +33,24 @@ interface ReceiptData {
   paymentMethod: string;
 }
 
+interface PricingTier {
+  id: string;
+  amount: string;
+  price: number;
+  bonus?: string;
+  smmServiceId?: string;
+  quantity?: number;
+}
+
 const ProductDetail = () => {
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
   const { balance, wallet } = useWallet();
+  const { getProductBySlug, getProductBySubCategory, isLoading } = useProducts();
   
-  const baseProduct = getProductById(productId || "");
+  const baseProduct = getProductBySlug(productId || "");
   const isInstagramMainProduct = productId === "instagram";
   const isFacebookMainProduct = productId === "facebook";
   const isTikTokMainProduct = productId === "tiktok";
@@ -59,23 +69,31 @@ const ProductDetail = () => {
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   // Get the active product based on category selection for Instagram, Facebook, or TikTok
-  const product = useMemo(() => {
+  const product = useMemo((): LegacyProduct | undefined => {
     if (isInstagramMainProduct) {
-      return getInstagramProductsByCategory(selectedCategory as InstagramSubCategory) || baseProduct;
+      return getProductBySubCategory(selectedCategory) || baseProduct;
     }
     if (isFacebookMainProduct) {
-      return getFacebookProductsByCategory(selectedFbCategory as FacebookSubCategory) || baseProduct;
+      return getProductBySubCategory(selectedFbCategory) || baseProduct;
     }
     if (isTikTokMainProduct) {
-      return getTikTokProductsByCategory(selectedTikTokCategory as TikTokSubCategory) || baseProduct;
+      return getProductBySubCategory(selectedTikTokCategory) || baseProduct;
     }
     return baseProduct;
-  }, [isInstagramMainProduct, isFacebookMainProduct, isTikTokMainProduct, selectedCategory, selectedFbCategory, selectedTikTokCategory, baseProduct]);
+  }, [isInstagramMainProduct, isFacebookMainProduct, isTikTokMainProduct, selectedCategory, selectedFbCategory, selectedTikTokCategory, baseProduct, getProductBySubCategory]);
 
   // Reset selected tier when category changes
   useEffect(() => {
     setSelectedTier(null);
   }, [selectedCategory, selectedFbCategory, selectedTikTokCategory]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -371,7 +389,7 @@ const ProductDetail = () => {
               </div>
 
               {/* Instructions */}
-              {product.instructions && (
+              {product.instructions && product.instructions.length > 0 && (
                 <div className="bg-card border border-border rounded-xl p-6">
                   <h3 className="font-display text-lg font-bold text-foreground mb-4">
                     How to Order
@@ -435,7 +453,7 @@ const ProductDetail = () => {
                 />
               )}
 
-              {/* User Details Form - MOVED TO TOP */}
+              {/* User Details Form */}
               <div className="bg-card border border-border rounded-xl p-6 space-y-4">
                 <h3 className="font-display text-lg font-bold text-foreground">
                   {product.isSocialMedia ? "Enter Your Details" : "Enter Your Game Details"}
@@ -474,7 +492,7 @@ const ProductDetail = () => {
                       </Label>
                       <Input
                         id="zoneId"
-                        placeholder="Enter server/zone ID"
+                        placeholder="Enter Zone ID"
                         value={zoneId}
                         onChange={(e) => setZoneId(e.target.value)}
                         className="bg-secondary border-border"
@@ -484,87 +502,75 @@ const ProductDetail = () => {
                 )}
               </div>
 
-              {/* Wallet Balance Card (if logged in) */}
-              {user && (
-                <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-xl p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Wallet className="w-5 h-5 text-primary" />
-                      <span className="font-body text-foreground">Wallet Balance</span>
-                    </div>
-                    <span className="font-display text-xl font-bold text-primary">₹{balance.toFixed(2)}</span>
+              {/* Wallet Balance */}
+              {user && wallet && (
+                <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Wallet className="w-5 h-5 text-primary" />
+                    <span className="font-body text-foreground">Your Balance</span>
                   </div>
-                  {selectedTier && balance < selectedTier.price && (
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Need ₹{(selectedTier.price - balance).toFixed(2)} more for this pack.{" "}
-                      <button 
-                        onClick={() => navigate("/add-coin")}
-                        className="text-primary hover:underline"
-                      >
-                        Add coins
-                      </button>
-                    </p>
-                  )}
+                  <span className="font-display font-bold text-primary text-lg">
+                    ₹{balance.toFixed(2)}
+                  </span>
                 </div>
               )}
 
               {/* Pricing Tiers */}
               <div className="bg-card border border-border rounded-xl p-6">
                 <h3 className="font-display text-lg font-bold text-foreground mb-4">
-                  Select Pack
+                  Select Package
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {product.pricingTiers.map((tier) => (
-                    <button
-                      key={tier.id}
-                      onClick={() => setSelectedTier(tier)}
-                      className={`relative p-4 rounded-xl border-2 transition-all duration-200 text-left ${
-                        selectedTier?.id === tier.id
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-primary/50 bg-secondary/50"
-                      }`}
-                    >
-                      {selectedTier?.id === tier.id && (
-                        <div className="absolute top-2 right-2">
-                          <Check className="w-5 h-5 text-primary" />
-                        </div>
-                      )}
-                      {tier.bonus && (
-                        <Badge variant="secondary" className="mb-2 text-xs bg-accent/20 text-accent">
-                          {tier.bonus}
-                        </Badge>
-                      )}
-                      <p className="font-display font-bold text-foreground text-sm">
-                        {tier.amount}
-                      </p>
-                      <p className="font-display text-xl font-bold text-primary mt-1">
-                        ₹{tier.price}
-                      </p>
-                    </button>
-                  ))}
-                </div>
+                
+                {product.pricingTiers.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">
+                    No pricing options available for this product.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {product.pricingTiers.map((tier) => (
+                      <button
+                        key={tier.id}
+                        onClick={() => setSelectedTier(tier)}
+                        className={`relative p-4 rounded-xl border-2 transition-all text-left ${
+                          selectedTier?.id === tier.id
+                            ? "border-primary bg-primary/10"
+                            : "border-border bg-secondary/50 hover:border-primary/50"
+                        }`}
+                      >
+                        {tier.bonus && (
+                          <Badge className="absolute -top-2 -right-2 bg-accent text-accent-foreground text-xs">
+                            {tier.bonus}
+                          </Badge>
+                        )}
+                        <p className="font-display font-bold text-foreground text-sm mb-1">
+                          {tier.amount}
+                        </p>
+                        <p className="font-display font-bold text-primary text-lg">
+                          ₹{tier.price}
+                        </p>
+                        {selectedTier?.id === tier.id && (
+                          <Check className="absolute top-2 right-2 w-5 h-5 text-primary" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Order Summary */}
               {selectedTier && (
-                <div className="bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30 rounded-xl p-6">
-                  <h3 className="font-display text-lg font-bold text-foreground mb-3">
+                <div className="bg-card border border-border rounded-xl p-6">
+                  <h3 className="font-display text-lg font-bold text-foreground mb-4">
                     Order Summary
                   </h3>
                   <div className="space-y-2">
-                    <div className="flex justify-between font-body">
-                      <span className="text-muted-foreground">Product</span>
-                      <span className="text-foreground">{product.name}</span>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Package</span>
+                      <span className="text-foreground font-medium">{selectedTier.amount}</span>
                     </div>
-                    <div className="flex justify-between font-body">
-                      <span className="text-muted-foreground">Pack</span>
-                      <span className="text-foreground">{selectedTier.amount}</span>
-                    </div>
-                    <div className="border-t border-border pt-2 mt-2">
-                      <div className="flex justify-between font-display font-bold text-lg">
-                        <span className="text-foreground">Total</span>
-                        <span className="text-primary">₹{selectedTier.price}</span>
-                      </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Price</span>
+                      <span className="text-primary font-bold">₹{selectedTier.price}</span>
                     </div>
                   </div>
                 </div>
@@ -573,142 +579,101 @@ const ProductDetail = () => {
               {/* UPI Payment Section */}
               {showUpiPayment && selectedTier && (
                 <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-                  <h3 className="font-display text-lg font-bold text-foreground text-center">
-                    Scan & Pay ₹{selectedTier.price}
+                  <h3 className="font-display text-lg font-bold text-foreground flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-primary" />
+                    UPI Payment
                   </h3>
                   
-                  {/* QR Code */}
-                  <div className="flex justify-center">
-                    <div className="bg-white p-4 rounded-xl">
-                      <img 
-                        src={upiQrImage} 
-                        alt="UPI QR Code" 
-                        className="w-48 h-48 object-contain"
+                  <div className="flex flex-col items-center gap-4">
+                    <img 
+                      src={upiQrImage} 
+                      alt="UPI QR Code" 
+                      className="w-48 h-48 rounded-xl border border-border"
+                    />
+                    
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground mb-2">Or pay to UPI ID:</p>
+                      <div className="flex items-center gap-2 bg-secondary rounded-lg px-4 py-2">
+                        <span className="font-mono text-foreground">{UPI_ID}</span>
+                        <button onClick={copyUpiId} className="text-primary hover:text-accent">
+                          {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="w-full space-y-2">
+                      <Label htmlFor="utr" className="font-body text-foreground">
+                        Enter UTR Number after payment
+                      </Label>
+                      <Input
+                        id="utr"
+                        placeholder="Enter 12-digit UTR number"
+                        value={utrNumber}
+                        onChange={(e) => setUtrNumber(e.target.value)}
+                        className="bg-secondary border-border"
                       />
                     </div>
-                  </div>
 
-                  {/* UPI ID */}
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-sm text-muted-foreground">UPI ID:</span>
-                    <code className="bg-secondary px-3 py-1 rounded text-sm font-mono">{UPI_ID}</code>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={copyUpiId}
-                      className="p-2 h-auto"
+                    <Button 
+                      onClick={handleSubmitUPIPayment}
+                      className="w-full"
+                      disabled={!utrNumber.trim()}
                     >
-                      {copied ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
+                      Submit Order
                     </Button>
                   </div>
-
-                  <p className="text-center text-sm text-muted-foreground">
-                    Scan with any UPI app (GPay, PhonePe, Paytm, etc.)
-                  </p>
-
-                  {/* UTR Input */}
-                  <div className="space-y-2 pt-4 border-t border-border">
-                    <Label htmlFor="utrNumber" className="font-medium">
-                      Enter UTR Number *
-                    </Label>
-                    <Input
-                      id="utrNumber"
-                      placeholder="Enter 12-digit UTR from payment confirmation"
-                      value={utrNumber}
-                      onChange={(e) => setUtrNumber(e.target.value)}
-                      className="text-center font-mono tracking-wider"
-                      maxLength={22}
-                    />
-                    <p className="text-xs text-muted-foreground text-center">
-                      You'll find UTR/Reference number in your payment confirmation
-                    </p>
-                  </div>
-
-                  {/* Submit Button */}
-                  <Button
-                    onClick={handleSubmitUPIPayment}
-                    disabled={!utrNumber.trim()}
-                    className="w-full bg-gradient-to-r from-primary to-red-600 hover:from-primary/90 hover:to-red-600/90"
-                    size="lg"
-                  >
-                    Submit Payment
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    onClick={() => setShowUpiPayment(false)}
-                    className="w-full"
-                  >
-                    Cancel
-                  </Button>
                 </div>
               )}
 
               {/* Payment Buttons */}
               {!showUpiPayment && (
                 <div className="space-y-3">
-                  {user && (
-                    <Button 
-                      variant="gaming" 
-                      size="lg" 
-                      className="w-full text-lg py-6"
-                      onClick={handleWalletPayment}
-                      disabled={!canPayWithWallet || isProcessing}
+                  {user ? (
+                    <>
+                      <Button
+                        variant="gaming"
+                        className="w-full"
+                        onClick={handleWalletPayment}
+                        disabled={!selectedTier || isProcessing || !canPayWithWallet}
+                      >
+                        {isProcessing ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Wallet className="w-4 h-4 mr-2" />
+                        )}
+                        {canPayWithWallet ? "Pay with Coins" : "Insufficient Balance"}
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleUPIPayment}
+                        disabled={!selectedTier || isProcessing}
+                      >
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Pay with UPI
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="gaming"
+                      className="w-full"
+                      onClick={() => navigate("/auth")}
                     >
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <Wallet className="w-5 h-5 mr-2" />
-                          Pay with Coins {selectedTier ? `(₹${selectedTier.price})` : ""}
-                        </>
-                      )}
+                      Login to Purchase
                     </Button>
                   )}
-                  
-                  <Button 
-                    variant={user ? "outline" : "gaming"} 
-                    size="lg" 
-                    className="w-full text-lg py-6"
-                    onClick={handleUPIPayment}
-                    disabled={isProcessing}
-                  >
-                    <CreditCard className="w-5 h-5 mr-2" />
-                    Pay with UPI
-                  </Button>
                 </div>
-              )}
-
-              {!user && (
-                <p className="text-center font-body text-sm text-muted-foreground">
-                  <button 
-                    onClick={() => navigate("/auth")}
-                    className="text-primary hover:underline"
-                  >
-                    Sign in
-                  </button>
-                  {" "}to pay with wallet balance
-                </p>
               )}
             </div>
           </div>
         </div>
       </main>
 
-      {/* Transaction Receipt Dialog */}
+      {/* Transaction Receipt */}
       <TransactionReceipt
         open={receiptOpen}
-        onOpenChange={(open) => {
-          setReceiptOpen(open);
-          if (!open) navigate("/orders");
-        }}
+        onOpenChange={setReceiptOpen}
         receipt={receiptData}
       />
 
