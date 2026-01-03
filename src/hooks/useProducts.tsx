@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getProductImage } from '@/lib/productImages';
 
 export interface PricingTier {
   id: string;
@@ -79,7 +80,7 @@ export interface LegacyProduct {
 const toLegacyProduct = (product: Product): LegacyProduct => ({
   id: product.slug, // Use slug as ID for URL compatibility
   name: product.name,
-  image: product.image_url || '',
+  image: getProductImage(product.image_url),
   inStock: product.in_stock,
   category: product.category,
   description: product.description || '',
