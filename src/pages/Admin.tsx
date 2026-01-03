@@ -666,6 +666,89 @@ const Admin = () => {
         }
       }
 
+      // Handle product order - create order in orders table
+      if (newStatus === 'completed' && payment?.request_type === 'product_order' && payment.user_id) {
+        // Look up product and tier for SMM service ID
+        const { data: productData } = await supabase
+          .from('products')
+          .select('id, slug, is_social_media')
+          .ilike('name', `%${payment.product_name}%`)
+          .maybeSingle();
+
+        let smmServiceId: string | null = null;
+        let quantity: number | null = null;
+        
+        if (productData) {
+          const { data: tierData } = await supabase
+            .from('pricing_tiers')
+            .select('smm_service_id, quantity')
+            .eq('product_id', productData.id)
+            .eq('amount', payment.product_pack)
+            .maybeSingle();
+          
+          if (tierData) {
+            smmServiceId = tierData.smm_service_id;
+            quantity = tierData.quantity;
+          }
+        }
+
+        // Create the order
+        const { data: orderData, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            user_id: payment.user_id,
+            product_id: productData?.slug || payment.product_name || 'unknown',
+            product_name: payment.product_name || 'Unknown Product',
+            amount: payment.product_pack || '',
+            price: payment.amount,
+            user_game_id: payment.player_id || '',
+            zone_id: payment.zone_id || null,
+            contact_number: payment.user_email || '',
+            status: 'processing',
+          })
+          .select()
+          .single();
+
+        if (!orderError && orderData) {
+          // If social media product with SMM service, place SMM order
+          if (productData?.is_social_media && smmServiceId && quantity) {
+            try {
+              const { data: smmData } = await supabase.functions.invoke('smm-order', {
+                body: {
+                  action: 'order',
+                  params: {
+                    service: smmServiceId,
+                    link: payment.player_id,
+                    quantity: quantity,
+                  }
+                }
+              });
+
+              if (smmData?.order) {
+                await supabase
+                  .from('orders')
+                  .update({ smm_order_id: String(smmData.order) })
+                  .eq('id', orderData.id);
+              }
+            } catch (smmError) {
+              console.error('SMM order error:', smmError);
+            }
+          }
+
+          logAction({
+            action: 'update_upi_status',
+            resourceType: 'orders',
+            resourceId: orderData.id,
+            details: { 
+              product: payment.product_name, 
+              pack: payment.product_pack,
+              utr: payment.utr_number,
+              created_order: true
+            }
+          });
+        }
+      }
+
       toast({
         title: "Status Updated",
         description: `Payment status updated to ${newStatus}.`,
