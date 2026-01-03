@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search, ShieldCheck, ShieldAlert, Mail, Phone, Lock, FileText, Megaphone, Power, CreditCard } from "lucide-react";
+import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search, ShieldCheck, ShieldAlert, Mail, Phone, Lock, FileText, Megaphone, Power, CreditCard, ShoppingBag } from "lucide-react";
+import { ProductManagement } from "@/components/admin/ProductManagement";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -124,7 +125,7 @@ const Admin = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history" | "security" | "audit" | "alerts" | "upi">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history" | "security" | "audit" | "alerts" | "upi" | "products">("orders");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userOrdersDialogOpen, setUserOrdersDialogOpen] = useState(false);
@@ -1282,6 +1283,17 @@ const Admin = () => {
                   {newUpiCount}
                 </span>
               )}
+            </button>
+            <button
+              onClick={() => setActiveTab("products")}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${
+                activeTab === "products"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <ShoppingBag className="w-4 h-4" />
+              Products
             </button>
           </div>
 
@@ -2550,6 +2562,11 @@ const Admin = () => {
                 )}
               </div>
             </div>
+          )}
+
+          {/* Products Tab */}
+          {activeTab === "products" && (
+            <ProductManagement />
           )}
         </div>
       </main>
