@@ -34,7 +34,7 @@ function generateSign(params: Record<string, string>, key: string): string {
   const sortedKeys = Object.keys(params).sort();
   
   // Build query string: key1=value1&key2=value2 (NO trailing &)
-  const str = sortedKeys.map(k => `${k}=${params[k]}`).join('&');
+  const str = sortedKeys.map(k => `${k}=${params[k]}`).join('&') + '&';
   
   // Append key and double MD5 hash
   const textToHash = str + key;
