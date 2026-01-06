@@ -60,6 +60,7 @@ export interface PricingTierFormData {
 // Legacy interface for compatibility with existing components
 export interface LegacyProduct {
   id: string;
+  slug: string;
   name: string;
   image: string;
   inStock: boolean;
@@ -85,6 +86,7 @@ export interface LegacyProduct {
 // Convert database product to legacy format for frontend components
 const toLegacyProduct = (product: Product): LegacyProduct => ({
   id: product.slug, // Use slug as ID for URL compatibility
+  slug: product.slug,
   name: product.name,
   image: getProductImage(product.image_url),
   inStock: product.in_stock,
