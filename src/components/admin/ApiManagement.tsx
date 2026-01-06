@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, Globe, Gamepad2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, Globe, Gamepad2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SmileOneProductFetcher } from "./SmileOneProductFetcher";
 
 type ApiType = 'smm' | 'smileone';
 
@@ -60,6 +61,10 @@ export const ApiManagement = () => {
   const [selectedApi, setSelectedApi] = useState<SmmApi | null>(null);
   const [showApiKeys, setShowApiKeys] = useState<Record<string, boolean>>({});
   const [isTesting, setIsTesting] = useState<string | null>(null);
+  
+  // Product fetcher state
+  const [productFetcherOpen, setProductFetcherOpen] = useState(false);
+  const [productFetcherApi, setProductFetcherApi] = useState<SmmApi | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -510,6 +515,20 @@ export const ApiManagement = () => {
                     <RefreshCw className={`w-3 h-3 ${isTesting === api.id ? "animate-spin" : ""}`} />
                     Test
                   </Button>
+                  {api.api_type === 'smileone' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setProductFetcherApi(api);
+                        setProductFetcherOpen(true);
+                      }}
+                      className="gap-1 text-primary"
+                    >
+                      <Package className="w-3 h-3" />
+                      Products
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -666,6 +685,19 @@ export const ApiManagement = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* SmileOne Product Fetcher */}
+      {productFetcherApi && (
+        <SmileOneProductFetcher
+          apiId={productFetcherApi.id}
+          apiName={productFetcherApi.name}
+          isOpen={productFetcherOpen}
+          onClose={() => {
+            setProductFetcherOpen(false);
+            setProductFetcherApi(null);
+          }}
+        />
+      )}
     </div>
   );
 };

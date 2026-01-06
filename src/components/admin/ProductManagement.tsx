@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, Edit2, Trash2, Package, ChevronDown, ChevronUp, Search, ToggleLeft, ToggleRight, Upload, Image, Gamepad2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Package, ChevronDown, ChevronUp, Search, ToggleLeft, ToggleRight, Upload, Image, Gamepad2, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useProducts, Product, ProductFormData, PricingTierFormData } from "@/hooks/useProducts";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +30,13 @@ interface SmileOneApi {
   name: string;
   api_type: string;
   is_active: boolean;
+}
+
+interface SmileOneProduct {
+  id: string;
+  name: string;
+  price: number;
+  spay_id: string;
 }
 
 const CATEGORIES = [
@@ -47,6 +55,13 @@ const SUB_CATEGORIES = [
   "page-followers",
   "watch-time",
   "reactions",
+];
+
+const SMILEONE_PRODUCT_TYPES = [
+  { value: "mobilelegends", label: "MLBB Global Diamonds" },
+  { value: "mobilelegendsbrazil", label: "MLBB Brazil Diamonds" },
+  { value: "weeklypass", label: "Weekly Diamond Pass" },
+  { value: "starlightmember", label: "Starlight Member" },
 ];
 
 export const ProductManagement = () => {
@@ -105,6 +120,11 @@ export const ProductManagement = () => {
 
   // SmileOne APIs for provider selection
   const [smileoneApis, setSmileoneApis] = useState<SmileOneApi[]>([]);
+  
+  // SmileOne product fetching for tier dialog
+  const [smileoneProducts, setSmileoneProducts] = useState<SmileOneProduct[]>([]);
+  const [isFetchingProducts, setIsFetchingProducts] = useState(false);
+  const [selectedProductType, setSelectedProductType] = useState("mobilelegends");
 
   // Fetch SmileOne APIs
   useEffect(() => {
@@ -121,6 +141,65 @@ export const ProductManagement = () => {
     };
     fetchSmileoneApis();
   }, []);
+  
+  // Fetch SmileOne products when provider is selected
+  const fetchSmileOneProducts = async () => {
+    if (!tierForm.provider_id) return;
+    
+    setIsFetchingProducts(true);
+    setSmileoneProducts([]);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('smileone-order', {
+        body: {
+          action: 'products',
+          apiId: tierForm.provider_id,
+          productType: selectedProductType,
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        toast({
+          title: "Error",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Parse product list from SmileOne response
+      let productList = data.data || data.product_list || data.products || [];
+      
+      if (Array.isArray(productList)) {
+        const mappedProducts = productList.map((p: any) => ({
+          id: p.spay_id || p.product_id || p.id,
+          name: p.product_name || p.name || 'Unknown Product',
+          price: parseFloat(p.cost_price || p.price || 0),
+          spay_id: String(p.spay_id || p.product_id || p.id),
+        }));
+        setSmileoneProducts(mappedProducts);
+        
+        if (mappedProducts.length === 0) {
+          toast({
+            title: "No Products",
+            description: "No products found for this type.",
+            variant: "destructive",
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error("Error fetching products:", err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to fetch products",
+        variant: "destructive",
+      });
+    } finally {
+      setIsFetchingProducts(false);
+    }
+  };
 
   // Delete confirmation
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -230,6 +309,7 @@ export const ProductManagement = () => {
 
   const openTierDialog = (productId: string, tier?: any) => {
     setTierProductId(productId);
+    setSmileoneProducts([]); // Reset products when opening dialog
     if (tier) {
       setEditingTier(tier);
       setTierForm({
@@ -725,35 +805,108 @@ export const ProductManagement = () => {
                   <Gamepad2 className="w-4 h-4 text-primary" />
                   <Label className="font-semibold">SmileOne Integration</Label>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>SmileOne Provider</Label>
-                    <Select 
-                      value={tierForm.provider_id || "none"} 
-                      onValueChange={(value) => setTierForm({ ...tierForm, provider_id: value === "none" ? null : value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select provider" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {smileoneApis.map((api) => (
-                          <SelectItem key={api.id} value={api.id}>{api.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>SmileOne Product ID</Label>
-                    <Input
-                      placeholder="Product ID from SmileOne"
-                      value={tierForm.provider_product_id || ""}
-                      onChange={(e) => setTierForm({ ...tierForm, provider_product_id: e.target.value || null })}
-                      disabled={!tierForm.provider_id}
-                    />
-                  </div>
+                
+                {/* Provider Selection */}
+                <div className="space-y-2 mb-4">
+                  <Label>SmileOne Provider</Label>
+                  <Select 
+                    value={tierForm.provider_id || "none"} 
+                    onValueChange={(value) => {
+                      setTierForm({ 
+                        ...tierForm, 
+                        provider_id: value === "none" ? null : value,
+                        provider_product_id: null // Reset product when provider changes
+                      });
+                      setSmileoneProducts([]); // Clear products when provider changes
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {smileoneApis.map((api) => (
+                        <SelectItem key={api.id} value={api.id}>{api.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
+
+                {/* Product Type & Fetch Button */}
+                {tierForm.provider_id && (
+                  <div className="space-y-4">
+                    <div className="flex gap-2">
+                      <div className="flex-1 space-y-2">
+                        <Label>Product Type</Label>
+                        <Select value={selectedProductType} onValueChange={setSelectedProductType}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SMILEONE_PRODUCT_TYPES.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-end">
+                        <Button 
+                          type="button"
+                          variant="outline" 
+                          onClick={fetchSmileOneProducts}
+                          disabled={isFetchingProducts}
+                          className="gap-1"
+                        >
+                          {isFetchingProducts ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-4 h-4" />
+                          )}
+                          Fetch
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Products Dropdown or Manual Input */}
+                    <div className="space-y-2">
+                      <Label>SmileOne Product ID</Label>
+                      {smileoneProducts.length > 0 ? (
+                        <Select 
+                          value={tierForm.provider_product_id || "manual"} 
+                          onValueChange={(value) => setTierForm({ 
+                            ...tierForm, 
+                            provider_product_id: value === "manual" ? null : value 
+                          })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select product" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="manual">Enter manually...</SelectItem>
+                            {smileoneProducts.map((product) => (
+                              <SelectItem key={product.spay_id} value={product.spay_id}>
+                                {product.name} (${product.price.toFixed(2)}) - ID: {product.spay_id}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          placeholder="Fetch products or enter ID manually"
+                          value={tierForm.provider_product_id || ""}
+                          onChange={(e) => setTierForm({ ...tierForm, provider_product_id: e.target.value || null })}
+                        />
+                      )}
+                      {tierForm.provider_product_id && (
+                        <p className="text-xs text-green-500">
+                          ✓ Product ID: {tierForm.provider_product_id}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-xs text-muted-foreground mt-3">
                   Link this tier to SmileOne for automatic diamond delivery.
                 </p>
               </div>
