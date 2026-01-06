@@ -163,6 +163,8 @@ export type Database = {
           id: string
           price: number
           product_id: string
+          provider_id: string | null
+          provider_product_id: string | null
           quantity: number | null
           smm_service_id: string | null
           sort_order: number
@@ -174,6 +176,8 @@ export type Database = {
           id?: string
           price: number
           product_id: string
+          provider_id?: string | null
+          provider_product_id?: string | null
           quantity?: number | null
           smm_service_id?: string | null
           sort_order?: number
@@ -185,6 +189,8 @@ export type Database = {
           id?: string
           price?: number
           product_id?: string
+          provider_id?: string | null
+          provider_product_id?: string | null
           quantity?: number | null
           smm_service_id?: string | null
           sort_order?: number
@@ -195,6 +201,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_tiers_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "smm_apis"
             referencedColumns: ["id"]
           },
         ]
@@ -307,8 +320,10 @@ export type Database = {
       smm_apis: {
         Row: {
           api_key: string
+          api_type: string
           api_url: string
           created_at: string
+          email: string | null
           id: string
           is_active: boolean
           name: string
@@ -316,8 +331,10 @@ export type Database = {
         }
         Insert: {
           api_key: string
+          api_type?: string
           api_url: string
           created_at?: string
+          email?: string | null
           id?: string
           is_active?: boolean
           name: string
@@ -325,8 +342,10 @@ export type Database = {
         }
         Update: {
           api_key?: string
+          api_type?: string
           api_url?: string
           created_at?: string
+          email?: string | null
           id?: string
           is_active?: boolean
           name?: string
