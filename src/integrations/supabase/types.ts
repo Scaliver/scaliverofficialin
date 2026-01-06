@@ -304,6 +304,36 @@ export type Database = {
         }
         Relationships: []
       }
+      smm_apis: {
+        Row: {
+          api_key: string
+          api_url: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          api_key: string
+          api_url: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string
+          api_url?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       upi_payment_requests: {
         Row: {
           amount: number
