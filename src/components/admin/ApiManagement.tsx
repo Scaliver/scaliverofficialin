@@ -254,10 +254,10 @@ export const ApiManagement = () => {
     
     try {
       if (api.api_type === "smileone") {
-        // Test SmileOne API via edge function
+        // Test SmileOne API via edge function using products endpoint (more reliable than balance)
         const { data, error } = await supabase.functions.invoke('smileone-order', {
           body: {
-            action: 'balance',
+            action: 'products',
             apiId: api.id,
           }
         });
@@ -270,16 +270,25 @@ export const ApiManagement = () => {
             description: data.error,
             variant: "destructive",
           });
-        } else if (data.balance !== undefined || data.smile_coin !== undefined) {
-          const balance = data.balance || data.smile_coin || 'N/A';
-          toast({
-            title: "Connection Successful",
-            description: `${api.name} is working. Balance: ${balance}`,
-          });
+        } else if (data.status !== undefined) {
+          // SmileOne returns status code in response
+          const statusMsg = data.message || `Status: ${data.status}`;
+          if (data.status === 200 || data.status === '200') {
+            toast({
+              title: "Connection Successful",
+              description: `${api.name} is working. ${statusMsg}`,
+            });
+          } else {
+            toast({
+              title: "API Response",
+              description: `${api.name}: ${statusMsg}`,
+              variant: data.status >= 400 ? "destructive" : "default",
+            });
+          }
         } else {
           toast({
             title: "Connection Test",
-            description: "API responded. Check response format.",
+            description: `Response: ${JSON.stringify(data).substring(0, 100)}`,
           });
         }
       } else {
