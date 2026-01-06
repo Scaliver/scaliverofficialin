@@ -33,8 +33,8 @@ function generateSign(params: Record<string, string>, key: string): string {
   // Sort parameters alphabetically
   const sortedKeys = Object.keys(params).sort();
   
-  // Build query string: key1=value1&key2=value2&
-  const str = sortedKeys.map(k => `${k}=${params[k]}`).join('&') + '&';
+  // Build query string: key1=value1&key2=value2 (NO trailing &)
+  const str = sortedKeys.map(k => `${k}=${params[k]}`).join('&');
   
   // Append key and double MD5 hash
   const textToHash = str + key;
@@ -48,22 +48,33 @@ function generateSign(params: Record<string, string>, key: string): string {
   return secondMd5;
 }
 
-// Helper to safely parse JSON response, handling HTML errors
+// Helper to safely parse JSON response, handling HTML-wrapped JSON
 async function safeJsonParse(response: Response, context: string): Promise<any> {
   const text = await response.text();
   
   console.log(`[${context}] Response status: ${response.status}`);
   console.log(`[${context}] Response text (first 500 chars): ${text.substring(0, 500)}`);
   
-  // Check if response is HTML (error page)
-  if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html') || text.trim().startsWith('<')) {
-    throw new Error(`API returned HTML instead of JSON. This usually means the endpoint is incorrect or the API credentials are invalid. Status: ${response.status}`);
+  // Try to extract JSON from HTML-wrapped responses (SmileOne sometimes returns <html><body>{...}</body></html>)
+  let jsonText = text.trim();
+  
+  if (jsonText.startsWith('<')) {
+    // Try to find JSON inside HTML
+    const jsonStart = jsonText.indexOf('{');
+    const jsonEnd = jsonText.lastIndexOf('}');
+    
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+      jsonText = jsonText.substring(jsonStart, jsonEnd + 1);
+      console.log(`[${context}] Extracted JSON from HTML: ${jsonText.substring(0, 200)}`);
+    } else {
+      throw new Error(`API returned HTML without JSON content. Status: ${response.status}`);
+    }
   }
   
   try {
-    return JSON.parse(text);
+    return JSON.parse(jsonText);
   } catch (e) {
-    throw new Error(`Failed to parse JSON response: ${text.substring(0, 200)}`);
+    throw new Error(`Failed to parse JSON response: ${jsonText.substring(0, 200)}`);
   }
 }
 
@@ -73,6 +84,7 @@ async function getProducts(apiUrl: string, uid: string, email: string, key: stri
     uid,
     email,
     product: productType,
+    time: Math.floor(Date.now() / 1000).toString(),
   };
   
   const sign = generateSign(params, key);
@@ -291,7 +303,7 @@ serve(async (req) => {
     // For now, we'll require the UID to be stored in the api_url field format: "uid|https://api.endpoint.com"
     // Or we can use a simple approach where api_url IS the UID
     let actualUid = apiUrl;
-    let actualApiUrl = 'https://www.smile.one/topup';
+    let actualApiUrl = 'https://www.smile.one/smilecoin/api';
     
     // Check if api_url contains a custom endpoint (if it starts with http)
     if (apiUrl.startsWith('http')) {
@@ -301,7 +313,7 @@ serve(async (req) => {
     } else {
       // api_url field stores the UID, use default SmileOne API endpoint
       actualUid = apiUrl;
-      actualApiUrl = 'https://www.smile.one/topup';
+      actualApiUrl = 'https://www.smile.one/smilecoin/api';
     }
 
     actualApiUrl = normalizeSmileOneBaseUrl(actualApiUrl);
