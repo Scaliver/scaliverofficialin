@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { ArrowLeft, Check, AlertCircle, Wallet, Loader2, CreditCard, Copy, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -69,6 +69,12 @@ const ProductDetail = () => {
   const [utrNumber, setUtrNumber] = useState("");
   const [copied, setCopied] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  
+  // Player verification state
+  const [playerInfo, setPlayerInfo] = useState<{ nickname: string; region: string } | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const verifyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get the active product based on category selection for Instagram, Facebook, or TikTok
   const product = useMemo((): LegacyProduct | undefined => {
@@ -88,6 +94,57 @@ const ProductDetail = () => {
   useEffect(() => {
     setSelectedTier(null);
   }, [selectedCategory, selectedFbCategory, selectedTikTokCategory]);
+
+  // Player verification function
+  const verifyPlayer = useCallback(async (playerId: string, zone: string) => {
+    if (!playerId || !zone) return;
+    
+    setIsVerifying(true);
+    setVerificationError(null);
+    setPlayerInfo(null);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('smileone-order', {
+        body: { action: 'validate', userId: playerId, zoneId: zone }
+      });
+      
+      if (error) throw error;
+      
+      if (data.code === 200 && data.username) {
+        setPlayerInfo({
+          nickname: data.username,
+          region: data.zone_name || data.region || 'Unknown'
+        });
+      } else {
+        setVerificationError(data.message || 'Invalid Player ID or Zone ID');
+      }
+    } catch (err) {
+      console.error('Player verification error:', err);
+      setVerificationError('Verification failed. Please check your details.');
+    } finally {
+      setIsVerifying(false);
+    }
+  }, []);
+
+  // Trigger verification when player ID and zone ID change (with debounce)
+  useEffect(() => {
+    if (verifyTimeoutRef.current) clearTimeout(verifyTimeoutRef.current);
+    
+    const isMLBBProduct = product?.category === 'Mobile Legends' && !product?.isSocialMedia;
+    
+    if (userId && zoneId && isMLBBProduct) {
+      verifyTimeoutRef.current = setTimeout(() => {
+        verifyPlayer(userId, zoneId);
+      }, 600);
+    } else {
+      setPlayerInfo(null);
+      setVerificationError(null);
+    }
+    
+    return () => {
+      if (verifyTimeoutRef.current) clearTimeout(verifyTimeoutRef.current);
+    };
+  }, [userId, zoneId, product?.category, product?.isSocialMedia, verifyPlayer]);
 
   if (isLoading) {
     return (
@@ -516,32 +573,65 @@ const ProductDetail = () => {
                     />
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="userId" className="font-body text-foreground">
-                        Player ID *
-                      </Label>
-                      <Input
-                        id="userId"
-                        placeholder="Enter your Player ID"
-                        value={userId}
-                        onChange={(e) => setUserId(e.target.value)}
-                        className="bg-secondary border-border"
-                      />
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="userId" className="font-body text-foreground">
+                          Player ID *
+                        </Label>
+                        <Input
+                          id="userId"
+                          placeholder="Enter your Player ID"
+                          value={userId}
+                          onChange={(e) => setUserId(e.target.value)}
+                          className="bg-secondary border-border"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="zoneId" className="font-body text-foreground">
+                          Server / Zone ID
+                        </Label>
+                        <Input
+                          id="zoneId"
+                          placeholder="Enter Zone ID"
+                          value={zoneId}
+                          onChange={(e) => setZoneId(e.target.value)}
+                          className="bg-secondary border-border"
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="zoneId" className="font-body text-foreground">
-                        Server / Zone ID
-                      </Label>
-                      <Input
-                        id="zoneId"
-                        placeholder="Enter Zone ID"
-                        value={zoneId}
-                        onChange={(e) => setZoneId(e.target.value)}
-                        className="bg-secondary border-border"
-                      />
-                    </div>
-                  </div>
+                    
+                    {/* Player Verification Status */}
+                    {product.category === 'Mobile Legends' && (
+                      <div className="mt-3">
+                        {isVerifying && (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span className="text-sm">Verifying player...</span>
+                          </div>
+                        )}
+                        {playerInfo && (
+                          <div className="flex items-center gap-2 text-green-500 bg-green-500/10 px-3 py-2 rounded-lg">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span className="text-sm font-medium">
+                              Player: {playerInfo.nickname} | Region: {playerInfo.region}
+                            </span>
+                          </div>
+                        )}
+                        {verificationError && (
+                          <div className="flex items-center gap-2 text-destructive bg-destructive/10 px-3 py-2 rounded-lg">
+                            <AlertCircle className="w-4 h-4" />
+                            <span className="text-sm">{verificationError}</span>
+                          </div>
+                        )}
+                        {!isVerifying && !playerInfo && !verificationError && userId && zoneId && (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <span className="text-sm">Enter both Player ID and Zone ID to verify</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
