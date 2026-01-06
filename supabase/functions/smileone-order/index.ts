@@ -33,7 +33,7 @@ function generateSign(params: Record<string, string>, key: string): string {
   // Sort parameters alphabetically
   const sortedKeys = Object.keys(params).sort();
   
-  // Build query string: key1=value1&key2=value2 (NO trailing &)
+  // Build query string: key1=value1&key2=value2&
   const str = sortedKeys.map(k => `${k}=${params[k]}`).join('&') + '&';
   
   // Append key and double MD5 hash
@@ -114,6 +114,7 @@ async function validatePlayer(apiUrl: string, uid: string, email: string, key: s
     product: productType,
     userid: userId,
     zoneid: zoneId,
+    time: Math.floor(Date.now() / 1000).toString(),
   };
   
   const sign = generateSign(params, key);
@@ -184,6 +185,7 @@ async function getBalance(apiUrl: string, uid: string, email: string, key: strin
   const params: Record<string, string> = {
     uid,
     email,
+    time: Math.floor(Date.now() / 1000).toString(),
   };
   
   const sign = generateSign(params, key);
