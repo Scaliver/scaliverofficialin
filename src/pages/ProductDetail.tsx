@@ -96,10 +96,12 @@ const ProductDetail = () => {
   }, [selectedCategory, selectedFbCategory, selectedTikTokCategory]);
 
   // Determine productType based on product slug for SmileOne API
+  // Note: For validation, we always use 'mobilelegends' or 'mobilelegendsbrazil'
+  // since SmileOne validates MLBB accounts the same way
   const getSmileOneProductType = useCallback((productSlug?: string): string => {
     if (!productSlug) return 'mobilelegends';
     if (productSlug.includes('brazil')) return 'mobilelegendsbrazil';
-    if (productSlug.includes('weekly')) return 'weeklypass';
+    // For weekly pass, starlight, etc. - still use mobilelegends for validation
     return 'mobilelegends';
   }, []);
 
