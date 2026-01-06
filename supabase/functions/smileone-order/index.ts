@@ -336,7 +336,10 @@ serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        result = await validatePlayer(actualApiUrl, actualUid, email, key, userId, zoneId, productType);
+        // Always use 'mobilelegends' for validation - SmileOne validates MLBB accounts the same way
+        // regardless of whether we're ordering diamonds, weekly pass, or Brazil diamonds
+        const validationProductType = productType.startsWith('mobilelegends') ? productType : 'mobilelegends';
+        result = await validatePlayer(actualApiUrl, actualUid, email, key, userId, zoneId, validationProductType);
         break;
         
       case 'order':
