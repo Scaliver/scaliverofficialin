@@ -95,17 +95,27 @@ const ProductDetail = () => {
     setSelectedTier(null);
   }, [selectedCategory, selectedFbCategory, selectedTikTokCategory]);
 
+  // Determine productType based on product slug for SmileOne API
+  const getSmileOneProductType = useCallback((productSlug?: string): string => {
+    if (!productSlug) return 'mobilelegends';
+    if (productSlug.includes('brazil')) return 'mobilelegendsbrazil';
+    if (productSlug.includes('weekly')) return 'weeklypass';
+    return 'mobilelegends';
+  }, []);
+
   // Player verification function
-  const verifyPlayer = useCallback(async (playerId: string, zone: string) => {
+  const verifyPlayer = useCallback(async (playerId: string, zone: string, productSlug?: string) => {
     if (!playerId || !zone) return;
     
     setIsVerifying(true);
     setVerificationError(null);
     setPlayerInfo(null);
     
+    const productType = getSmileOneProductType(productSlug);
+    
     try {
       const { data, error } = await supabase.functions.invoke('smileone-order', {
-        body: { action: 'validate', userId: playerId, zoneId: zone }
+        body: { action: 'validate', userId: playerId, zoneId: zone, productType }
       });
       
       if (error) throw error;
@@ -124,7 +134,7 @@ const ProductDetail = () => {
     } finally {
       setIsVerifying(false);
     }
-  }, []);
+  }, [getSmileOneProductType]);
 
   // Trigger verification when player ID and zone ID change (with debounce)
   useEffect(() => {
@@ -134,7 +144,7 @@ const ProductDetail = () => {
     
     if (userId && zoneId && isMLBBProduct) {
       verifyTimeoutRef.current = setTimeout(() => {
-        verifyPlayer(userId, zoneId);
+        verifyPlayer(userId, zoneId, product?.slug);
       }, 600);
     } else {
       setPlayerInfo(null);
@@ -144,7 +154,7 @@ const ProductDetail = () => {
     return () => {
       if (verifyTimeoutRef.current) clearTimeout(verifyTimeoutRef.current);
     };
-  }, [userId, zoneId, product?.category, product?.isSocialMedia, verifyPlayer]);
+  }, [userId, zoneId, product?.category, product?.isSocialMedia, product?.slug, verifyPlayer]);
 
   if (isLoading) {
     return (
@@ -233,6 +243,7 @@ const ProductDetail = () => {
       // Check if this tier has a SmileOne provider linked
       if (selectedTier.providerId && selectedTier.providerProductId) {
         try {
+          const productType = getSmileOneProductType(product.slug);
           const { data: smileoneData, error: smileoneError } = await supabase.functions.invoke('smileone-order', {
             body: {
               action: 'order',
@@ -240,6 +251,7 @@ const ProductDetail = () => {
               userId: userId,
               zoneId: zoneId,
               productId: selectedTier.providerProductId,
+              productType,
             }
           });
 
