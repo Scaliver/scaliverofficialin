@@ -280,13 +280,17 @@ serve(async (req) => {
     // For now, we'll require the UID to be stored in the api_url field format: "uid|https://api.endpoint.com"
     // Or we can use a simple approach where api_url IS the UID
     let actualUid = apiUrl;
-    let actualApiUrl = 'https://www.smile.one/smilecoin/api';
+    let actualApiUrl = 'https://api.smile.one/topup';
     
     // Check if api_url contains a custom endpoint (if it starts with http)
     if (apiUrl.startsWith('http')) {
       actualApiUrl = apiUrl;
       // In this case, we need the UID from somewhere - use the name field
       actualUid = apiCredentials.name;
+    } else {
+      // api_url field stores the UID, use default SmileOne API endpoint
+      actualUid = apiUrl;
+      actualApiUrl = 'https://api.smile.one/topup';
     }
 
     console.log('Using credentials:', { uid: actualUid, apiUrl: actualApiUrl, email, hasKey: !!key });
