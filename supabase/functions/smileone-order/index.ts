@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts";
+import { encode as encodeHex } from "https://deno.land/std@0.168.0/encoding/hex.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,29 +11,31 @@ const corsHeaders = {
 // SmileOne API endpoints
 const SMILEONE_BASE_URL = "https://www.smile.one/smilecoin/api";
 
+// Generate MD5 hash using Deno standard library
+function md5(input: string): string {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(input);
+  const hashBuffer = crypto.subtle.digestSync("MD5", data);
+  const hexBytes = encodeHex(new Uint8Array(hashBuffer));
+  return new TextDecoder().decode(hexBytes);
+}
+
 // Generate SmileOne signature using double MD5
-async function generateSign(params: Record<string, string>, key: string): Promise<string> {
+function generateSign(params: Record<string, string>, key: string): string {
   // Sort parameters alphabetically
   const sortedKeys = Object.keys(params).sort();
   
   // Build query string: key1=value1&key2=value2&
-  let str = sortedKeys.map(k => `${k}=${params[k]}`).join('&') + '&';
+  const str = sortedKeys.map(k => `${k}=${params[k]}`).join('&') + '&';
   
   // Append key and double MD5 hash
   const textToHash = str + key;
   
   // First MD5
-  const encoder = new TextEncoder();
-  const data1 = encoder.encode(textToHash);
-  const hash1 = await crypto.subtle.digest('MD5', data1);
-  const hashArray1 = Array.from(new Uint8Array(hash1));
-  const firstMd5 = hashArray1.map(b => b.toString(16).padStart(2, '0')).join('');
+  const firstMd5 = md5(textToHash);
   
   // Second MD5
-  const data2 = encoder.encode(firstMd5);
-  const hash2 = await crypto.subtle.digest('MD5', data2);
-  const hashArray2 = Array.from(new Uint8Array(hash2));
-  const secondMd5 = hashArray2.map(b => b.toString(16).padStart(2, '0')).join('');
+  const secondMd5 = md5(firstMd5);
   
   return secondMd5;
 }
@@ -44,7 +48,7 @@ async function getProducts(uid: string, email: string, key: string, productType:
     product: productType,
   };
   
-  const sign = await generateSign(params, key);
+  const sign = generateSign(params, key);
   params.sign = sign;
   
   const formData = new URLSearchParams(params);
@@ -70,7 +74,7 @@ async function validatePlayer(uid: string, email: string, key: string, userId: s
     zoneid: zoneId,
   };
   
-  const sign = await generateSign(params, key);
+  const sign = generateSign(params, key);
   params.sign = sign;
   
   const formData = new URLSearchParams(params);
@@ -106,7 +110,7 @@ async function createOrder(
     time: Math.floor(Date.now() / 1000).toString(),
   };
   
-  const sign = await generateSign(params, key);
+  const sign = generateSign(params, key);
   params.sign = sign;
   
   const formData = new URLSearchParams(params);
@@ -134,7 +138,7 @@ async function getBalance(uid: string, email: string, key: string): Promise<any>
     email,
   };
   
-  const sign = await generateSign(params, key);
+  const sign = generateSign(params, key);
   params.sign = sign;
   
   const formData = new URLSearchParams(params);
