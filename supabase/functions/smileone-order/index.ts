@@ -8,9 +8,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// SmileOne API endpoints
-const SMILEONE_BASE_URL = "https://www.smile.one/smilecoin/api";
-
 // Generate MD5 hash using Deno standard library
 function md5(input: string): string {
   const encoder = new TextEncoder();
@@ -40,8 +37,27 @@ function generateSign(params: Record<string, string>, key: string): string {
   return secondMd5;
 }
 
+// Helper to safely parse JSON response, handling HTML errors
+async function safeJsonParse(response: Response, context: string): Promise<any> {
+  const text = await response.text();
+  
+  console.log(`[${context}] Response status: ${response.status}`);
+  console.log(`[${context}] Response text (first 500 chars): ${text.substring(0, 500)}`);
+  
+  // Check if response is HTML (error page)
+  if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html') || text.trim().startsWith('<')) {
+    throw new Error(`API returned HTML instead of JSON. This usually means the endpoint is incorrect or the API credentials are invalid. Status: ${response.status}`);
+  }
+  
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Failed to parse JSON response: ${text.substring(0, 200)}`);
+  }
+}
+
 // Fetch products from SmileOne
-async function getProducts(uid: string, email: string, key: string, productType: string = "mobilelegends"): Promise<any> {
+async function getProducts(apiUrl: string, uid: string, email: string, key: string, productType: string = "mobilelegends"): Promise<any> {
   const params: Record<string, string> = {
     uid,
     email,
@@ -52,8 +68,11 @@ async function getProducts(uid: string, email: string, key: string, productType:
   params.sign = sign;
   
   const formData = new URLSearchParams(params);
+  const endpoint = `${apiUrl}/productlist`;
   
-  const response = await fetch(`${SMILEONE_BASE_URL}/productlist`, {
+  console.log('Fetching products from:', endpoint);
+  
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -61,11 +80,11 @@ async function getProducts(uid: string, email: string, key: string, productType:
     body: formData.toString(),
   });
   
-  return await response.json();
+  return await safeJsonParse(response, 'getProducts');
 }
 
 // Validate player ID and get role info
-async function validatePlayer(uid: string, email: string, key: string, userId: string, zoneId: string, productType: string = "mobilelegends"): Promise<any> {
+async function validatePlayer(apiUrl: string, uid: string, email: string, key: string, userId: string, zoneId: string, productType: string = "mobilelegends"): Promise<any> {
   const params: Record<string, string> = {
     uid,
     email,
@@ -78,8 +97,11 @@ async function validatePlayer(uid: string, email: string, key: string, userId: s
   params.sign = sign;
   
   const formData = new URLSearchParams(params);
+  const endpoint = `${apiUrl}/getrole`;
   
-  const response = await fetch(`${SMILEONE_BASE_URL}/getrole`, {
+  console.log('Validating player at:', endpoint);
+  
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -87,11 +109,12 @@ async function validatePlayer(uid: string, email: string, key: string, userId: s
     body: formData.toString(),
   });
   
-  return await response.json();
+  return await safeJsonParse(response, 'validatePlayer');
 }
 
 // Create order on SmileOne
 async function createOrder(
+  apiUrl: string,
   uid: string, 
   email: string, 
   key: string, 
@@ -114,10 +137,12 @@ async function createOrder(
   params.sign = sign;
   
   const formData = new URLSearchParams(params);
+  const endpoint = `${apiUrl}/createorder`;
   
-  console.log('Creating SmileOne order with params:', { ...params, sign: '[HIDDEN]' });
+  console.log('Creating SmileOne order at:', endpoint);
+  console.log('Order params:', { ...params, sign: '[HIDDEN]' });
   
-  const response = await fetch(`${SMILEONE_BASE_URL}/createorder`, {
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -125,14 +150,14 @@ async function createOrder(
     body: formData.toString(),
   });
   
-  const result = await response.json();
+  const result = await safeJsonParse(response, 'createOrder');
   console.log('SmileOne order response:', result);
   
   return result;
 }
 
 // Get account balance
-async function getBalance(uid: string, email: string, key: string): Promise<any> {
+async function getBalance(apiUrl: string, uid: string, email: string, key: string): Promise<any> {
   const params: Record<string, string> = {
     uid,
     email,
@@ -142,8 +167,12 @@ async function getBalance(uid: string, email: string, key: string): Promise<any>
   params.sign = sign;
   
   const formData = new URLSearchParams(params);
+  const endpoint = `${apiUrl}/getbalance`;
   
-  const response = await fetch(`${SMILEONE_BASE_URL}/getbalance`, {
+  console.log('Getting balance from:', endpoint);
+  console.log('Balance params:', { uid, email, sign: '[HIDDEN]' });
+  
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -151,7 +180,7 @@ async function getBalance(uid: string, email: string, key: string): Promise<any>
     body: formData.toString(),
   });
   
-  return await response.json();
+  return await safeJsonParse(response, 'getBalance');
 }
 
 serve(async (req) => {
@@ -181,9 +210,14 @@ serve(async (req) => {
         .eq('id', apiId)
         .eq('api_type', 'smileone')
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
       
-      if (error || !data) {
+      if (error) {
+        console.error('Database error:', error);
+        throw new Error('Database error: ' + error.message);
+      }
+      
+      if (!data) {
         return new Response(
           JSON.stringify({ error: 'SmileOne API configuration not found or inactive' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -198,31 +232,70 @@ serve(async (req) => {
         .eq('api_type', 'smileone')
         .eq('is_active', true)
         .limit(1)
-        .single();
+        .maybeSingle();
       
-      if (error || !data) {
+      if (error) {
+        console.error('Database error:', error);
+        throw new Error('Database error: ' + error.message);
+      }
+      
+      if (!data) {
         return new Response(
-          JSON.stringify({ error: 'No active SmileOne API configured' }),
+          JSON.stringify({ error: 'No active SmileOne API configured. Please add a SmileOne API in the admin panel.' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       apiCredentials = data;
     }
 
-    const { api_url: uid, api_key: key, email } = apiCredentials;
+    // For SmileOne: api_url stores the base API URL, api_key stores the secret key
+    const apiUrl = apiCredentials.api_url;
+    const uid = apiCredentials.name; // Using name field for UID since we don't have a dedicated field
+    const email = apiCredentials.email;
+    const key = apiCredentials.api_key;
     
-    if (!uid || !key || !email) {
+    console.log('API credentials found:', { 
+      id: apiCredentials.id, 
+      name: apiCredentials.name,
+      apiUrl: apiUrl,
+      email: email,
+      hasKey: !!key 
+    });
+    
+    if (!apiUrl || !key || !email) {
       return new Response(
-        JSON.stringify({ error: 'SmileOne API credentials incomplete. Need UID, Email, and Secret Key.' }),
+        JSON.stringify({ 
+          error: 'SmileOne API credentials incomplete. Required: API URL (base endpoint), Email, and Secret Key.',
+          details: {
+            hasApiUrl: !!apiUrl,
+            hasEmail: !!email,
+            hasKey: !!key
+          }
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Extract UID from the API name or use a dedicated field approach
+    // For now, we'll require the UID to be stored in the api_url field format: "uid|https://api.endpoint.com"
+    // Or we can use a simple approach where api_url IS the UID
+    let actualUid = apiUrl;
+    let actualApiUrl = 'https://www.smile.one/smilecoin/api';
+    
+    // Check if api_url contains a custom endpoint (if it starts with http)
+    if (apiUrl.startsWith('http')) {
+      actualApiUrl = apiUrl;
+      // In this case, we need the UID from somewhere - use the name field
+      actualUid = apiCredentials.name;
+    }
+
+    console.log('Using credentials:', { uid: actualUid, apiUrl: actualApiUrl, email, hasKey: !!key });
 
     let result;
 
     switch (action) {
       case 'products':
-        result = await getProducts(uid, email, key, productType);
+        result = await getProducts(actualApiUrl, actualUid, email, key, productType);
         break;
         
       case 'validate':
@@ -232,7 +305,7 @@ serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        result = await validatePlayer(uid, email, key, userId, zoneId, productType);
+        result = await validatePlayer(actualApiUrl, actualUid, email, key, userId, zoneId, productType);
         break;
         
       case 'order':
@@ -242,11 +315,11 @@ serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        result = await createOrder(uid, email, key, userId, zoneId, productId, productType);
+        result = await createOrder(actualApiUrl, actualUid, email, key, userId, zoneId, productId, productType);
         break;
         
       case 'balance':
-        result = await getBalance(uid, email, key);
+        result = await getBalance(actualApiUrl, actualUid, email, key);
         break;
         
       default:
