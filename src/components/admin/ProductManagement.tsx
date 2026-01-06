@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { Plus, Edit2, Trash2, Package, ChevronDown, ChevronUp, Search, ToggleLeft, ToggleRight, Upload, Image } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Plus, Edit2, Trash2, Package, ChevronDown, ChevronUp, Search, ToggleLeft, ToggleRight, Upload, Image, Gamepad2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,14 @@ import {
 } from "@/components/ui/select";
 import { useProducts, Product, ProductFormData, PricingTierFormData } from "@/hooks/useProducts";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+interface SmileOneApi {
+  id: string;
+  name: string;
+  api_type: string;
+  is_active: boolean;
+}
 
 const CATEGORIES = [
   "Mobile Legends",
@@ -91,7 +99,28 @@ export const ProductManagement = () => {
     smm_service_id: null,
     quantity: null,
     sort_order: 0,
+    provider_id: null,
+    provider_product_id: null,
   });
+
+  // SmileOne APIs for provider selection
+  const [smileoneApis, setSmileoneApis] = useState<SmileOneApi[]>([]);
+
+  // Fetch SmileOne APIs
+  useEffect(() => {
+    const fetchSmileoneApis = async () => {
+      const { data } = await supabase
+        .from("smm_apis")
+        .select("id, name, api_type, is_active")
+        .eq("api_type", "smileone")
+        .eq("is_active", true);
+      
+      if (data) {
+        setSmileoneApis(data as unknown as SmileOneApi[]);
+      }
+    };
+    fetchSmileoneApis();
+  }, []);
 
   // Delete confirmation
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -210,6 +239,8 @@ export const ProductManagement = () => {
         smm_service_id: tier.smm_service_id,
         quantity: tier.quantity,
         sort_order: tier.sort_order,
+        provider_id: tier.provider_id || null,
+        provider_product_id: tier.provider_product_id || null,
       });
     } else {
       setEditingTier(null);
@@ -221,6 +252,8 @@ export const ProductManagement = () => {
         smm_service_id: null,
         quantity: null,
         sort_order: product?.pricing_tiers?.length || 0,
+        provider_id: null,
+        provider_product_id: null,
       });
     }
     setTierDialogOpen(true);
@@ -413,6 +446,12 @@ export const ProductManagement = () => {
                             {tier.smm_service_id && (
                               <Badge variant="outline" className="text-xs">
                                 SMM ID: {tier.smm_service_id} • Qty: {tier.quantity}
+                              </Badge>
+                            )}
+                            {tier.provider_id && (
+                              <Badge variant="outline" className="text-xs gap-1">
+                                <Gamepad2 className="w-3 h-3" />
+                                SmileOne: {tier.provider_product_id || 'N/A'}
                               </Badge>
                             )}
                           </div>
@@ -678,6 +717,47 @@ export const ProductManagement = () => {
                 />
               </div>
             </div>
+
+            {/* SmileOne Provider Section */}
+            {smileoneApis.length > 0 && (
+              <div className="border-t border-border pt-4 mt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Gamepad2 className="w-4 h-4 text-primary" />
+                  <Label className="font-semibold">SmileOne Integration</Label>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>SmileOne Provider</Label>
+                    <Select 
+                      value={tierForm.provider_id || "none"} 
+                      onValueChange={(value) => setTierForm({ ...tierForm, provider_id: value === "none" ? null : value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select provider" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {smileoneApis.map((api) => (
+                          <SelectItem key={api.id} value={api.id}>{api.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>SmileOne Product ID</Label>
+                    <Input
+                      placeholder="Product ID from SmileOne"
+                      value={tierForm.provider_product_id || ""}
+                      onChange={(e) => setTierForm({ ...tierForm, provider_product_id: e.target.value || null })}
+                      disabled={!tierForm.provider_id}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Link this tier to SmileOne for automatic diamond delivery.
+                </p>
+              </div>
+            )}
           </div>
 
           <DialogFooter>

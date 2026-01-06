@@ -12,6 +12,8 @@ export interface PricingTier {
   smm_service_id: string | null;
   quantity: number | null;
   sort_order: number;
+  provider_id: string | null;
+  provider_product_id: string | null;
 }
 
 export interface Product {
@@ -51,6 +53,8 @@ export interface PricingTierFormData {
   smm_service_id: string | null;
   quantity: number | null;
   sort_order: number;
+  provider_id: string | null;
+  provider_product_id: string | null;
 }
 
 // Legacy interface for compatibility with existing components
@@ -73,6 +77,8 @@ export interface LegacyProduct {
     bonus?: string;
     smmServiceId?: string;
     quantity?: number;
+    providerId?: string;
+    providerProductId?: string;
   }[];
 }
 
@@ -96,6 +102,8 @@ const toLegacyProduct = (product: Product): LegacyProduct => ({
     bonus: tier.bonus || undefined,
     smmServiceId: tier.smm_service_id || undefined,
     quantity: tier.quantity || undefined,
+    providerId: tier.provider_id || undefined,
+    providerProductId: tier.provider_product_id || undefined,
   })),
 });
 

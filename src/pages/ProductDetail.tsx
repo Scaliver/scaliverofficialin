@@ -40,6 +40,8 @@ interface PricingTier {
   bonus?: string;
   smmServiceId?: string;
   quantity?: number;
+  providerId?: string;
+  providerProductId?: string;
 }
 
 const ProductDetail = () => {
@@ -171,14 +173,57 @@ const ProductDetail = () => {
 
       if (orderError) throw orderError;
 
+      // Check if this tier has a SmileOne provider linked
+      if (selectedTier.providerId && selectedTier.providerProductId) {
+        try {
+          const { data: smileoneData, error: smileoneError } = await supabase.functions.invoke('smileone-order', {
+            body: {
+              action: 'order',
+              apiId: selectedTier.providerId,
+              userId: userId,
+              zoneId: zoneId,
+              productId: selectedTier.providerProductId,
+            }
+          });
+
+          if (smileoneError) throw smileoneError;
+
+          if (smileoneData.error || smileoneData.code !== 200) {
+            await supabase
+              .from("orders")
+              .update({ status: "failed" })
+              .eq("id", orderData.id);
+            
+            throw new Error(smileoneData.message || smileoneData.error || 'SmileOne order failed');
+          }
+
+          // Update order with SmileOne order ID
+          await supabase
+            .from("orders")
+            .update({ 
+              status: "processing",
+              smm_order_id: smileoneData.order_id ? String(smileoneData.order_id) : null 
+            })
+            .eq("id", orderData.id);
+
+          console.log("SmileOne Order placed:", smileoneData);
+        } catch (smileoneError) {
+          console.error("SmileOne API Error:", smileoneError);
+          toast({
+            title: "Warning",
+            description: "Order created but SmileOne processing failed. Our team will process manually.",
+            variant: "default",
+          });
+        }
+      }
       // If this is a social media product with SMM service ID, place order via SMM API
-      if (product.isSocialMedia && selectedTier.smmServiceId && selectedTier.quantity) {
+      else if (product.isSocialMedia && selectedTier.smmServiceId && selectedTier.quantity) {
         try {
           const { data: smmData, error: smmError } = await supabase.functions.invoke('smm-order', {
             body: {
               action: 'order',
               service: selectedTier.smmServiceId,
-              link: userId, // For social media, userId field contains the profile/post URL
+              link: userId,
               quantity: selectedTier.quantity,
             }
           });
@@ -186,7 +231,6 @@ const ProductDetail = () => {
           if (smmError) throw smmError;
 
           if (smmData.error) {
-            // Update order status to failed
             await supabase
               .from("orders")
               .update({ status: "failed" })
@@ -195,7 +239,6 @@ const ProductDetail = () => {
             throw new Error(smmData.error);
           }
 
-          // Update order with SMM order ID in dedicated column
           await supabase
             .from("orders")
             .update({ 

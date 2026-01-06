@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, Globe } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, Globe, Gamepad2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+type ApiType = 'smm' | 'smileone';
 
 interface SmmApi {
   id: string;
@@ -33,7 +42,14 @@ interface SmmApi {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  api_type: ApiType;
+  email: string | null;
 }
+
+const API_TYPES = [
+  { value: 'smm', label: 'SMM Panel', description: 'For social media services' },
+  { value: 'smileone', label: 'SmileOne', description: 'For MLBB diamonds' },
+];
 
 export const ApiManagement = () => {
   const { toast } = useToast();
@@ -51,6 +67,8 @@ export const ApiManagement = () => {
     api_url: "",
     api_key: "",
     is_active: true,
+    api_type: "smm" as ApiType,
+    email: "",
   });
 
   useEffect(() => {
@@ -65,7 +83,7 @@ export const ApiManagement = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setApis(data || []);
+      setApis((data as unknown as SmmApi[]) || []);
     } catch (error) {
       console.error("Error fetching APIs:", error);
       toast({
@@ -85,6 +103,8 @@ export const ApiManagement = () => {
       api_url: "",
       api_key: "",
       is_active: true,
+      api_type: "smm",
+      email: "",
     });
     setDialogOpen(true);
   };
@@ -96,6 +116,8 @@ export const ApiManagement = () => {
       api_url: api.api_url,
       api_key: api.api_key,
       is_active: api.is_active,
+      api_type: api.api_type || "smm",
+      email: api.email || "",
     });
     setDialogOpen(true);
   };
@@ -115,17 +137,31 @@ export const ApiManagement = () => {
       return;
     }
 
+    // SmileOne requires email
+    if (formData.api_type === "smileone" && !formData.email) {
+      toast({
+        title: "Validation Error",
+        description: "Email is required for SmileOne API.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
+      const saveData = {
+        name: formData.name,
+        api_url: formData.api_url,
+        api_key: formData.api_key,
+        is_active: formData.is_active,
+        api_type: formData.api_type,
+        email: formData.api_type === "smileone" ? formData.email : null,
+      };
+
       if (selectedApi) {
         // Update existing
         const { error } = await supabase
           .from("smm_apis")
-          .update({
-            name: formData.name,
-            api_url: formData.api_url,
-            api_key: formData.api_key,
-            is_active: formData.is_active,
-          })
+          .update(saveData)
           .eq("id", selectedApi.id);
 
         if (error) throw error;
@@ -138,12 +174,7 @@ export const ApiManagement = () => {
         // Create new
         const { error } = await supabase
           .from("smm_apis")
-          .insert({
-            name: formData.name,
-            api_url: formData.api_url,
-            api_key: formData.api_key,
-            is_active: formData.is_active,
-          });
+          .insert(saveData);
 
         if (error) throw error;
 
@@ -222,43 +253,74 @@ export const ApiManagement = () => {
     setIsTesting(api.id);
     
     try {
-      // Test by getting balance from the API
-      const formDataBody = new URLSearchParams();
-      formDataBody.append('key', api.api_key);
-      formDataBody.append('action', 'balance');
-
-      const response = await fetch(api.api_url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: formDataBody.toString(),
-      });
-
-      const result = await response.json();
-
-      if (result.error) {
-        toast({
-          title: "Connection Failed",
-          description: result.error,
-          variant: "destructive",
+      if (api.api_type === "smileone") {
+        // Test SmileOne API via edge function
+        const { data, error } = await supabase.functions.invoke('smileone-order', {
+          body: {
+            action: 'balance',
+            apiId: api.id,
+          }
         });
-      } else if (result.balance !== undefined) {
-        toast({
-          title: "Connection Successful",
-          description: `${api.name} is working. Balance: $${result.balance}`,
-        });
+
+        if (error) throw error;
+
+        if (data.error) {
+          toast({
+            title: "Connection Failed",
+            description: data.error,
+            variant: "destructive",
+          });
+        } else if (data.balance !== undefined || data.smile_coin !== undefined) {
+          const balance = data.balance || data.smile_coin || 'N/A';
+          toast({
+            title: "Connection Successful",
+            description: `${api.name} is working. Balance: ${balance}`,
+          });
+        } else {
+          toast({
+            title: "Connection Test",
+            description: "API responded. Check response format.",
+          });
+        }
       } else {
-        toast({
-          title: "Connection Test",
-          description: "API responded but balance not available.",
+        // Test SMM Panel API
+        const formDataBody = new URLSearchParams();
+        formDataBody.append('key', api.api_key);
+        formDataBody.append('action', 'balance');
+
+        const response = await fetch(api.api_url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: formDataBody.toString(),
         });
+
+        const result = await response.json();
+
+        if (result.error) {
+          toast({
+            title: "Connection Failed",
+            description: result.error,
+            variant: "destructive",
+          });
+        } else if (result.balance !== undefined) {
+          toast({
+            title: "Connection Successful",
+            description: `${api.name} is working. Balance: $${result.balance}`,
+          });
+        } else {
+          toast({
+            title: "Connection Test",
+            description: "API responded but balance not available.",
+          });
+        }
       }
     } catch (error) {
       console.error("Error testing API:", error);
       toast({
         title: "Connection Failed",
-        description: "Could not connect to the API. Check URL and try again.",
+        description: "Could not connect to the API. Check configuration and try again.",
         variant: "destructive",
       });
     } finally {
@@ -275,6 +337,16 @@ export const ApiManagement = () => {
     return key.slice(0, 4) + "••••••••" + key.slice(-4);
   };
 
+  const getApiTypeLabel = (type: ApiType) => {
+    const found = API_TYPES.find(t => t.value === type);
+    return found ? found.label : type;
+  };
+
+  const getApiTypeIcon = (type: ApiType) => {
+    if (type === 'smileone') return <Gamepad2 className="w-4 h-4" />;
+    return <Globe className="w-4 h-4" />;
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -288,8 +360,8 @@ export const ApiManagement = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-display text-xl font-bold text-foreground">SMM API Configuration</h2>
-          <p className="text-sm text-muted-foreground">Manage your SMM panel APIs like SmileOne, MooGold, etc.</p>
+          <h2 className="font-display text-xl font-bold text-foreground">API Configuration</h2>
+          <p className="text-sm text-muted-foreground">Manage SMM panels and game top-up providers (SmileOne).</p>
         </div>
         <Button onClick={openAddDialog} className="gap-2">
           <Plus className="w-4 h-4" />
@@ -298,7 +370,7 @@ export const ApiManagement = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
@@ -323,12 +395,23 @@ export const ApiManagement = () => {
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
-              <XCircle className="w-5 h-5 text-red-500" />
+            <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+              <Globe className="w-5 h-5 text-blue-500" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Inactive</p>
-              <p className="text-xl font-bold text-foreground">{apis.filter(a => !a.is_active).length}</p>
+              <p className="text-xs text-muted-foreground">SMM Panels</p>
+              <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'smm').length}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+              <Gamepad2 className="w-5 h-5 text-purple-500" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">SmileOne</p>
+              <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'smileone').length}</p>
             </div>
           </div>
         </div>
@@ -339,7 +422,7 @@ export const ApiManagement = () => {
         <div className="bg-card border border-border rounded-xl p-8 text-center">
           <Globe className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="font-display text-lg font-bold text-foreground mb-2">No APIs Configured</h3>
-          <p className="text-muted-foreground mb-4">Add your first SMM panel API to get started.</p>
+          <p className="text-muted-foreground mb-4">Add your first API to get started.</p>
           <Button onClick={openAddDialog} className="gap-2">
             <Plus className="w-4 h-4" />
             Add API
@@ -360,17 +443,33 @@ export const ApiManagement = () => {
                     <Badge variant={api.is_active ? "default" : "secondary"}>
                       {api.is_active ? "Active" : "Inactive"}
                     </Badge>
+                    <Badge variant="outline" className="gap-1">
+                      {getApiTypeIcon(api.api_type)}
+                      {getApiTypeLabel(api.api_type)}
+                    </Badge>
                   </div>
                   
                   <div className="space-y-1 text-sm">
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">URL:</span>
+                      <span className="text-muted-foreground">
+                        {api.api_type === 'smileone' ? 'UID:' : 'URL:'}
+                      </span>
                       <code className="bg-secondary px-2 py-0.5 rounded text-xs text-foreground break-all">
                         {api.api_url}
                       </code>
                     </div>
+                    {api.api_type === 'smileone' && api.email && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">Email:</span>
+                        <code className="bg-secondary px-2 py-0.5 rounded text-xs text-foreground">
+                          {api.email}
+                        </code>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">API Key:</span>
+                      <span className="text-muted-foreground">
+                        {api.api_type === 'smileone' ? 'Secret Key:' : 'API Key:'}
+                      </span>
                       <code className="bg-secondary px-2 py-0.5 rounded text-xs text-foreground">
                         {showApiKeys[api.id] ? api.api_key : maskApiKey(api.api_key)}
                       </code>
@@ -442,34 +541,78 @@ export const ApiManagement = () => {
           
           <div className="space-y-4 py-4">
             <div className="space-y-2">
+              <Label htmlFor="api_type">API Type *</Label>
+              <Select 
+                value={formData.api_type} 
+                onValueChange={(value: ApiType) => setFormData({ ...formData, api_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select API type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {API_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      <div className="flex flex-col">
+                        <span>{type.label}</span>
+                        <span className="text-xs text-muted-foreground">{type.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="name">API Name *</Label>
               <Input
                 id="name"
-                placeholder="e.g., SmileOne, MooGold"
+                placeholder={formData.api_type === 'smileone' ? "SmileOne MLBB" : "My SMM Panel"}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="api_url">API URL *</Label>
+              <Label htmlFor="api_url">
+                {formData.api_type === 'smileone' ? 'SmileOne UID *' : 'API URL *'}
+              </Label>
               <Input
                 id="api_url"
-                placeholder="https://example.com/api/v2"
+                placeholder={formData.api_type === 'smileone' ? "Your SmileOne UID" : "https://example.com/api/v2"}
                 value={formData.api_url}
                 onChange={(e) => setFormData({ ...formData, api_url: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">
-                The full API endpoint URL (e.g., https://panel.example.com/api/v2)
+                {formData.api_type === 'smileone' 
+                  ? "Your SmileOne account UID (found in SmileOne dashboard)"
+                  : "The full API endpoint URL"}
               </p>
             </div>
+
+            {formData.api_type === 'smileone' && (
+              <div className="space-y-2">
+                <Label htmlFor="email">SmileOne Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The email registered with your SmileOne account
+                </p>
+              </div>
+            )}
             
             <div className="space-y-2">
-              <Label htmlFor="api_key">API Key *</Label>
+              <Label htmlFor="api_key">
+                {formData.api_type === 'smileone' ? 'Secret Key *' : 'API Key *'}
+              </Label>
               <Input
                 id="api_key"
                 type="password"
-                placeholder="Enter your API key"
+                placeholder={formData.api_type === 'smileone' ? "Your SmileOne secret key" : "Enter your API key"}
                 value={formData.api_key}
                 onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
               />
@@ -500,15 +643,15 @@ export const ApiManagement = () => {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete API Configuration?</AlertDialogTitle>
+            <AlertDialogTitle>Delete API Configuration</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <span className="font-semibold">{selectedApi?.name}</span>?
+              Are you sure you want to delete <strong>{selectedApi?.name}</strong>? 
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
