@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, Globe, Gamepad2, Package } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, Globe, Gamepad2, Package, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/select";
 import { SmileOneProductFetcher } from "./SmileOneProductFetcher";
 
-type ApiType = 'smm' | 'smileone';
+type ApiType = 'smm' | 'smileone' | 'payment';
 
 interface SmmApi {
   id: string;
@@ -50,6 +50,7 @@ interface SmmApi {
 const API_TYPES = [
   { value: 'smm', label: 'SMM Panel', description: 'For social media services' },
   { value: 'smileone', label: 'SmileOne', description: 'For MLBB diamonds' },
+  { value: 'payment', label: 'Payment Gateway', description: 'For payment verification (BharatPe, etc.)' },
 ];
 
 export const ApiManagement = () => {
@@ -152,6 +153,16 @@ export const ApiManagement = () => {
       return;
     }
 
+    // Payment gateway requires merchant ID (stored in email field)
+    if (formData.api_type === "payment" && !formData.email) {
+      toast({
+        title: "Validation Error",
+        description: "Merchant ID is required for Payment Gateway.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const saveData = {
         name: formData.name,
@@ -159,7 +170,7 @@ export const ApiManagement = () => {
         api_key: formData.api_key,
         is_active: formData.is_active,
         api_type: formData.api_type,
-        email: formData.api_type === "smileone" ? formData.email : null,
+        email: (formData.api_type === "smileone" || formData.api_type === "payment") ? formData.email : null,
       };
 
       if (selectedApi) {
@@ -296,6 +307,33 @@ export const ApiManagement = () => {
             description: `Response: ${JSON.stringify(data).substring(0, 100)}`,
           });
         }
+      } else if (api.api_type === "payment") {
+        // Test Payment Gateway via edge function
+        const { data, error } = await supabase.functions.invoke('bharatpe-payment', {
+          body: {
+            action: 'test',
+          }
+        });
+
+        if (error) throw error;
+
+        if (data.error) {
+          toast({
+            title: "Connection Failed",
+            description: data.error,
+            variant: "destructive",
+          });
+        } else if (data.success) {
+          toast({
+            title: "Connection Successful",
+            description: `${api.name} is configured. Gateway: ${data.gateway_type}`,
+          });
+        } else {
+          toast({
+            title: "Connection Test",
+            description: `Response: ${JSON.stringify(data).substring(0, 100)}`,
+          });
+        }
       } else {
         // Test SMM Panel API
         const formDataBody = new URLSearchParams();
@@ -358,6 +396,7 @@ export const ApiManagement = () => {
 
   const getApiTypeIcon = (type: ApiType) => {
     if (type === 'smileone') return <Gamepad2 className="w-4 h-4" />;
+    if (type === 'payment') return <CreditCard className="w-4 h-4" />;
     return <Globe className="w-4 h-4" />;
   };
 
@@ -426,6 +465,17 @@ export const ApiManagement = () => {
             <div>
               <p className="text-xs text-muted-foreground">SmileOne</p>
               <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'smileone').length}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+              <CreditCard className="w-5 h-5 text-orange-500" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Payment</p>
+              <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'payment').length}</p>
             </div>
           </div>
         </div>
@@ -602,17 +652,19 @@ export const ApiManagement = () => {
             
             <div className="space-y-2">
               <Label htmlFor="api_url">
-                {formData.api_type === 'smileone' ? 'SmileOne UID *' : 'API URL *'}
+                {formData.api_type === 'smileone' ? 'SmileOne UID *' : formData.api_type === 'payment' ? 'Gateway Type *' : 'API URL *'}
               </Label>
               <Input
                 id="api_url"
-                placeholder={formData.api_type === 'smileone' ? "Your SmileOne UID" : "https://example.com/api/v2"}
+                placeholder={formData.api_type === 'smileone' ? "Your SmileOne UID" : formData.api_type === 'payment' ? "bharatpe" : "https://example.com/api/v2"}
                 value={formData.api_url}
                 onChange={(e) => setFormData({ ...formData, api_url: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">
                 {formData.api_type === 'smileone' 
                   ? "Your SmileOne account UID (found in SmileOne dashboard)"
+                  : formData.api_type === 'payment'
+                  ? "Gateway type identifier (e.g., bharatpe, razorpay, phonepe)"
                   : "The full API endpoint URL"}
               </p>
             </div>
@@ -632,18 +684,38 @@ export const ApiManagement = () => {
                 </p>
               </div>
             )}
+
+            {formData.api_type === 'payment' && (
+              <div className="space-y-2">
+                <Label htmlFor="email">Merchant ID *</Label>
+                <Input
+                  id="email"
+                  placeholder="Your BharatPe Merchant ID"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your payment gateway merchant ID for verification
+                </p>
+              </div>
+            )}
             
             <div className="space-y-2">
               <Label htmlFor="api_key">
-                {formData.api_type === 'smileone' ? 'Secret Key *' : 'API Key *'}
+                {formData.api_type === 'smileone' ? 'Secret Key *' : formData.api_type === 'payment' ? 'API Token *' : 'API Key *'}
               </Label>
               <Input
                 id="api_key"
                 type="password"
-                placeholder={formData.api_type === 'smileone' ? "Your SmileOne secret key" : "Enter your API key"}
+                placeholder={formData.api_type === 'smileone' ? "Your SmileOne secret key" : formData.api_type === 'payment' ? "Your payment gateway API token" : "Enter your API key"}
                 value={formData.api_key}
                 onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
               />
+              {formData.api_type === 'payment' && (
+                <p className="text-xs text-muted-foreground">
+                  Your BharatPe API token for payment verification
+                </p>
+              )}
             </div>
             
             <div className="flex items-center justify-between">
