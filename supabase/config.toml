@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.smileone-order]
 verify_jwt = false
+
+[functions.bharatpe-payment]
+verify_jwt = false
