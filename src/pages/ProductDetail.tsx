@@ -242,47 +242,97 @@ const ProductDetail = () => {
 
       if (orderError) throw orderError;
 
-      // Check if this tier has a SmileOne provider linked
+      // Check if this tier has a provider linked
       if (selectedTier.providerId && selectedTier.providerProductId) {
         try {
-          const productType = getSmileOneProductType(product.slug);
-          const { data: smileoneData, error: smileoneError } = await supabase.functions.invoke('smileone-order', {
-            body: {
-              action: 'order',
-              apiId: selectedTier.providerId,
-              userId: userId,
-              zoneId: zoneId,
-              productId: selectedTier.providerProductId,
-              productType,
-            }
-          });
+          // First, determine the provider's API type
+          const { data: apiData, error: apiError } = await supabase
+            .from('smm_apis')
+            .select('api_type')
+            .eq('id', selectedTier.providerId)
+            .single();
 
-          if (smileoneError) throw smileoneError;
-
-          if (smileoneData.error || smileoneData.code !== 200) {
-            await supabase
-              .from("orders")
-              .update({ status: "failed" })
-              .eq("id", orderData.id);
-            
-            throw new Error(smileoneData.message || smileoneData.error || 'SmileOne order failed');
+          if (apiError) {
+            console.error('Failed to fetch API type:', apiError);
           }
 
-          // Update order with SmileOne order ID
-          await supabase
-            .from("orders")
-            .update({ 
-              status: "processing",
-              smm_order_id: smileoneData.order_id ? String(smileoneData.order_id) : null 
-            })
-            .eq("id", orderData.id);
+          const apiType = apiData?.api_type || 'smileone';
 
-          console.log("SmileOne Order placed:", smileoneData);
-        } catch (smileoneError) {
-          console.error("SmileOne API Error:", smileoneError);
+          if (apiType === 'gametopup') {
+            // Use Game Top-Up API (x-api-key header)
+            const { data: gametopupData, error: gametopupError } = await supabase.functions.invoke('gametopup-order', {
+              body: {
+                action: 'order',
+                apiId: selectedTier.providerId,
+                playerId: userId,
+                zoneId: zoneId,
+                productId: selectedTier.providerProductId,
+                currency: 'INR',
+              }
+            });
+
+            if (gametopupError) throw gametopupError;
+
+            if (gametopupData.error || !gametopupData.success) {
+              await supabase
+                .from("orders")
+                .update({ status: "failed" })
+                .eq("id", orderData.id);
+              
+              throw new Error(gametopupData.message || gametopupData.error || 'Game Top-Up order failed');
+            }
+
+            // Update order with Game Top-Up order ID
+            await supabase
+              .from("orders")
+              .update({ 
+                status: "processing",
+                smm_order_id: gametopupData.order_id ? String(gametopupData.order_id) : null 
+              })
+              .eq("id", orderData.id);
+
+            console.log("Game Top-Up Order placed:", gametopupData);
+          } else {
+            // Use SmileOne API (default)
+            const productType = getSmileOneProductType(product.slug);
+            const { data: smileoneData, error: smileoneError } = await supabase.functions.invoke('smileone-order', {
+              body: {
+                action: 'order',
+                apiId: selectedTier.providerId,
+                userId: userId,
+                zoneId: zoneId,
+                productId: selectedTier.providerProductId,
+                productType,
+              }
+            });
+
+            if (smileoneError) throw smileoneError;
+
+            if (smileoneData.error || smileoneData.code !== 200) {
+              await supabase
+                .from("orders")
+                .update({ status: "failed" })
+                .eq("id", orderData.id);
+              
+              throw new Error(smileoneData.message || smileoneData.error || 'SmileOne order failed');
+            }
+
+            // Update order with SmileOne order ID
+            await supabase
+              .from("orders")
+              .update({ 
+                status: "processing",
+                smm_order_id: smileoneData.order_id ? String(smileoneData.order_id) : null 
+              })
+              .eq("id", orderData.id);
+
+            console.log("SmileOne Order placed:", smileoneData);
+          }
+        } catch (providerError) {
+          console.error("Provider API Error:", providerError);
           toast({
             title: "Warning",
-            description: "Order created but SmileOne processing failed. Our team will process manually.",
+            description: "Order created but auto-delivery failed. Our team will process manually.",
             variant: "default",
           });
         }
