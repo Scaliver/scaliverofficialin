@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.bharatpe-payment]
 verify_jwt = false
+
+[functions.gametopup-order]
+verify_jwt = false

@@ -25,7 +25,7 @@ import { useProducts, Product, ProductFormData, PricingTierFormData } from "@/ho
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-interface SmileOneApi {
+interface GameProviderApi {
   id: string;
   name: string;
   api_type: string;
@@ -118,33 +118,43 @@ export const ProductManagement = () => {
     provider_product_id: null,
   });
 
-  // SmileOne APIs for provider selection
-  const [smileoneApis, setSmileoneApis] = useState<SmileOneApi[]>([]);
+  // Game provider APIs for provider selection (SmileOne + Game Top-Up)
+  const [gameProviderApis, setGameProviderApis] = useState<GameProviderApi[]>([]);
   
   // SmileOne product fetching for tier dialog
   const [smileoneProducts, setSmileoneProducts] = useState<SmileOneProduct[]>([]);
   const [isFetchingProducts, setIsFetchingProducts] = useState(false);
   const [selectedProductType, setSelectedProductType] = useState("mobilelegends");
 
-  // Fetch SmileOne APIs
+  // Fetch game provider APIs (SmileOne + Game Top-Up)
   useEffect(() => {
-    const fetchSmileoneApis = async () => {
+    const fetchGameProviderApis = async () => {
       const { data } = await supabase
         .from("smm_apis")
         .select("id, name, api_type, is_active")
-        .eq("api_type", "smileone")
+        .in("api_type", ["smileone", "gametopup"])
         .eq("is_active", true);
       
       if (data) {
-        setSmileoneApis(data as unknown as SmileOneApi[]);
+        setGameProviderApis(data as unknown as GameProviderApi[]);
       }
     };
-    fetchSmileoneApis();
+    fetchGameProviderApis();
   }, []);
   
-  // Fetch SmileOne products when provider is selected
+  // Fetch SmileOne products when SmileOne provider is selected
   const fetchSmileOneProducts = async () => {
     if (!tierForm.provider_id) return;
+    
+    // Check if the selected provider is a SmileOne API
+    const selectedApi = gameProviderApis.find(api => api.id === tierForm.provider_id);
+    if (selectedApi?.api_type !== 'smileone') {
+      toast({
+        title: "Info",
+        description: "Product fetching is only available for SmileOne APIs. For Game Top-Up APIs, enter the product ID manually.",
+      });
+      return;
+    }
     
     setIsFetchingProducts(true);
     setSmileoneProducts([]);
@@ -199,6 +209,19 @@ export const ProductManagement = () => {
     } finally {
       setIsFetchingProducts(false);
     }
+  };
+
+  // Get label for provider based on API type
+  const getProviderLabel = (apiId: string) => {
+    const api = gameProviderApis.find(a => a.id === apiId);
+    if (!api) return '';
+    return api.api_type === 'gametopup' ? `${api.name} (Game Top-Up)` : `${api.name} (SmileOne)`;
+  };
+
+  // Check if selected provider is SmileOne type
+  const isSmileOneProvider = () => {
+    const selectedApi = gameProviderApis.find(api => api.id === tierForm.provider_id);
+    return selectedApi?.api_type === 'smileone';
   };
 
   // Delete confirmation
@@ -798,17 +821,17 @@ export const ProductManagement = () => {
               </div>
             </div>
 
-            {/* SmileOne Provider Section */}
-            {smileoneApis.length > 0 && (
+            {/* Game Provider Section (SmileOne + Game Top-Up) */}
+            {gameProviderApis.length > 0 && (
               <div className="border-t border-border pt-4 mt-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Gamepad2 className="w-4 h-4 text-primary" />
-                  <Label className="font-semibold">SmileOne Integration</Label>
+                  <Label className="font-semibold">Game Provider Integration</Label>
                 </div>
                 
                 {/* Provider Selection */}
                 <div className="space-y-2 mb-4">
-                  <Label>SmileOne Provider</Label>
+                  <Label>Provider</Label>
                   <Select 
                     value={tierForm.provider_id || "none"} 
                     onValueChange={(value) => {
@@ -825,15 +848,17 @@ export const ProductManagement = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
-                      {smileoneApis.map((api) => (
-                        <SelectItem key={api.id} value={api.id}>{api.name}</SelectItem>
+                      {gameProviderApis.map((api) => (
+                        <SelectItem key={api.id} value={api.id}>
+                          {api.name} ({api.api_type === 'gametopup' ? 'Game Top-Up' : 'SmileOne'})
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* Product Type & Fetch Button */}
-                {tierForm.provider_id && (
+                {/* Product Type & Fetch Button - Only show for SmileOne */}
+                {tierForm.provider_id && isSmileOneProvider() && (
                   <div className="space-y-4">
                     <div className="flex gap-2">
                       <div className="flex-1 space-y-2">
@@ -906,8 +931,28 @@ export const ProductManagement = () => {
                   </div>
                 )}
 
+                {/* Manual Product ID Input - For Game Top-Up APIs */}
+                {tierForm.provider_id && !isSmileOneProvider() && (
+                  <div className="space-y-2">
+                    <Label>Product ID</Label>
+                    <Input
+                      placeholder="e.g., bgmi362_60197"
+                      value={tierForm.provider_product_id || ""}
+                      onChange={(e) => setTierForm({ ...tierForm, provider_product_id: e.target.value || null })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Enter the product ID from your Game Top-Up API provider
+                    </p>
+                    {tierForm.provider_product_id && (
+                      <p className="text-xs text-green-500">
+                        ✓ Product ID: {tierForm.provider_product_id}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <p className="text-xs text-muted-foreground mt-3">
-                  Link this tier to SmileOne for automatic diamond delivery.
+                  Link this tier to a game provider for automatic delivery.
                 </p>
               </div>
             )}

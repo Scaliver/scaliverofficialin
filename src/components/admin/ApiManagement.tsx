@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/select";
 import { SmileOneProductFetcher } from "./SmileOneProductFetcher";
 
-type ApiType = 'smm' | 'smileone' | 'payment';
+type ApiType = 'smm' | 'smileone' | 'gametopup' | 'payment';
 
 interface SmmApi {
   id: string;
@@ -49,7 +49,8 @@ interface SmmApi {
 
 const API_TYPES = [
   { value: 'smm', label: 'SMM Panel', description: 'For social media services' },
-  { value: 'smileone', label: 'SmileOne', description: 'For MLBB diamonds' },
+  { value: 'smileone', label: 'SmileOne', description: 'For MLBB diamonds (SmileOne protocol)' },
+  { value: 'gametopup', label: 'Game Top-Up API', description: 'For MLBB (x-api-key header)' },
   { value: 'payment', label: 'Payment Gateway', description: 'For payment verification (BharatPe, etc.)' },
 ];
 
@@ -162,6 +163,8 @@ export const ApiManagement = () => {
       });
       return;
     }
+
+    // Game Top-Up API doesn't require email field
 
     try {
       const saveData = {
@@ -334,6 +337,34 @@ export const ApiManagement = () => {
             description: `Response: ${JSON.stringify(data).substring(0, 100)}`,
           });
         }
+      } else if (api.api_type === "gametopup") {
+        // Test Game Top-Up API via edge function
+        const { data, error } = await supabase.functions.invoke('gametopup-order', {
+          body: {
+            action: 'test',
+            apiId: api.id,
+          }
+        });
+
+        if (error) throw error;
+
+        if (data.error) {
+          toast({
+            title: "Connection Failed",
+            description: data.error,
+            variant: "destructive",
+          });
+        } else if (data.success) {
+          toast({
+            title: "Connection Successful",
+            description: `${api.name} is configured. URL: ${data.api_url}`,
+          });
+        } else {
+          toast({
+            title: "Connection Test",
+            description: `Response: ${JSON.stringify(data).substring(0, 100)}`,
+          });
+        }
       } else {
         // Test SMM Panel API
         const formDataBody = new URLSearchParams();
@@ -396,6 +427,7 @@ export const ApiManagement = () => {
 
   const getApiTypeIcon = (type: ApiType) => {
     if (type === 'smileone') return <Gamepad2 className="w-4 h-4" />;
+    if (type === 'gametopup') return <Gamepad2 className="w-4 h-4" />;
     if (type === 'payment') return <CreditCard className="w-4 h-4" />;
     return <Globe className="w-4 h-4" />;
   };
@@ -465,6 +497,17 @@ export const ApiManagement = () => {
             <div>
               <p className="text-xs text-muted-foreground">SmileOne</p>
               <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'smileone').length}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+              <Gamepad2 className="w-5 h-5 text-cyan-500" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Game Top-Up</p>
+              <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'gametopup').length}</p>
             </div>
           </div>
         </div>
@@ -652,11 +695,11 @@ export const ApiManagement = () => {
             
             <div className="space-y-2">
               <Label htmlFor="api_url">
-                {formData.api_type === 'smileone' ? 'SmileOne UID *' : formData.api_type === 'payment' ? 'Gateway Type *' : 'API URL *'}
+                {formData.api_type === 'smileone' ? 'SmileOne UID *' : formData.api_type === 'payment' ? 'Gateway Type *' : formData.api_type === 'gametopup' ? 'API Base URL *' : 'API URL *'}
               </Label>
               <Input
                 id="api_url"
-                placeholder={formData.api_type === 'smileone' ? "Your SmileOne UID" : formData.api_type === 'payment' ? "bharatpe" : "https://example.com/api/v2"}
+                placeholder={formData.api_type === 'smileone' ? "Your SmileOne UID" : formData.api_type === 'payment' ? "bharatpe" : formData.api_type === 'gametopup' ? "https://api.example.com/api-service" : "https://example.com/api/v2"}
                 value={formData.api_url}
                 onChange={(e) => setFormData({ ...formData, api_url: e.target.value })}
               />
@@ -665,6 +708,8 @@ export const ApiManagement = () => {
                   ? "Your SmileOne account UID (found in SmileOne dashboard)"
                   : formData.api_type === 'payment'
                   ? "Gateway type identifier (e.g., bharatpe, razorpay, phonepe)"
+                  : formData.api_type === 'gametopup'
+                  ? "Base URL for Game Top-Up API (e.g., https://api.example.com/api-service)"
                   : "The full API endpoint URL"}
               </p>
             </div>
@@ -702,18 +747,23 @@ export const ApiManagement = () => {
             
             <div className="space-y-2">
               <Label htmlFor="api_key">
-                {formData.api_type === 'smileone' ? 'Secret Key *' : formData.api_type === 'payment' ? 'API Token *' : 'API Key *'}
+                {formData.api_type === 'smileone' ? 'Secret Key *' : formData.api_type === 'payment' ? 'API Token *' : formData.api_type === 'gametopup' ? 'x-api-key *' : 'API Key *'}
               </Label>
               <Input
                 id="api_key"
                 type="password"
-                placeholder={formData.api_type === 'smileone' ? "Your SmileOne secret key" : formData.api_type === 'payment' ? "Your payment gateway API token" : "Enter your API key"}
+                placeholder={formData.api_type === 'smileone' ? "Your SmileOne secret key" : formData.api_type === 'payment' ? "Your payment gateway API token" : formData.api_type === 'gametopup' ? "Your x-api-key value" : "Enter your API key"}
                 value={formData.api_key}
                 onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
               />
               {formData.api_type === 'payment' && (
                 <p className="text-xs text-muted-foreground">
                   Your BharatPe API token for payment verification
+                </p>
+              )}
+              {formData.api_type === 'gametopup' && (
+                <p className="text-xs text-muted-foreground">
+                  The x-api-key header value for authenticating with the Game Top-Up API
                 </p>
               )}
             </div>
