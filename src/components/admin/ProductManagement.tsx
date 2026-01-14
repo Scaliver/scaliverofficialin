@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Plus, Edit2, Trash2, Package, ChevronDown, ChevronUp, Search, ToggleLeft, ToggleRight, Upload, Image, Gamepad2, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MLBBAutoLinker } from "./MLBBAutoLinker";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -425,10 +426,13 @@ export const ProductManagement = () => {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={() => openProductDialog()} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Add Product
-        </Button>
+        <div className="flex gap-2">
+          <MLBBAutoLinker />
+          <Button onClick={() => openProductDialog()} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Add Product
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
