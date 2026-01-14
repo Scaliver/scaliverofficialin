@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 interface GameTopUpOrderRequest {
-  action: 'order' | 'products' | 'status' | 'test';
+  action: 'order' | 'products' | 'status' | 'test' | 'validate';
   apiId?: string;
   playerId?: string;
   zoneId?: string;
@@ -26,7 +26,7 @@ serve(async (req) => {
     const body: GameTopUpOrderRequest = await req.json();
     const { action, apiId, playerId, zoneId, productId, orderId, currency = 'INR' } = body;
 
-    console.log('Game Top-Up request:', { action, apiId, productId });
+    console.log('Game Top-Up request:', { action, apiId, productId, playerId, zoneId });
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -87,6 +87,74 @@ serve(async (req) => {
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Validate player (check username)
+    if (action === 'validate') {
+      if (!playerId || !zoneId) {
+        return new Response(
+          JSON.stringify({ error: 'playerId and zoneId are required', code: 400 }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
+      try {
+        // Call the validate-user endpoint
+        const response = await fetch(`${apiUrl}/validate-user`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+          },
+          body: JSON.stringify({
+            playerid: playerId,
+            zoneid: zoneId,
+          }),
+        });
+
+        const responseText = await response.text();
+        console.log('Validate response:', responseText);
+
+        let result;
+        try {
+          result = JSON.parse(responseText);
+        } catch {
+          result = { raw_response: responseText };
+        }
+
+        // Map response to standard format
+        if (result.statusCode === 200 || result.success) {
+          return new Response(
+            JSON.stringify({
+              code: 200,
+              success: true,
+              username: result.data?.username || result.username || result.data?.nickname || result.nickname,
+              region: result.data?.region || result.region || result.data?.server || result.server,
+              zone_name: result.data?.zone_name || result.zone_name,
+              message: 'Player validated successfully',
+              data: result.data
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } else {
+          return new Response(
+            JSON.stringify({
+              code: result.statusCode || 400,
+              success: false,
+              error: result.message || result.error || 'Validation failed',
+              message: result.message || 'Invalid Player ID or Zone ID'
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (fetchError: unknown) {
+        console.error('Validate fetch error:', fetchError);
+        const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
+        return new Response(
+          JSON.stringify({ error: `Validation request failed: ${errorMessage}`, code: 500 }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
     }
 
     // Create order

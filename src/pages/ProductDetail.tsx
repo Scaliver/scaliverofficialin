@@ -74,7 +74,12 @@ const ProductDetail = () => {
   const [playerInfo, setPlayerInfo] = useState<{ nickname: string; region: string } | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [isPlayerVerified, setIsPlayerVerified] = useState(false);
   const verifyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Track which API type to use for this product
+  const [productApiType, setProductApiType] = useState<'smileone' | 'gametopup' | null>(null);
+  const [productApiId, setProductApiId] = useState<string | null>(null);
 
   // Get the active product based on category selection for Instagram, Facebook, or TikTok
   const product = useMemo((): LegacyProduct | undefined => {
@@ -95,6 +100,38 @@ const ProductDetail = () => {
     setSelectedTier(null);
   }, [selectedCategory, selectedFbCategory, selectedTikTokCategory]);
 
+  // Fetch API type for this product's first pricing tier provider
+  useEffect(() => {
+    const fetchApiType = async () => {
+      if (!product?.pricingTiers || product.pricingTiers.length === 0) return;
+      
+      // Check if any tier has a provider
+      const tierWithProvider = product.pricingTiers.find(t => t.providerId);
+      if (!tierWithProvider?.providerId) {
+        setProductApiType(null);
+        setProductApiId(null);
+        return;
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from('smm_apis')
+          .select('id, api_type')
+          .eq('id', tierWithProvider.providerId)
+          .single();
+        
+        if (!error && data) {
+          setProductApiType(data.api_type as 'smileone' | 'gametopup');
+          setProductApiId(data.id);
+        }
+      } catch (err) {
+        console.error('Failed to fetch API type:', err);
+      }
+    };
+    
+    fetchApiType();
+  }, [product?.pricingTiers]);
+
   // Determine productType based on product slug for SmileOne API
   // Note: For validation, we always use 'mobilelegends' or 'mobilelegendsbrazil'
   // since SmileOne validates MLBB accounts the same way
@@ -105,30 +142,62 @@ const ProductDetail = () => {
     return 'mobilelegends';
   }, []);
 
-  // Player verification function
+  // Player verification function - supports both SmileOne and Game Top-Up APIs
   const verifyPlayer = useCallback(async (playerId: string, zone: string, productSlug?: string) => {
     if (!playerId || !zone) return;
     
     setIsVerifying(true);
     setVerificationError(null);
     setPlayerInfo(null);
-    
-    const productType = getSmileOneProductType(productSlug);
+    setIsPlayerVerified(false);
     
     try {
-      const { data, error } = await supabase.functions.invoke('smileone-order', {
-        body: { action: 'validate', userId: playerId, zoneId: zone, productType }
-      });
+      let data, error;
       
-      if (error) throw error;
-      
-      if (data.code === 200 && data.username) {
-        setPlayerInfo({
-          nickname: data.username,
-          region: data.zone_name || data.region || 'Unknown'
+      if (productApiType === 'gametopup' && productApiId) {
+        // Use Game Top-Up API for validation
+        const result = await supabase.functions.invoke('gametopup-order', {
+          body: { 
+            action: 'validate', 
+            apiId: productApiId,
+            playerId: playerId, 
+            zoneId: zone 
+          }
         });
+        data = result.data;
+        error = result.error;
+        
+        if (error) throw error;
+        
+        if (data.code === 200 && data.success && data.username) {
+          setPlayerInfo({
+            nickname: data.username,
+            region: data.region || data.zone_name || 'Unknown'
+          });
+          setIsPlayerVerified(true);
+        } else {
+          setVerificationError(data.message || data.error || 'Invalid Player ID or Zone ID');
+        }
       } else {
-        setVerificationError(data.message || 'Invalid Player ID or Zone ID');
+        // Use SmileOne API for validation (default)
+        const productType = getSmileOneProductType(productSlug);
+        const result = await supabase.functions.invoke('smileone-order', {
+          body: { action: 'validate', userId: playerId, zoneId: zone, productType }
+        });
+        data = result.data;
+        error = result.error;
+        
+        if (error) throw error;
+        
+        if (data.code === 200 && data.username) {
+          setPlayerInfo({
+            nickname: data.username,
+            region: data.zone_name || data.region || 'Unknown'
+          });
+          setIsPlayerVerified(true);
+        } else {
+          setVerificationError(data.message || 'Invalid Player ID or Zone ID');
+        }
       }
     } catch (err) {
       console.error('Player verification error:', err);
@@ -136,7 +205,7 @@ const ProductDetail = () => {
     } finally {
       setIsVerifying(false);
     }
-  }, [getSmileOneProductType]);
+  }, [productApiType, productApiId, getSmileOneProductType]);
 
   // Trigger verification when player ID and zone ID change (with debounce)
   useEffect(() => {
@@ -151,6 +220,7 @@ const ProductDetail = () => {
     } else {
       setPlayerInfo(null);
       setVerificationError(null);
+      setIsPlayerVerified(false);
     }
     
     return () => {
@@ -205,7 +275,31 @@ const ProductDetail = () => {
       return false;
     }
 
+    // For MLBB products, require player verification
+    const isMLBBProduct = product?.category === 'Mobile Legends' && !product?.isSocialMedia;
+    if (isMLBBProduct && !isPlayerVerified) {
+      toast({
+        title: "Verification Required",
+        description: "Please verify your Player ID and Zone ID before placing an order.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     return true;
+  };
+
+  // Manual verify button handler
+  const handleManualVerify = () => {
+    if (!userId || !zoneId) {
+      toast({
+        title: "Missing Details",
+        description: "Please enter both Player ID and Zone ID to verify.",
+        variant: "destructive",
+      });
+      return;
+    }
+    verifyPlayer(userId, zoneId, product?.slug);
   };
 
   const handleWalletPayment = async () => {
@@ -665,20 +759,37 @@ const ProductDetail = () => {
                       </div>
                     </div>
                     
-                    {/* Player Verification Status */}
+                    {/* Player Verification Section */}
                     {product.category === 'Mobile Legends' && (
-                      <div className="mt-3">
-                        {isVerifying && (
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span className="text-sm">Verifying player...</span>
-                          </div>
-                        )}
+                      <div className="mt-3 space-y-3">
+                        {/* Manual Check Username Button */}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleManualVerify}
+                          disabled={isVerifying || !userId || !zoneId}
+                          className="w-full"
+                        >
+                          {isVerifying ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Checking Username...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-4 h-4 mr-2" />
+                              Check Username
+                            </>
+                          )}
+                        </Button>
+                        
+                        {/* Verification Status */}
                         {playerInfo && (
                           <div className="flex items-center gap-2 text-green-500 bg-green-500/10 px-3 py-2 rounded-lg">
                             <CheckCircle2 className="w-4 h-4" />
                             <span className="text-sm font-medium">
-                              Player: {playerInfo.nickname} | Region: {playerInfo.region}
+                              ✓ Player: {playerInfo.nickname} | Region: {playerInfo.region}
                             </span>
                           </div>
                         )}
@@ -688,9 +799,10 @@ const ProductDetail = () => {
                             <span className="text-sm">{verificationError}</span>
                           </div>
                         )}
-                        {!isVerifying && !playerInfo && !verificationError && userId && zoneId && (
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <span className="text-sm">Enter both Player ID and Zone ID to verify</span>
+                        {!isVerifying && !playerInfo && !verificationError && (!userId || !zoneId) && (
+                          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                            <AlertCircle className="w-4 h-4" />
+                            <span>Enter Player ID and Zone ID, then click "Check Username" to verify</span>
                           </div>
                         )}
                       </div>
