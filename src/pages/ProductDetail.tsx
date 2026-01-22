@@ -106,6 +106,9 @@ const ProductDetail = () => {
   const [copied, setCopied] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   
+  // Recharge mode: 'automatic' or 'manual'
+  const [rechargeMode, setRechargeMode] = useState<'automatic' | 'manual'>('automatic');
+  
   // Player verification state
   const [playerInfo, setPlayerInfo] = useState<{ nickname: string; region: string } | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -311,12 +314,12 @@ const ProductDetail = () => {
       return false;
     }
 
-    // For MLBB products, require player verification
+    // For MLBB products in automatic mode, require player verification
     const isMLBBProduct = product?.category === 'Mobile Legends' && !product?.isSocialMedia;
-    if (isMLBBProduct && !isPlayerVerified) {
+    if (isMLBBProduct && rechargeMode === 'automatic' && !isPlayerVerified) {
       toast({
         title: "Verification Required",
-        description: "Please verify your Player ID and Zone ID before placing an order.",
+        description: "Please verify your Player ID and Zone ID before placing an order, or switch to Manual mode.",
         variant: "destructive",
       });
       return false;
@@ -372,8 +375,29 @@ const ProductDetail = () => {
 
       if (orderError) throw orderError;
 
-      // Check if this tier has a provider linked
-      if (selectedTier.providerId && selectedTier.providerProductId) {
+      // For manual mode, skip API calls and mark for manual processing
+      if (rechargeMode === 'manual') {
+        // Update order status to pending_manual
+        await supabase
+          .from("orders")
+          .update({ status: "pending_manual" })
+          .eq("id", orderData.id);
+        
+        // Send WhatsApp notification for manual processing
+        sendWhatsAppNotification({
+          orderId: orderData.id,
+          productName: product.name,
+          amount: selectedTier.amount,
+          price: selectedTier.price,
+          playerId: userId,
+          zoneId: zoneId || undefined,
+          paymentMethod: "Wallet Balance",
+          status: "Manual Recharge",
+          isManual: true,
+        });
+      }
+      // Check if this tier has a provider linked and we're in automatic mode
+      else if (selectedTier.providerId && selectedTier.providerProductId) {
         try {
           // First, determine the provider's API type
           const { data: apiData, error: apiError } = await supabase
@@ -827,6 +851,48 @@ const ProductDetail = () => {
                 />
               )}
 
+              {/* Recharge Mode Selector - Only for non-social media products */}
+              {!product.isSocialMedia && (
+                <div className="bg-card border border-border rounded-xl p-4">
+                  <h3 className="font-display text-sm font-bold text-foreground mb-3">Recharge Mode</h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setRechargeMode('automatic')}
+                      className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+                        rechargeMode === 'automatic'
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border bg-secondary/50 text-muted-foreground hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <Loader2 className={`w-5 h-5 ${rechargeMode === 'automatic' ? 'text-primary' : ''}`} />
+                        <span className="font-display text-sm font-bold">Automatic</span>
+                        <span className="text-xs text-muted-foreground">Instant delivery</span>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setRechargeMode('manual')}
+                      className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+                        rechargeMode === 'manual'
+                          ? 'border-orange-500 bg-orange-500/10 text-orange-500'
+                          : 'border-border bg-secondary/50 text-muted-foreground hover:border-orange-500/50'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <AlertCircle className={`w-5 h-5 ${rechargeMode === 'manual' ? 'text-orange-500' : ''}`} />
+                        <span className="font-display text-sm font-bold">Manual</span>
+                        <span className="text-xs text-muted-foreground">Admin will process</span>
+                      </div>
+                    </button>
+                  </div>
+                  {rechargeMode === 'manual' && (
+                    <p className="text-xs text-orange-500 mt-2 text-center">
+                      No username verification required. Order will be sent to admin for manual processing.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* User Details Form */}
               <div className="bg-card border border-border rounded-xl p-6 space-y-4">
                 <h3 className="font-display text-lg font-bold text-foreground">
@@ -875,8 +941,8 @@ const ProductDetail = () => {
                       </div>
                     </div>
                     
-                    {/* Player Verification Section */}
-                    {product.category === 'Mobile Legends' && (
+                    {/* Player Verification Section - Only show in automatic mode */}
+                    {product.category === 'Mobile Legends' && rechargeMode === 'automatic' && (
                       <div className="mt-3 space-y-3">
                         {/* Manual Check Username Button */}
                         <Button
@@ -921,6 +987,14 @@ const ProductDetail = () => {
                             <span>Enter Player ID and Zone ID, then click "Check Username" to verify</span>
                           </div>
                         )}
+                      </div>
+                    )}
+                    
+                    {/* Manual mode notice */}
+                    {product.category === 'Mobile Legends' && rechargeMode === 'manual' && (
+                      <div className="mt-3 flex items-center gap-2 text-orange-500 bg-orange-500/10 px-3 py-2 rounded-lg">
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="text-sm">Username verification skipped. Order will be processed manually by admin.</span>
                       </div>
                     )}
                   </>
