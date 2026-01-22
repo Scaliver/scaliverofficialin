@@ -21,6 +21,42 @@ import upiQrImage from "@/assets/upi-qr.jpeg";
 const UPI_ID = "7637851804@pthdfc";
 const WHATSAPP_NUMBER = "917637851804";
 
+// Send WhatsApp notification with order details
+const sendWhatsAppNotification = (orderDetails: {
+  orderId: string;
+  productName: string;
+  amount: string;
+  price: number;
+  playerId: string;
+  zoneId?: string;
+  playerName?: string;
+  paymentMethod: string;
+  status: string;
+  isManual?: boolean;
+}) => {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  
+  const message = encodeURIComponent(
+    `${orderDetails.isManual ? '⚠️ *MANUAL ORDER REQUIRED*' : '🎮 *NEW ORDER - Scaliver Official*'}\n\n` +
+    `📋 Order ID: ${orderDetails.orderId.slice(0, 8)}...\n` +
+    `📦 Product: ${orderDetails.productName}\n` +
+    `💎 Pack: ${orderDetails.amount}\n` +
+    `💰 Price: ₹${orderDetails.price}\n` +
+    `🆔 Player ID: ${orderDetails.playerId}\n` +
+    `${orderDetails.zoneId ? `🌐 Server/Zone: ${orderDetails.zoneId}\n` : ''}` +
+    `${orderDetails.playerName ? `👤 Username: ${orderDetails.playerName}\n` : ''}` +
+    `💳 Payment: ${orderDetails.paymentMethod}\n` +
+    `📊 Status: ${orderDetails.status}\n` +
+    `📅 Date: ${dateStr}\n` +
+    `⏰ Time: ${timeStr}\n` +
+    `${orderDetails.isManual ? '\n❗ Auto-delivery failed. Please process manually.' : ''}`
+  );
+  
+  window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank");
+};
+
 interface ReceiptData {
   orderId: string;
   productName: string;
@@ -385,6 +421,19 @@ const ProductDetail = () => {
               })
               .eq("id", orderData.id);
 
+            // Send WhatsApp notification for successful auto order
+            sendWhatsAppNotification({
+              orderId: orderData.id,
+              productName: product.name,
+              amount: selectedTier.amount,
+              price: selectedTier.price,
+              playerId: userId,
+              zoneId: zoneId || undefined,
+              playerName: playerInfo?.nickname,
+              paymentMethod: "Wallet Balance",
+              status: "Auto Processing",
+            });
+
             console.log("Game Top-Up Order placed:", gametopupData);
           } else {
             // Use SmileOne API (default)
@@ -420,13 +469,47 @@ const ProductDetail = () => {
               })
               .eq("id", orderData.id);
 
+            // Send WhatsApp notification for successful auto order
+            sendWhatsAppNotification({
+              orderId: orderData.id,
+              productName: product.name,
+              amount: selectedTier.amount,
+              price: selectedTier.price,
+              playerId: userId,
+              zoneId: zoneId || undefined,
+              playerName: playerInfo?.nickname,
+              paymentMethod: "Wallet Balance",
+              status: "Auto Processing",
+            });
+
             console.log("SmileOne Order placed:", smileoneData);
           }
         } catch (providerError) {
           console.error("Provider API Error:", providerError);
+          
+          // Update order status to pending_manual for manual processing
+          await supabase
+            .from("orders")
+            .update({ status: "pending_manual" })
+            .eq("id", orderData.id);
+          
+          // Send WhatsApp notification for manual processing
+          sendWhatsAppNotification({
+            orderId: orderData.id,
+            productName: product.name,
+            amount: selectedTier.amount,
+            price: selectedTier.price,
+            playerId: userId,
+            zoneId: zoneId || undefined,
+            playerName: playerInfo?.nickname,
+            paymentMethod: "Wallet Balance",
+            status: "Pending Manual",
+            isManual: true,
+          });
+          
           toast({
-            title: "Warning",
-            description: "Order created but auto-delivery failed. Our team will process manually.",
+            title: "Manual Processing Required",
+            description: "Auto-delivery failed. Your order has been sent to admin via WhatsApp for manual processing.",
             variant: "default",
           });
         }
@@ -462,12 +545,45 @@ const ProductDetail = () => {
             })
             .eq("id", orderData.id);
 
+          // Send WhatsApp notification for SMM order
+          sendWhatsAppNotification({
+            orderId: orderData.id,
+            productName: product.name,
+            amount: selectedTier.amount,
+            price: selectedTier.price,
+            playerId: userId,
+            zoneId: zoneId || undefined,
+            paymentMethod: "Wallet Balance",
+            status: "Auto Processing",
+          });
+
           console.log("SMM Order placed:", smmData);
         } catch (smmApiError) {
           console.error("SMM API Error:", smmApiError);
+          
+          // Update order status to pending_manual
+          await supabase
+            .from("orders")
+            .update({ status: "pending_manual" })
+            .eq("id", orderData.id);
+          
+          // Send WhatsApp notification for manual processing
+          sendWhatsAppNotification({
+            orderId: orderData.id,
+            productName: product.name,
+            amount: selectedTier.amount,
+            price: selectedTier.price,
+            playerId: userId,
+            zoneId: zoneId || undefined,
+            playerName: playerInfo?.nickname,
+            paymentMethod: "Wallet Balance",
+            status: "Pending Manual",
+            isManual: true,
+          });
+          
           toast({
-            title: "Warning",
-            description: "Order created but SMM processing failed. Our team will process manually.",
+            title: "Manual Processing Required",
+            description: "Auto-delivery failed. Your order has been sent to admin via WhatsApp for manual processing.",
             variant: "default",
           });
         }
