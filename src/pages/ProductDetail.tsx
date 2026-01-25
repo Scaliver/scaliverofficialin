@@ -108,6 +108,7 @@ const ProductDetail = () => {
   
   // Recharge mode: 'automatic' or 'manual'
   const [rechargeMode, setRechargeMode] = useState<'automatic' | 'manual'>('automatic');
+  const [isManualRechargeEnabled, setIsManualRechargeEnabled] = useState(true);
   
   // Player verification state
   const [playerInfo, setPlayerInfo] = useState<{ nickname: string; region: string } | null>(null);
@@ -119,6 +120,30 @@ const ProductDetail = () => {
   // Track which API type to use for this product
   const [productApiType, setProductApiType] = useState<'smileone' | 'gametopup' | null>(null);
   const [productApiId, setProductApiId] = useState<string | null>(null);
+
+  // Fetch manual recharge setting
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('site_settings')
+          .select('value')
+          .eq('key', 'manual_recharge_enabled')
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (data) {
+          const value = data.value as { enabled: boolean };
+          setIsManualRechargeEnabled(value.enabled);
+        }
+      } catch (error) {
+        console.error("Error fetching manual recharge setting:", error);
+      }
+    };
+
+    fetchSettings();
+  }, []);
 
   // Get the active product based on category selection for Instagram, Facebook, or TikTok
   const product = useMemo((): LegacyProduct | undefined => {
@@ -851,8 +876,8 @@ const ProductDetail = () => {
                 />
               )}
 
-              {/* Recharge Mode Selector - Only for non-social media products */}
-              {!product.isSocialMedia && (
+              {/* Recharge Mode Selector - Only for non-social media products and if manual recharge is enabled */}
+              {!product.isSocialMedia && isManualRechargeEnabled && (
                 <div className="bg-card border border-border rounded-xl p-4">
                   <h3 className="font-display text-sm font-bold text-foreground mb-3">Recharge Mode</h3>
                   <div className="flex gap-2">

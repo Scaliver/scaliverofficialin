@@ -175,9 +175,6 @@ const Index = () => {
       {/* Footer */}
       <Footer />
 
-      {/* Mobile Quick Actions */}
-      <QuickActions />
-
       {/* WhatsApp Floating Button */}
       <WhatsAppButton />
     </div>

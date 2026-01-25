@@ -1,27 +1,36 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import whyChooseUsImage from "@/assets/why-choose-us.png";
 import banner1Image from "@/assets/banner-1.jpeg";
 import banner2Image from "@/assets/banner-2.jpeg";
 
-const banners = [
+interface Banner {
+  id: string;
+  title: string;
+  image_url: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+const defaultBanners = [
   {
-    id: 1,
+    id: "1",
     title: "SCALIVER OFFICIAL",
     subtitle: "",
     gradient: "",
     image: banner1Image,
   },
   {
-    id: 2,
+    id: "2",
     title: "SCALIVER MLBB RECHARGE",
     subtitle: "",
     gradient: "",
     image: banner2Image,
   },
   {
-    id: 3,
+    id: "3",
     title: "WHY CHOOSE US?",
     subtitle: "",
     gradient: "from-indigo-600 via-blue-700 to-cyan-800",
@@ -31,16 +40,59 @@ const banners = [
 
 const HeroBanner = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [banners, setBanners] = useState<{ id: string; title: string; subtitle?: string; gradient?: string; image: string }[]>(defaultBanners);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBanners = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('banners')
+          .select('*')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const dbBanners = data.map((banner: Banner) => ({
+            id: banner.id,
+            title: banner.title,
+            subtitle: "",
+            gradient: "",
+            image: banner.image_url,
+          }));
+          setBanners(dbBanners);
+        }
+        // If no banners in DB, keep default banners
+      } catch (error) {
+        console.error("Error fetching banners:", error);
+        // Keep default banners on error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchBanners();
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % banners.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [banners.length]);
 
   const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % banners.length);
   const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + banners.length) % banners.length);
+
+  if (isLoading) {
+    return (
+      <section className="relative overflow-hidden">
+        <div className="relative h-[220px] md:h-[320px] lg:h-[400px] bg-secondary animate-pulse" />
+      </section>
+    );
+  }
 
   return (
     <section className="relative overflow-hidden">

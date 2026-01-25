@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search, ShieldCheck, ShieldAlert, Mail, Phone, Lock, FileText, Megaphone, Power, CreditCard, ShoppingBag, Globe, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search, ShieldCheck, ShieldAlert, Mail, Phone, Lock, FileText, Megaphone, Power, CreditCard, ShoppingBag, Globe, AlertTriangle, Settings, Image } from "lucide-react";
 import { ProductManagement } from "@/components/admin/ProductManagement";
 import { ApiManagement } from "@/components/admin/ApiManagement";
+import BannerManagement from "@/components/admin/BannerManagement";
+import SiteSettings from "@/components/admin/SiteSettings";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -126,7 +128,7 @@ const Admin = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [activeTab, setActiveTab] = useState<"orders" | "pending_manual" | "users" | "wallets" | "history" | "security" | "audit" | "alerts" | "upi" | "products" | "apis">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "pending_manual" | "users" | "wallets" | "history" | "security" | "audit" | "alerts" | "upi" | "products" | "apis" | "settings" | "banners">("orders");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userOrdersDialogOpen, setUserOrdersDialogOpen] = useState(false);
@@ -1407,6 +1409,28 @@ const Admin = () => {
             >
               <Globe className="w-4 h-4" />
               APIs
+            </button>
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${
+                activeTab === "settings"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              Settings
+            </button>
+            <button
+              onClick={() => setActiveTab("banners")}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${
+                activeTab === "banners"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Image className="w-4 h-4" />
+              Banners
             </button>
           </div>
 
@@ -2782,6 +2806,16 @@ const Admin = () => {
           {/* APIs Tab */}
           {activeTab === "apis" && (
             <ApiManagement />
+          )}
+
+          {/* Settings Tab */}
+          {activeTab === "settings" && (
+            <SiteSettings />
+          )}
+
+          {/* Banners Tab */}
+          {activeTab === "banners" && (
+            <BannerManagement />
           )}
         </div>
       </main>
