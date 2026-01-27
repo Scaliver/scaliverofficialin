@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.secure-order]
 verify_jwt = false
+
+[functions.matrixsols-api]
+verify_jwt = false
