@@ -8,8 +8,8 @@ const corsHeaders = {
 
 const MATRIX_SOLS_BASE_URL = 'https://matrixsols.in/api/digital-top-ups';
 
-interface MatrixSolsRequest {
-  action: 'balance' | 'products' | 'product_items' | 'check_id' | 'create_order' | 'order_details';
+interface DigitalTopupRequest {
+  action: 'products' | 'product_items' | 'check_id' | 'create_order' | 'order_details';
   category?: string;
   product_id?: string;
   item_id?: string;
@@ -50,7 +50,7 @@ async function generateSignature(payload: string, apiKey: string): Promise<strin
 }
 
 // Make authenticated request to Matrix Sols API
-async function makeMatrixSolsRequest(
+async function makeApiRequest(
   endpoint: string, 
   payload: Record<string, unknown>, 
   apiKey: string, 
@@ -59,10 +59,10 @@ async function makeMatrixSolsRequest(
   // Convert payload to compact JSON (no spaces)
   const compactPayload = JSON.stringify(payload);
   
-  // Generate signature
+  // Generate new signature for this request
   const signature = await generateSignature(compactPayload, apiKey);
   
-  console.log('Matrix Sols Request:', {
+  console.log('Digital Topup Request:', {
     endpoint,
     payload: compactPayload,
     signatureGenerated: true
@@ -80,7 +80,7 @@ async function makeMatrixSolsRequest(
     });
 
     const responseText = await response.text();
-    console.log('Matrix Sols Response:', responseText);
+    console.log('Digital Topup Response:', responseText);
 
     let result;
     try {
@@ -104,7 +104,7 @@ async function makeMatrixSolsRequest(
       status: response.status
     };
   } catch (error) {
-    console.error('Matrix Sols fetch error:', error);
+    console.error('Digital Topup fetch error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error',
@@ -131,34 +131,20 @@ serve(async (req) => {
       );
     }
 
-    const body: MatrixSolsRequest = await req.json();
+    const body: DigitalTopupRequest = await req.json();
     const { action } = body;
 
-    console.log('Matrix Sols API request:', { action, body });
+    console.log('Digital Topup API request:', { action, body });
 
     // Initialize Supabase client for database operations
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 1. Wallet Balance
-    if (action === 'balance') {
-      const result = await makeMatrixSolsRequest('/balance/', {}, apiKey, clientId);
-      
-      return new Response(
-        JSON.stringify({
-          success: result.success,
-          balance: result.data,
-          error: result.error
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // 2. Product Listing
+    // 1. Product List (Games)
     if (action === 'products') {
       const category = body.category || 'Gaming';
-      const result = await makeMatrixSolsRequest('/products_list/', { category }, apiKey, clientId);
+      const result = await makeApiRequest('/products_list/', { category }, apiKey, clientId);
       
       return new Response(
         JSON.stringify({
@@ -170,7 +156,7 @@ serve(async (req) => {
       );
     }
 
-    // 3. Product Items
+    // 2. Product Items (Packages)
     if (action === 'product_items') {
       if (!body.product_id) {
         return new Response(
@@ -179,7 +165,7 @@ serve(async (req) => {
         );
       }
 
-      const result = await makeMatrixSolsRequest(
+      const result = await makeApiRequest(
         '/product_items_list/', 
         { product_id: body.product_id }, 
         apiKey, 
@@ -196,7 +182,7 @@ serve(async (req) => {
       );
     }
 
-    // 4. Check User ID (Validate before order)
+    // 3. Check User ID (Before Order)
     if (action === 'check_id') {
       if (!body.product_id || !body.user_id) {
         return new Response(
@@ -210,11 +196,11 @@ serve(async (req) => {
         user_id: body.user_id,
       };
 
-      // Add server fields if provided
+      // Add server fields only if provided (for products that require them)
       if (body.server) payload.server = body.server;
       if (body.server_region) payload.server_region = body.server_region;
 
-      const result = await makeMatrixSolsRequest('/check_id/', payload, apiKey, clientId);
+      const result = await makeApiRequest('/check_id/', payload, apiKey, clientId);
       
       // Extract username and region from response
       const responseData = result.data as Record<string, unknown> | undefined;
@@ -234,7 +220,7 @@ serve(async (req) => {
       );
     }
 
-    // 5. Create Order (Automatic on form submission)
+    // 4. Create Order (Automatic)
     if (action === 'create_order') {
       const { product_id, item_id, user_id, server, server_region, supabase_user_id, product_name, amount, price, contact_number } = body;
 
@@ -251,7 +237,7 @@ serve(async (req) => {
       if (server_region) checkPayload.server_region = server_region;
 
       console.log('Validating user before order...');
-      const checkResult = await makeMatrixSolsRequest('/check_id/', checkPayload, apiKey, clientId);
+      const checkResult = await makeApiRequest('/check_id/', checkPayload, apiKey, clientId);
       
       if (!checkResult.success) {
         // Save as pending_manual if validation fails
@@ -292,7 +278,7 @@ serve(async (req) => {
       if (server_region) orderPayload.server_region = server_region;
 
       console.log('Creating order...');
-      const orderResult = await makeMatrixSolsRequest('/create_order/', orderPayload, apiKey, clientId);
+      const orderResult = await makeApiRequest('/create_order/', orderPayload, apiKey, clientId);
 
       const orderData = orderResult.data as Record<string, unknown> | undefined;
       const externalOrderId = orderData?.order_id || orderData?.orderId || null;
@@ -340,7 +326,7 @@ serve(async (req) => {
       );
     }
 
-    // 6. Track Order
+    // 5. Track Order
     if (action === 'order_details') {
       if (!body.order_id) {
         return new Response(
@@ -349,7 +335,7 @@ serve(async (req) => {
         );
       }
 
-      const result = await makeMatrixSolsRequest(
+      const result = await makeApiRequest(
         '/order_details/', 
         { order_id: body.order_id }, 
         apiKey, 
@@ -386,12 +372,12 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: false, error: 'Unknown action' }),
+      JSON.stringify({ success: false, error: 'Unknown action. Valid actions: products, product_items, check_id, create_order, order_details' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
 
   } catch (error: unknown) {
-    console.error('Matrix Sols API error:', error);
+    console.error('Digital Topup API error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal server error';
     return new Response(
       JSON.stringify({ success: false, error: errorMessage, code: 500 }),
