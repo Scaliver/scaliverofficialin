@@ -118,7 +118,7 @@ const ProductDetail = () => {
   const verifyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Track which API type to use for this product
-  const [productApiType, setProductApiType] = useState<'smileone' | 'gametopup' | null>(null);
+  const [productApiType, setProductApiType] = useState<'digital-topup' | 'gametopup' | null>(null);
   const [productApiId, setProductApiId] = useState<string | null>(null);
 
   // Fetch manual recharge setting
@@ -185,7 +185,7 @@ const ProductDetail = () => {
           .single();
         
         if (!error && data) {
-          setProductApiType(data.api_type as 'smileone' | 'gametopup');
+          setProductApiType(data.api_type as 'digital-topup' | 'gametopup');
           setProductApiId(data.id);
         }
       } catch (err) {
@@ -196,17 +196,7 @@ const ProductDetail = () => {
     fetchApiType();
   }, [product?.pricingTiers]);
 
-  // Determine productType based on product slug for SmileOne API
-  // Note: For validation, we always use 'mobilelegends' or 'mobilelegendsbrazil'
-  // since SmileOne validates MLBB accounts the same way
-  const getSmileOneProductType = useCallback((productSlug?: string): string => {
-    if (!productSlug) return 'mobilelegends';
-    if (productSlug.includes('brazil')) return 'mobilelegendsbrazil';
-    // For weekly pass, starlight, etc. - still use mobilelegends for validation
-    return 'mobilelegends';
-  }, []);
-
-  // Player verification function - supports both SmileOne and Game Top-Up APIs
+  // Player verification function - supports Digital Top-Up and Game Top-Up APIs
   const verifyPlayer = useCallback(async (playerId: string, zone: string, productSlug?: string) => {
     if (!playerId || !zone) return;
     
@@ -243,24 +233,28 @@ const ProductDetail = () => {
           setVerificationError(data.message || data.error || 'Invalid Player ID or Zone ID');
         }
       } else {
-        // Use SmileOne API for validation (default)
-        const productType = getSmileOneProductType(productSlug);
-        const result = await supabase.functions.invoke('smileone-order', {
-          body: { action: 'validate', userId: playerId, zoneId: zone, productType }
+        // Use Digital Top-Up API for validation (default)
+        const result = await supabase.functions.invoke('digital-topup', {
+          body: { 
+            action: 'check_id', 
+            product_id: 'mlbb', // Default MLBB product
+            user_id: playerId, 
+            server: zone 
+          }
         });
         data = result.data;
         error = result.error;
         
         if (error) throw error;
         
-        if (data.code === 200 && data.username) {
+        if (data.success && data.username) {
           setPlayerInfo({
             nickname: data.username,
-            region: data.zone_name || data.region || 'Unknown'
+            region: data.region || 'Unknown'
           });
           setIsPlayerVerified(true);
         } else {
-          setVerificationError(data.message || 'Invalid Player ID or Zone ID');
+          setVerificationError(data.error || data.message || 'Invalid Player ID or Zone ID');
         }
       }
     } catch (err) {
@@ -269,7 +263,7 @@ const ProductDetail = () => {
     } finally {
       setIsVerifying(false);
     }
-  }, [productApiType, productApiId, getSmileOneProductType]);
+  }, [productApiType, productApiId]);
 
   // Trigger verification when player ID and zone ID change (with debounce)
   useEffect(() => {
@@ -485,36 +479,39 @@ const ProductDetail = () => {
 
             console.log("Game Top-Up Order placed:", gametopupData);
           } else {
-            // Use SmileOne API (default)
-            const productType = getSmileOneProductType(product.slug);
-            const { data: smileoneData, error: smileoneError } = await supabase.functions.invoke('smileone-order', {
+            // Use Digital Top-Up API (default)
+            const { data: digitalData, error: digitalError } = await supabase.functions.invoke('digital-topup', {
               body: {
-                action: 'order',
-                apiId: selectedTier.providerId,
-                userId: userId,
-                zoneId: zoneId,
-                productId: selectedTier.providerProductId,
-                productType,
+                action: 'create_order',
+                product_id: selectedTier.providerProductId,
+                item_id: selectedTier.providerProductId,
+                user_id: userId,
+                server: zoneId,
+                supabase_user_id: user.id,
+                product_name: product.name,
+                amount: selectedTier.amount,
+                price: selectedTier.price,
+                contact_number: user.email || "",
               }
             });
 
-            if (smileoneError) throw smileoneError;
+            if (digitalError) throw digitalError;
 
-            if (smileoneData.error || smileoneData.code !== 200) {
+            if (!digitalData.success) {
               await supabase
                 .from("orders")
                 .update({ status: "failed" })
                 .eq("id", orderData.id);
               
-              throw new Error(smileoneData.message || smileoneData.error || 'SmileOne order failed');
+              throw new Error(digitalData.error || 'Digital Top-Up order failed');
             }
 
-            // Update order with SmileOne order ID
+            // Update order with external order ID
             await supabase
               .from("orders")
               .update({ 
                 status: "processing",
-                smm_order_id: smileoneData.order_id ? String(smileoneData.order_id) : null 
+                smm_order_id: digitalData.external_order_id ? String(digitalData.external_order_id) : null 
               })
               .eq("id", orderData.id);
 
@@ -531,7 +528,7 @@ const ProductDetail = () => {
               status: "Auto Processing",
             });
 
-            console.log("SmileOne Order placed:", smileoneData);
+            console.log("Digital Top-Up Order placed:", digitalData);
           }
         } catch (providerError) {
           console.error("Provider API Error:", providerError);

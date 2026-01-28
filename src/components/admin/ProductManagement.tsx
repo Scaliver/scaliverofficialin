@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, Edit2, Trash2, Package, ChevronDown, ChevronUp, Search, ToggleLeft, ToggleRight, Upload, Image, Gamepad2, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Edit2, Trash2, Package, ChevronDown, ChevronUp, Search, ToggleLeft, ToggleRight, Upload, Image, Gamepad2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MLBBAutoLinker } from "./MLBBAutoLinker";
 import { Input } from "@/components/ui/input";
@@ -33,13 +33,6 @@ interface GameProviderApi {
   is_active: boolean;
 }
 
-interface SmileOneProduct {
-  id: string;
-  name: string;
-  price: number;
-  spay_id: string;
-}
-
 const CATEGORIES = [
   "Mobile Legends",
   "Mobile Games",
@@ -56,13 +49,6 @@ const SUB_CATEGORIES = [
   "page-followers",
   "watch-time",
   "reactions",
-];
-
-const SMILEONE_PRODUCT_TYPES = [
-  { value: "mobilelegends", label: "MLBB Global Diamonds" },
-  { value: "mobilelegendsbrazil", label: "MLBB Brazil Diamonds" },
-  { value: "weeklypass", label: "Weekly Diamond Pass" },
-  { value: "starlightmember", label: "Starlight Member" },
 ];
 
 export const ProductManagement = () => {
@@ -119,21 +105,16 @@ export const ProductManagement = () => {
     provider_product_id: null,
   });
 
-  // Game provider APIs for provider selection (SmileOne + Game Top-Up)
+  // Game provider APIs for provider selection
   const [gameProviderApis, setGameProviderApis] = useState<GameProviderApi[]>([]);
-  
-  // SmileOne product fetching for tier dialog
-  const [smileoneProducts, setSmileoneProducts] = useState<SmileOneProduct[]>([]);
-  const [isFetchingProducts, setIsFetchingProducts] = useState(false);
-  const [selectedProductType, setSelectedProductType] = useState("mobilelegends");
 
-  // Fetch game provider APIs (SmileOne + Game Top-Up)
+  // Fetch game provider APIs
   useEffect(() => {
     const fetchGameProviderApis = async () => {
       const { data } = await supabase
         .from("smm_apis")
         .select("id, name, api_type, is_active")
-        .in("api_type", ["smileone", "gametopup"])
+        .in("api_type", ["digital-topup", "gametopup"])
         .eq("is_active", true);
       
       if (data) {
@@ -143,86 +124,11 @@ export const ProductManagement = () => {
     fetchGameProviderApis();
   }, []);
   
-  // Fetch SmileOne products when SmileOne provider is selected
-  const fetchSmileOneProducts = async () => {
-    if (!tierForm.provider_id) return;
-    
-    // Check if the selected provider is a SmileOne API
-    const selectedApi = gameProviderApis.find(api => api.id === tierForm.provider_id);
-    if (selectedApi?.api_type !== 'smileone') {
-      toast({
-        title: "Info",
-        description: "Product fetching is only available for SmileOne APIs. For Game Top-Up APIs, enter the product ID manually.",
-      });
-      return;
-    }
-    
-    setIsFetchingProducts(true);
-    setSmileoneProducts([]);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('smileone-order', {
-        body: {
-          action: 'products',
-          apiId: tierForm.provider_id,
-          productType: selectedProductType,
-        }
-      });
-
-      if (error) throw error;
-
-      if (data.error) {
-        toast({
-          title: "Error",
-          description: data.error,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Parse product list from SmileOne response
-      let productList = data.data || data.product_list || data.products || [];
-      
-      if (Array.isArray(productList)) {
-        const mappedProducts = productList.map((p: any) => ({
-          id: p.spay_id || p.product_id || p.id,
-          name: p.product_name || p.name || 'Unknown Product',
-          price: parseFloat(p.cost_price || p.price || 0),
-          spay_id: String(p.spay_id || p.product_id || p.id),
-        }));
-        setSmileoneProducts(mappedProducts);
-        
-        if (mappedProducts.length === 0) {
-          toast({
-            title: "No Products",
-            description: "No products found for this type.",
-            variant: "destructive",
-          });
-        }
-      }
-    } catch (err: any) {
-      console.error("Error fetching products:", err);
-      toast({
-        title: "Error",
-        description: err.message || "Failed to fetch products",
-        variant: "destructive",
-      });
-    } finally {
-      setIsFetchingProducts(false);
-    }
-  };
-
   // Get label for provider based on API type
   const getProviderLabel = (apiId: string) => {
     const api = gameProviderApis.find(a => a.id === apiId);
     if (!api) return '';
-    return api.api_type === 'gametopup' ? `${api.name} (Game Top-Up)` : `${api.name} (SmileOne)`;
-  };
-
-  // Check if selected provider is SmileOne type
-  const isSmileOneProvider = () => {
-    const selectedApi = gameProviderApis.find(api => api.id === tierForm.provider_id);
-    return selectedApi?.api_type === 'smileone';
+    return api.api_type === 'gametopup' ? `${api.name} (Game Top-Up)` : `${api.name} (Digital Top-Up)`;
   };
 
   // Delete confirmation
@@ -333,7 +239,6 @@ export const ProductManagement = () => {
 
   const openTierDialog = (productId: string, tier?: any) => {
     setTierProductId(productId);
-    setSmileoneProducts([]); // Reset products when opening dialog
     if (tier) {
       setEditingTier(tier);
       setTierForm({
@@ -558,7 +463,7 @@ export const ProductManagement = () => {
                             {tier.provider_id && (
                               <Badge variant="outline" className="text-xs gap-1">
                                 <Gamepad2 className="w-3 h-3" />
-                                SmileOne: {tier.provider_product_id || 'N/A'}
+                                Provider: {tier.provider_product_id || 'N/A'}
                               </Badge>
                             )}
                           </div>
@@ -842,9 +747,8 @@ export const ProductManagement = () => {
                       setTierForm({ 
                         ...tierForm, 
                         provider_id: value === "none" ? null : value,
-                        provider_product_id: null // Reset product when provider changes
+                        provider_product_id: null
                       });
-                      setSmileoneProducts([]); // Clear products when provider changes
                     }}
                   >
                     <SelectTrigger>
@@ -854,98 +758,24 @@ export const ProductManagement = () => {
                       <SelectItem value="none">None</SelectItem>
                       {gameProviderApis.map((api) => (
                         <SelectItem key={api.id} value={api.id}>
-                          {api.name} ({api.api_type === 'gametopup' ? 'Game Top-Up' : 'SmileOne'})
+                          {api.name} ({api.api_type === 'gametopup' ? 'Game Top-Up' : 'Digital Top-Up'})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* Product Type & Fetch Button - Only show for SmileOne */}
-                {tierForm.provider_id && isSmileOneProvider() && (
-                  <div className="space-y-4">
-                    <div className="flex gap-2">
-                      <div className="flex-1 space-y-2">
-                        <Label>Product Type</Label>
-                        <Select value={selectedProductType} onValueChange={setSelectedProductType}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {SMILEONE_PRODUCT_TYPES.map((type) => (
-                              <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-end">
-                        <Button 
-                          type="button"
-                          variant="outline" 
-                          onClick={fetchSmileOneProducts}
-                          disabled={isFetchingProducts}
-                          className="gap-1"
-                        >
-                          {isFetchingProducts ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <RefreshCw className="w-4 h-4" />
-                          )}
-                          Fetch
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Products Dropdown or Manual Input */}
-                    <div className="space-y-2">
-                      <Label>SmileOne Product ID</Label>
-                      {smileoneProducts.length > 0 ? (
-                        <Select 
-                          value={tierForm.provider_product_id || "manual"} 
-                          onValueChange={(value) => setTierForm({ 
-                            ...tierForm, 
-                            provider_product_id: value === "manual" ? null : value 
-                          })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select product" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="manual">Enter manually...</SelectItem>
-                            {smileoneProducts.map((product) => (
-                              <SelectItem key={product.spay_id} value={product.spay_id}>
-                                {product.name} (${product.price.toFixed(2)}) - ID: {product.spay_id}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Input
-                          placeholder="Fetch products or enter ID manually"
-                          value={tierForm.provider_product_id || ""}
-                          onChange={(e) => setTierForm({ ...tierForm, provider_product_id: e.target.value || null })}
-                        />
-                      )}
-                      {tierForm.provider_product_id && (
-                        <p className="text-xs text-green-500">
-                          ✓ Product ID: {tierForm.provider_product_id}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Manual Product ID Input - For Game Top-Up APIs */}
-                {tierForm.provider_id && !isSmileOneProvider() && (
+                {/* Product ID Input */}
+                {tierForm.provider_id && (
                   <div className="space-y-2">
                     <Label>Product ID</Label>
                     <Input
-                      placeholder="e.g., bgmi362_60197"
+                      placeholder="e.g., mlbb_diamonds_100"
                       value={tierForm.provider_product_id || ""}
                       onChange={(e) => setTierForm({ ...tierForm, provider_product_id: e.target.value || null })}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Enter the product ID from your Game Top-Up API provider
+                      Enter the product ID from your provider
                     </p>
                     {tierForm.provider_product_id && (
                       <p className="text-xs text-green-500">

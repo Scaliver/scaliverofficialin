@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, Globe, Gamepad2, Package, CreditCard } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, EyeOff, CheckCircle, RefreshCw, Globe, Gamepad2, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,9 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SmileOneProductFetcher } from "./SmileOneProductFetcher";
 
-type ApiType = 'smm' | 'smileone' | 'gametopup' | 'payment';
+type ApiType = 'smm' | 'gametopup' | 'payment' | 'digital-topup';
 
 interface SmmApi {
   id: string;
@@ -49,7 +48,7 @@ interface SmmApi {
 
 const API_TYPES = [
   { value: 'smm', label: 'SMM Panel', description: 'For social media services' },
-  { value: 'smileone', label: 'SmileOne', description: 'For MLBB diamonds (SmileOne protocol)' },
+  { value: 'digital-topup', label: 'Digital Top-Up', description: 'For MLBB & game top-ups (Matrix Sols)' },
   { value: 'gametopup', label: 'Game Top-Up API', description: 'For MLBB (x-api-key header)' },
   { value: 'payment', label: 'Payment Gateway', description: 'For payment verification (BharatPe, etc.)' },
 ];
@@ -63,10 +62,6 @@ export const ApiManagement = () => {
   const [selectedApi, setSelectedApi] = useState<SmmApi | null>(null);
   const [showApiKeys, setShowApiKeys] = useState<Record<string, boolean>>({});
   const [isTesting, setIsTesting] = useState<string | null>(null);
-  
-  // Product fetcher state
-  const [productFetcherOpen, setProductFetcherOpen] = useState(false);
-  const [productFetcherApi, setProductFetcherApi] = useState<SmmApi | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -144,16 +139,6 @@ export const ApiManagement = () => {
       return;
     }
 
-    // SmileOne requires email
-    if (formData.api_type === "smileone" && !formData.email) {
-      toast({
-        title: "Validation Error",
-        description: "Email is required for SmileOne API.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     // Payment gateway requires merchant ID (stored in email field)
     if (formData.api_type === "payment" && !formData.email) {
       toast({
@@ -164,8 +149,6 @@ export const ApiManagement = () => {
       return;
     }
 
-    // Game Top-Up API doesn't require email field
-
     try {
       const saveData = {
         name: formData.name,
@@ -173,11 +156,10 @@ export const ApiManagement = () => {
         api_key: formData.api_key,
         is_active: formData.is_active,
         api_type: formData.api_type,
-        email: (formData.api_type === "smileone" || formData.api_type === "payment") ? formData.email : null,
+        email: formData.api_type === "payment" ? formData.email : null,
       };
 
       if (selectedApi) {
-        // Update existing
         const { error } = await supabase
           .from("smm_apis")
           .update(saveData)
@@ -190,7 +172,6 @@ export const ApiManagement = () => {
           description: `${formData.name} configuration has been updated.`,
         });
       } else {
-        // Create new
         const { error } = await supabase
           .from("smm_apis")
           .insert(saveData);
@@ -272,12 +253,12 @@ export const ApiManagement = () => {
     setIsTesting(api.id);
     
     try {
-      if (api.api_type === "smileone") {
-        // Test SmileOne API via edge function using products endpoint (more reliable than balance)
-        const { data, error } = await supabase.functions.invoke('smileone-order', {
+      if (api.api_type === "digital-topup") {
+        // Test Digital Top-Up API via edge function
+        const { data, error } = await supabase.functions.invoke('digital-topup', {
           body: {
             action: 'products',
-            apiId: api.id,
+            category: 'Gaming',
           }
         });
 
@@ -289,21 +270,11 @@ export const ApiManagement = () => {
             description: data.error,
             variant: "destructive",
           });
-        } else if (data.status !== undefined) {
-          // SmileOne returns status code in response
-          const statusMsg = data.message || `Status: ${data.status}`;
-          if (data.status === 200 || data.status === '200') {
-            toast({
-              title: "Connection Successful",
-              description: `${api.name} is working. ${statusMsg}`,
-            });
-          } else {
-            toast({
-              title: "API Response",
-              description: `${api.name}: ${statusMsg}`,
-              variant: data.status >= 400 ? "destructive" : "default",
-            });
-          }
+        } else if (data.success) {
+          toast({
+            title: "Connection Successful",
+            description: `${api.name} is working.`,
+          });
         } else {
           toast({
             title: "Connection Test",
@@ -426,7 +397,7 @@ export const ApiManagement = () => {
   };
 
   const getApiTypeIcon = (type: ApiType) => {
-    if (type === 'smileone') return <Gamepad2 className="w-4 h-4" />;
+    if (type === 'digital-topup') return <Gamepad2 className="w-4 h-4" />;
     if (type === 'gametopup') return <Gamepad2 className="w-4 h-4" />;
     if (type === 'payment') return <CreditCard className="w-4 h-4" />;
     return <Globe className="w-4 h-4" />;
@@ -446,7 +417,7 @@ export const ApiManagement = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="font-display text-xl font-bold text-foreground">API Configuration</h2>
-          <p className="text-sm text-muted-foreground">Manage SMM panels and game top-up providers (SmileOne).</p>
+          <p className="text-sm text-muted-foreground">Manage SMM panels and game top-up providers.</p>
         </div>
         <Button onClick={openAddDialog} className="gap-2">
           <Plus className="w-4 h-4" />
@@ -480,34 +451,12 @@ export const ApiManagement = () => {
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-              <Globe className="w-5 h-5 text-blue-500" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">SMM Panels</p>
-              <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'smm').length}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
               <Gamepad2 className="w-5 h-5 text-purple-500" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">SmileOne</p>
-              <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'smileone').length}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-              <Gamepad2 className="w-5 h-5 text-cyan-500" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Game Top-Up</p>
-              <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'gametopup').length}</p>
+              <p className="text-xs text-muted-foreground">Digital Top-Up</p>
+              <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'digital-topup').length}</p>
             </div>
           </div>
         </div>
@@ -558,25 +507,13 @@ export const ApiManagement = () => {
                   
                   <div className="space-y-1 text-sm">
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">
-                        {api.api_type === 'smileone' ? 'UID:' : 'URL:'}
-                      </span>
+                      <span className="text-muted-foreground">URL:</span>
                       <code className="bg-secondary px-2 py-0.5 rounded text-xs text-foreground break-all">
                         {api.api_url}
                       </code>
                     </div>
-                    {api.api_type === 'smileone' && api.email && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground">Email:</span>
-                        <code className="bg-secondary px-2 py-0.5 rounded text-xs text-foreground">
-                          {api.email}
-                        </code>
-                      </div>
-                    )}
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">
-                        {api.api_type === 'smileone' ? 'Secret Key:' : 'API Key:'}
-                      </span>
+                      <span className="text-muted-foreground">API Key:</span>
                       <code className="bg-secondary px-2 py-0.5 rounded text-xs text-foreground">
                         {showApiKeys[api.id] ? api.api_key : maskApiKey(api.api_key)}
                       </code>
@@ -608,20 +545,6 @@ export const ApiManagement = () => {
                     <RefreshCw className={`w-3 h-3 ${isTesting === api.id ? "animate-spin" : ""}`} />
                     Test
                   </Button>
-                  {api.api_type === 'smileone' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setProductFetcherApi(api);
-                        setProductFetcherOpen(true);
-                      }}
-                      className="gap-1 text-primary"
-                    >
-                      <Package className="w-3 h-3" />
-                      Products
-                    </Button>
-                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -687,7 +610,7 @@ export const ApiManagement = () => {
               <Label htmlFor="name">API Name *</Label>
               <Input
                 id="name"
-                placeholder={formData.api_type === 'smileone' ? "SmileOne MLBB" : "My SMM Panel"}
+                placeholder={formData.api_type === 'digital-topup' ? "Digital Top-Up" : "My SMM Panel"}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
@@ -695,40 +618,24 @@ export const ApiManagement = () => {
             
             <div className="space-y-2">
               <Label htmlFor="api_url">
-                {formData.api_type === 'smileone' ? 'SmileOne UID *' : formData.api_type === 'payment' ? 'Gateway Type *' : formData.api_type === 'gametopup' ? 'API Base URL *' : 'API URL *'}
+                {formData.api_type === 'payment' ? 'Gateway Type *' : formData.api_type === 'gametopup' ? 'API Base URL *' : 'API URL *'}
               </Label>
               <Input
                 id="api_url"
-                placeholder={formData.api_type === 'smileone' ? "Your SmileOne UID" : formData.api_type === 'payment' ? "bharatpe" : formData.api_type === 'gametopup' ? "https://api.example.com/api-service" : "https://example.com/api/v2"}
+                placeholder={formData.api_type === 'payment' ? "bharatpe" : formData.api_type === 'gametopup' ? "https://api.example.com/api-service" : "https://example.com/api/v2"}
                 value={formData.api_url}
                 onChange={(e) => setFormData({ ...formData, api_url: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">
-                {formData.api_type === 'smileone' 
-                  ? "Your SmileOne account UID (found in SmileOne dashboard)"
-                  : formData.api_type === 'payment'
+                {formData.api_type === 'payment'
                   ? "Gateway type identifier (e.g., bharatpe, razorpay, phonepe)"
                   : formData.api_type === 'gametopup'
                   ? "Base URL for Game Top-Up API (e.g., https://api.example.com/api-service)"
+                  : formData.api_type === 'digital-topup'
+                  ? "Digital Top-Up API identifier (uses Matrix Sols backend)"
                   : "The full API endpoint URL"}
               </p>
             </div>
-
-            {formData.api_type === 'smileone' && (
-              <div className="space-y-2">
-                <Label htmlFor="email">SmileOne Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-                <p className="text-xs text-muted-foreground">
-                  The email registered with your SmileOne account
-                </p>
-              </div>
-            )}
 
             {formData.api_type === 'payment' && (
               <div className="space-y-2">
@@ -747,12 +654,12 @@ export const ApiManagement = () => {
             
             <div className="space-y-2">
               <Label htmlFor="api_key">
-                {formData.api_type === 'smileone' ? 'Secret Key *' : formData.api_type === 'payment' ? 'API Token *' : formData.api_type === 'gametopup' ? 'x-api-key *' : 'API Key *'}
+                {formData.api_type === 'payment' ? 'API Token *' : formData.api_type === 'gametopup' ? 'x-api-key *' : 'API Key *'}
               </Label>
               <Input
                 id="api_key"
                 type="password"
-                placeholder={formData.api_type === 'smileone' ? "Your SmileOne secret key" : formData.api_type === 'payment' ? "Your payment gateway API token" : formData.api_type === 'gametopup' ? "Your x-api-key value" : "Enter your API key"}
+                placeholder={formData.api_type === 'payment' ? "Your payment gateway API token" : formData.api_type === 'gametopup' ? "Your x-api-key value" : "Enter your API key"}
                 value={formData.api_key}
                 onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
               />
@@ -764,6 +671,11 @@ export const ApiManagement = () => {
               {formData.api_type === 'gametopup' && (
                 <p className="text-xs text-muted-foreground">
                   The x-api-key header value for authenticating with the Game Top-Up API
+                </p>
+              )}
+              {formData.api_type === 'digital-topup' && (
+                <p className="text-xs text-muted-foreground">
+                  Digital Top-Up uses system credentials (no API key needed here)
                 </p>
               )}
             </div>
@@ -807,19 +719,6 @@ export const ApiManagement = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* SmileOne Product Fetcher */}
-      {productFetcherApi && (
-        <SmileOneProductFetcher
-          apiId={productFetcherApi.id}
-          apiName={productFetcherApi.name}
-          isOpen={productFetcherOpen}
-          onClose={() => {
-            setProductFetcherOpen(false);
-            setProductFetcherApi(null);
-          }}
-        />
-      )}
     </div>
   );
 };
