@@ -8,8 +8,18 @@ const corsHeaders = {
 
 const MATRIX_SOLS_BASE_URL = 'https://matrixsols.in/api/digital-top-ups';
 
+// Valid actions for the edge function
+type ActionType = 
+  | 'wallet_balance'
+  | 'products' 
+  | 'product_items' 
+  | 'product_servers'
+  | 'check_id' 
+  | 'create_order' 
+  | 'order_details';
+
 interface DigitalTopupRequest {
-  action: 'products' | 'product_items' | 'check_id' | 'create_order' | 'order_details';
+  action: ActionType;
   category?: string;
   product_id?: string;
   item_id?: string;
@@ -25,12 +35,19 @@ interface DigitalTopupRequest {
   contact_number?: string;
 }
 
+interface ApiResponse {
+  success: boolean;
+  data?: unknown;
+  error?: string;
+  status?: number;
+}
+
 // Generate HMAC-SHA256 signature using Web Crypto API
 async function generateSignature(payload: string, apiKey: string): Promise<string> {
   const encoder = new TextEncoder();
   
   // Signature string format: API_KEY + ";" + serialized JSON payload
-  const signatureString = apiKey + ";" + payload;
+  const signatureString = `${apiKey};${payload}`;
   
   // Create HMAC-SHA256 using API_KEY as the key
   const keyData = encoder.encode(apiKey);
@@ -55,14 +72,14 @@ async function makeApiRequest(
   payload: Record<string, unknown>, 
   apiKey: string, 
   clientId: string
-): Promise<{ success: boolean; data?: unknown; error?: string; status?: number }> {
+): Promise<ApiResponse> {
   // Convert payload to compact JSON (no spaces)
   const compactPayload = JSON.stringify(payload);
   
   // Generate new signature for this request
   const signature = await generateSignature(compactPayload, apiKey);
   
-  console.log('Digital Topup Request:', {
+  console.log('Matrix Sols Request:', {
     endpoint,
     payload: compactPayload,
     signatureGenerated: true
@@ -80,7 +97,7 @@ async function makeApiRequest(
     });
 
     const responseText = await response.text();
-    console.log('Digital Topup Response:', responseText);
+    console.log('Matrix Sols Response:', responseText);
 
     let result;
     try {
@@ -104,13 +121,26 @@ async function makeApiRequest(
       status: response.status
     };
   } catch (error) {
-    console.error('Digital Topup fetch error:', error);
+    console.error('Matrix Sols fetch error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error',
       status: 503
     };
   }
+}
+
+// JSON response helper
+function jsonResponse(data: Record<string, unknown>, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    status
+  });
+}
+
+// Error response helper
+function errorResponse(message: string, status = 400): Response {
+  return jsonResponse({ success: false, error: message }, status);
 }
 
 serve(async (req) => {
@@ -120,199 +150,216 @@ serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get('GAMETOPUP_API_KEY');
-    const clientId = Deno.env.get('GAMETOPUP_CLIENT_ID');
+    // Get credentials from environment
+    const apiKey = Deno.env.get('MATRIX_API_KEY');
+    const clientId = Deno.env.get('MATRIX_CLIENT_ID');
     
     if (!apiKey || !clientId) {
-      console.error('Missing API credentials');
-      return new Response(
-        JSON.stringify({ success: false, error: 'API credentials not configured', code: 500 }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      );
+      console.error('Missing Matrix Sols API credentials');
+      return jsonResponse({ 
+        success: false, 
+        error: 'API credentials not configured' 
+      });
     }
 
-    const body: DigitalTopupRequest = await req.json();
+    // Parse request body
+    let body: DigitalTopupRequest;
+    try {
+      body = await req.json();
+    } catch {
+      return errorResponse('Invalid JSON body');
+    }
+
     const { action } = body;
 
-    console.log('Digital Topup API request:', { action, body });
+    if (!action) {
+      return errorResponse('Action is required');
+    }
+
+    console.log('Digital Topup request:', { action, body });
 
     // Initialize Supabase client for database operations
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 1. Product List (Games)
-    if (action === 'products') {
-      const category = body.category || 'Gaming';
-      const result = await makeApiRequest('/products_list/', { category }, apiKey, clientId);
-      
-      return new Response(
-        JSON.stringify({
+    // Route based on action
+    switch (action) {
+      // 1. Wallet Balance
+      case 'wallet_balance': {
+        const result = await makeApiRequest('/balance/', {}, apiKey, clientId);
+        return jsonResponse({
+          success: result.success,
+          balance: result.data,
+          error: result.error
+        });
+      }
+
+      // 2. Product List (Games)
+      case 'products': {
+        const category = body.category || 'Gaming';
+        const result = await makeApiRequest('/products_list/', { category }, apiKey, clientId);
+        return jsonResponse({
           success: result.success,
           products: result.data,
           error: result.error
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // 2. Product Items (Packages)
-    if (action === 'product_items') {
-      if (!body.product_id) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'product_id is required' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-        );
+        });
       }
 
-      const result = await makeApiRequest(
-        '/product_items_list/', 
-        { product_id: body.product_id }, 
-        apiKey, 
-        clientId
-      );
-      
-      return new Response(
-        JSON.stringify({
+      // 3. Product Items (Packages)
+      case 'product_items': {
+        if (!body.product_id) {
+          return errorResponse('product_id is required');
+        }
+        const result = await makeApiRequest(
+          '/product_items_list/', 
+          { product_id: body.product_id }, 
+          apiKey, 
+          clientId
+        );
+        return jsonResponse({
           success: result.success,
           items: result.data,
           error: result.error
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // 3. Check User ID (Before Order)
-    if (action === 'check_id') {
-      if (!body.product_id || !body.user_id) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'product_id and user_id are required' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-        );
+        });
       }
 
-      const payload: Record<string, string> = {
-        product_id: body.product_id,
-        user_id: body.user_id,
-      };
+      // 4. Product Servers
+      case 'product_servers': {
+        if (!body.product_id) {
+          return errorResponse('product_id is required');
+        }
+        const result = await makeApiRequest(
+          '/product_server_list/', 
+          { product_id: body.product_id }, 
+          apiKey, 
+          clientId
+        );
+        return jsonResponse({
+          success: result.success,
+          servers: result.data,
+          error: result.error
+        });
+      }
 
-      // Add server fields only if provided (for products that require them)
-      if (body.server) payload.server = body.server;
-      if (body.server_region) payload.server_region = body.server_region;
+      // 5. Check User ID (Before Order)
+      case 'check_id': {
+        if (!body.product_id || !body.user_id) {
+          return errorResponse('product_id and user_id are required');
+        }
 
-      const result = await makeApiRequest('/check_id/', payload, apiKey, clientId);
-      
-      // Extract username and region from response
-      const responseData = result.data as Record<string, unknown> | undefined;
-      const username = responseData?.username || responseData?.name || responseData?.nickname;
-      const region = responseData?.region || responseData?.server || responseData?.zone;
+        const payload: Record<string, string> = {
+          product_id: body.product_id,
+          user_id: body.user_id,
+        };
 
-      return new Response(
-        JSON.stringify({
+        // Add optional server fields only if provided
+        if (body.server) payload.server = body.server;
+        if (body.server_region) payload.server_region = body.server_region;
+
+        const result = await makeApiRequest('/check_id/', payload, apiKey, clientId);
+        
+        // Extract username and region from response
+        const responseData = result.data as Record<string, unknown> | undefined;
+        const username = responseData?.username || responseData?.name || responseData?.nickname;
+        const region = responseData?.region || responseData?.server || responseData?.zone;
+
+        return jsonResponse({
           success: result.success,
           valid: result.success,
           username,
           region,
           data: result.data,
           error: result.error
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // 4. Create Order (Automatic)
-    if (action === 'create_order') {
-      const { product_id, item_id, user_id, server, server_region, supabase_user_id, product_name, amount, price, contact_number } = body;
-
-      if (!product_id || !item_id || !user_id) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'product_id, item_id, and user_id are required' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-        );
+        });
       }
 
-      // Step 1: Validate user first
-      const checkPayload: Record<string, string> = { product_id, user_id };
-      if (server) checkPayload.server = server;
-      if (server_region) checkPayload.server_region = server_region;
+      // 6. Create Order (Automatic)
+      case 'create_order': {
+        const { product_id, item_id, user_id, server, server_region, supabase_user_id, product_name, amount, price, contact_number } = body;
 
-      console.log('Validating user before order...');
-      const checkResult = await makeApiRequest('/check_id/', checkPayload, apiKey, clientId);
-      
-      if (!checkResult.success) {
-        // Save as pending_manual if validation fails
-        if (supabase_user_id) {
-          await supabase.from('orders').insert({
-            user_id: supabase_user_id,
-            product_id: product_id,
-            product_name: product_name || 'Unknown Product',
-            amount: amount || 'N/A',
-            price: price || 0,
-            user_game_id: user_id,
-            zone_id: server || null,
-            contact_number: contact_number || '',
-            status: 'pending_manual',
-          });
+        if (!product_id || !item_id || !user_id) {
+          return errorResponse('product_id, item_id, and user_id are required');
         }
 
-        return new Response(
-          JSON.stringify({
+        // Step 1: Validate user first
+        const checkPayload: Record<string, string> = { product_id, user_id };
+        if (server) checkPayload.server = server;
+        if (server_region) checkPayload.server_region = server_region;
+
+        console.log('Validating user before order...');
+        const checkResult = await makeApiRequest('/check_id/', checkPayload, apiKey, clientId);
+        
+        if (!checkResult.success) {
+          // Save as pending_manual if validation fails
+          if (supabase_user_id) {
+            await supabase.from('orders').insert({
+              user_id: supabase_user_id,
+              product_id: product_id,
+              product_name: product_name || 'Unknown Product',
+              amount: amount || 'N/A',
+              price: price || 0,
+              user_game_id: user_id,
+              zone_id: server || null,
+              contact_number: contact_number || '',
+              status: 'pending_manual',
+            });
+          }
+
+          return jsonResponse({
             success: false,
             error: checkResult.error || 'User validation failed',
             message: 'Invalid User ID or Server'
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const checkData = checkResult.data as Record<string, unknown> | undefined;
-      const username = checkData?.username || checkData?.name || checkData?.nickname || 'Unknown';
-
-      // Step 2: Create the order
-      const orderPayload: Record<string, string> = {
-        product_id,
-        item_id,
-        user_id,
-      };
-      if (server) orderPayload.server = server;
-      if (server_region) orderPayload.server_region = server_region;
-
-      console.log('Creating order...');
-      const orderResult = await makeApiRequest('/create_order/', orderPayload, apiKey, clientId);
-
-      const orderData = orderResult.data as Record<string, unknown> | undefined;
-      const externalOrderId = orderData?.order_id || orderData?.orderId || null;
-      const orderStatus = orderResult.success ? 'processing' : 'pending_manual';
-
-      // Step 3: Save order to Supabase database
-      let savedOrder = null;
-      if (supabase_user_id) {
-        const { data, error: saveError } = await supabase
-          .from('orders')
-          .insert({
-            user_id: supabase_user_id,
-            product_id: product_id,
-            product_name: product_name || 'Unknown Product',
-            amount: amount || 'N/A',
-            price: price || 0,
-            user_game_id: user_id,
-            zone_id: server || null,
-            contact_number: contact_number || '',
-            status: orderStatus,
-            smm_order_id: externalOrderId ? String(externalOrderId) : null,
-          })
-          .select()
-          .single();
-
-        if (saveError) {
-          console.error('Failed to save order:', saveError);
-        } else {
-          savedOrder = data;
+          });
         }
-      }
 
-      return new Response(
-        JSON.stringify({
+        const checkData = checkResult.data as Record<string, unknown> | undefined;
+        const username = checkData?.username || checkData?.name || checkData?.nickname || 'Unknown';
+
+        // Step 2: Create the order
+        const orderPayload: Record<string, string> = {
+          product_id,
+          item_id,
+          user_id,
+        };
+        if (server) orderPayload.server = server;
+        if (server_region) orderPayload.server_region = server_region;
+
+        console.log('Creating order...');
+        const orderResult = await makeApiRequest('/create_order/', orderPayload, apiKey, clientId);
+
+        const orderData = orderResult.data as Record<string, unknown> | undefined;
+        const externalOrderId = orderData?.order_id || orderData?.orderId || null;
+        const orderStatus = orderResult.success ? 'processing' : 'pending_manual';
+
+        // Step 3: Save order to Supabase database
+        let savedOrder = null;
+        if (supabase_user_id) {
+          const { data, error: saveError } = await supabase
+            .from('orders')
+            .insert({
+              user_id: supabase_user_id,
+              product_id: product_id,
+              product_name: product_name || 'Unknown Product',
+              amount: amount || 'N/A',
+              price: price || 0,
+              user_game_id: user_id,
+              zone_id: server || null,
+              contact_number: contact_number || '',
+              status: orderStatus,
+              smm_order_id: externalOrderId ? String(externalOrderId) : null,
+            })
+            .select()
+            .single();
+
+          if (saveError) {
+            console.error('Failed to save order:', saveError);
+          } else {
+            savedOrder = data;
+          }
+        }
+
+        return jsonResponse({
           success: orderResult.success,
           order_id: savedOrder?.id,
           external_order_id: externalOrderId,
@@ -321,67 +368,71 @@ serve(async (req) => {
           message: orderResult.success ? 'Order created successfully' : 'Order saved for manual processing',
           data: orderResult.data,
           error: orderResult.error
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // 5. Track Order
-    if (action === 'order_details') {
-      if (!body.order_id) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'order_id is required' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-        );
+        });
       }
 
-      const result = await makeApiRequest(
-        '/order_details/', 
-        { order_id: body.order_id }, 
-        apiKey, 
-        clientId
-      );
-
-      const orderData = result.data as Record<string, unknown> | undefined;
-      const status = orderData?.status || orderData?.order_status;
-
-      // Update order status in database if we have an smm_order_id match
-      if (result.success && status) {
-        const { error: updateError } = await supabase
-          .from('orders')
-          .update({ 
-            status: String(status).toLowerCase(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('smm_order_id', body.order_id);
-
-        if (updateError) {
-          console.error('Failed to update order status:', updateError);
+      // 7. Track Order
+      case 'order_details': {
+        if (!body.order_id) {
+          return errorResponse('order_id is required');
         }
-      }
 
-      return new Response(
-        JSON.stringify({
+        const result = await makeApiRequest(
+          '/order_details/', 
+          { order_id: body.order_id }, 
+          apiKey, 
+          clientId
+        );
+
+        const orderData = result.data as Record<string, unknown> | undefined;
+        const status = orderData?.status || orderData?.order_status;
+
+        // Update order status in database if we have an smm_order_id match
+        if (result.success && status) {
+          const { error: updateError } = await supabase
+            .from('orders')
+            .update({ 
+              status: String(status).toLowerCase(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('smm_order_id', body.order_id);
+
+          if (updateError) {
+            console.error('Failed to update order status:', updateError);
+          }
+        }
+
+        return jsonResponse({
           success: result.success,
           order: result.data,
           status,
           error: result.error
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+        });
+      }
 
-    return new Response(
-      JSON.stringify({ success: false, error: 'Unknown action. Valid actions: products, product_items, check_id, create_order, order_details' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    );
+      // Unknown action
+      default: {
+        const validActions: ActionType[] = [
+          'wallet_balance',
+          'products',
+          'product_items',
+          'product_servers',
+          'check_id',
+          'create_order',
+          'order_details'
+        ];
+        return errorResponse(
+          `Unknown action "${action}". Valid actions: ${validActions.join(', ')}`
+        );
+      }
+    }
 
   } catch (error: unknown) {
     console.error('Digital Topup API error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-    return new Response(
-      JSON.stringify({ success: false, error: errorMessage, code: 500 }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    );
+    return jsonResponse({ 
+      success: false, 
+      error: errorMessage 
+    });
   }
 });
