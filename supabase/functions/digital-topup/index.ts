@@ -6,8 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MATRIX_SOLS_BASE_URL = 'https://matrixsols.in/api/digital-top-ups';
-
 // Valid actions for the edge function
 type ActionType = 
   | 'wallet_balance'
@@ -42,62 +40,36 @@ interface ApiResponse {
   status?: number;
 }
 
-// Generate HMAC-SHA256 signature using Web Crypto API
-async function generateSignature(payload: string, apiKey: string): Promise<string> {
-  const encoder = new TextEncoder();
-  
-  // Signature string format: API_KEY + ";" + serialized JSON payload
-  const signatureString = `${apiKey};${payload}`;
-  
-  // Create HMAC-SHA256 using API_KEY as the key
-  const keyData = encoder.encode(apiKey);
-  const messageData = encoder.encode(signatureString);
-  
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  
-  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
-  const hashArray = Array.from(new Uint8Array(signature));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-// Make authenticated request to Matrix Sols API
+// Make API request via AWS proxy (static IP) to Matrix Sols
 async function makeApiRequest(
   endpoint: string, 
   payload: Record<string, unknown>, 
   apiKey: string, 
   clientId: string
 ): Promise<ApiResponse> {
-  // Convert payload to compact JSON (no spaces)
-  const compactPayload = JSON.stringify(payload);
+  const proxyUrl = Deno.env.get('MATRIX_PROXY_URL');
   
-  // Generate new signature for this request
-  const signature = await generateSignature(compactPayload, apiKey);
-  
-  console.log('Matrix Sols Request:', {
-    endpoint,
-    payload: compactPayload,
-    signatureGenerated: true
-  });
+  if (!proxyUrl) {
+    console.error('MATRIX_PROXY_URL not configured');
+    return { success: false, error: 'Proxy URL not configured', status: 500 };
+  }
+
+  console.log('Matrix Sols Request via proxy:', { endpoint, payload });
 
   try {
-    const response = await fetch(`${MATRIX_SOLS_BASE_URL}${endpoint}`, {
+    const response = await fetch(`${proxyUrl}/proxy`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Signature': signature,
-        'X-Client-Id': clientId,
-      },
-      body: compactPayload,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endpoint,
+        payload,
+        api_key: apiKey,
+        client_id: clientId,
+      }),
     });
 
     const responseText = await response.text();
-    console.log('Matrix Sols Response:', responseText);
+    console.log('Matrix Sols Proxy Response:', responseText);
 
     let result;
     try {
@@ -115,13 +87,9 @@ async function makeApiRequest(
       };
     }
 
-    return {
-      success: true,
-      data: result,
-      status: response.status
-    };
+    return { success: true, data: result, status: response.status };
   } catch (error) {
-    console.error('Matrix Sols fetch error:', error);
+    console.error('Matrix Sols proxy fetch error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error',
