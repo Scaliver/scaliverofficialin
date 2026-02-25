@@ -471,10 +471,12 @@ const ProductDetail = () => {
             console.log("Game Top-Up Order placed:", gametopupData);
           } else {
             // Use Digital Top-Up API (default)
+            // For digital-topup: product_id is the Matrix API product slug, item_id is the specific pack
+            const matrixProductId = product?.category === 'Mobile Legends' ? 'mlbb-global' : selectedTier.providerProductId;
             const { data: digitalData, error: digitalError } = await supabase.functions.invoke('digital-topup', {
               body: {
                 action: 'create_order',
-                product_id: selectedTier.providerProductId,
+                product_id: matrixProductId,
                 item_id: selectedTier.providerProductId,
                 user_id: userId,
                 server: zoneId,
