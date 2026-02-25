@@ -333,16 +333,7 @@ const ProductDetail = () => {
       return false;
     }
 
-    // For MLBB products in automatic mode, require player verification
-    const isMLBBProduct = product?.category === 'Mobile Legends' && !product?.isSocialMedia;
-    if (isMLBBProduct && rechargeMode === 'automatic' && !isPlayerVerified) {
-      toast({
-        title: "Verification Required",
-        description: "Please verify your Player ID and Zone ID before placing an order, or switch to Manual mode.",
-        variant: "destructive",
-      });
-      return false;
-    }
+    // Player verification is optional - no longer required for MLBB products
 
     return true;
   };
