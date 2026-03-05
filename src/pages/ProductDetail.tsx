@@ -414,17 +414,22 @@ const ProductDetail = () => {
       ) {
         try {
           // First, determine the provider's API type
-          const { data: apiData, error: apiError } = await supabase
-            .from('smm_apis')
-            .select('api_type')
-            .eq('id', selectedTier.providerId)
-            .single();
+          let apiType = product?.category === 'Mobile Legends' ? 'digital-topup' : 'smileone';
+          
+          if (selectedTier.providerId) {
+            const { data: apiData, error: apiError } = await supabase
+              .from('smm_apis')
+              .select('api_type')
+              .eq('id', selectedTier.providerId)
+              .single();
 
-          if (apiError) {
-            console.error('Failed to fetch API type:', apiError);
+            if (apiError) {
+              console.error('Failed to fetch API type:', apiError);
+            }
+            if (apiData?.api_type) {
+              apiType = apiData.api_type;
+            }
           }
-
-          const apiType = apiData?.api_type || (product?.category === 'Mobile Legends' ? 'digital-topup' : 'smileone');
 
           if (apiType === 'gametopup') {
             // Use Game Top-Up API (x-api-key header)
