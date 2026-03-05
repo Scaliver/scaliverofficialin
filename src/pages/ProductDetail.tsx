@@ -407,7 +407,11 @@ const ProductDetail = () => {
         });
       }
       // Check if this tier has a provider linked and we're in automatic mode
-      else if (selectedTier.providerId && selectedTier.providerProductId) {
+      // OR if this is an MLBB product (always try digital-topup for MLBB)
+      else if (
+        (selectedTier.providerId && selectedTier.providerProductId) ||
+        (product?.category === 'Mobile Legends' && !product?.isSocialMedia && rechargeMode === 'automatic')
+      ) {
         try {
           // First, determine the provider's API type
           const { data: apiData, error: apiError } = await supabase
@@ -420,7 +424,7 @@ const ProductDetail = () => {
             console.error('Failed to fetch API type:', apiError);
           }
 
-          const apiType = apiData?.api_type || 'smileone';
+          const apiType = apiData?.api_type || (product?.category === 'Mobile Legends' ? 'digital-topup' : 'smileone');
 
           if (apiType === 'gametopup') {
             // Use Game Top-Up API (x-api-key header)
@@ -469,15 +473,16 @@ const ProductDetail = () => {
             });
 
             console.log("Game Top-Up Order placed:", gametopupData);
-          } else {
-            // Use Digital Top-Up API (default)
-            // For digital-topup: product_id is the Matrix API product slug, item_id is the specific pack
-            const matrixProductId = product?.category === 'Mobile Legends' ? 'mlbb-global' : selectedTier.providerProductId;
+          } else if (apiType === 'digital-topup' || product?.category === 'Mobile Legends') {
+            // Use Digital Top-Up API
+            // For MLBB: product_id is always 'mlbb-global', item_id from providerProductId or tier id
+            const matrixProductId = product?.category === 'Mobile Legends' ? 'mlbb-global' : (selectedTier.providerProductId || selectedTier.id);
+            const matrixItemId = selectedTier.providerProductId || selectedTier.id;
             const { data: digitalData, error: digitalError } = await supabase.functions.invoke('digital-topup', {
               body: {
                 action: 'create_order',
                 product_id: matrixProductId,
-                item_id: selectedTier.providerProductId,
+                item_id: matrixItemId,
                 user_id: userId,
                 server: zoneId,
                 supabase_user_id: user.id,
