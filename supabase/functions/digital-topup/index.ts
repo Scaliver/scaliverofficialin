@@ -40,6 +40,16 @@ interface ApiResponse {
   status?: number;
 }
 
+// Normalize proxy URL: strip trailing slash and /proxy suffix to prevent double-path
+function normalizeProxyUrl(raw: string): string {
+  let url = raw.trim().replace(/\/+$/, '');
+  // Remove trailing /proxy if present (user may have included it)
+  if (url.endsWith('/proxy')) {
+    url = url.slice(0, -6);
+  }
+  return url;
+}
+
 // Make API request via AWS proxy (static IP) to Matrix Sols
 async function makeApiRequest(
   endpoint: string, 
@@ -47,17 +57,19 @@ async function makeApiRequest(
   apiKey: string, 
   clientId: string
 ): Promise<ApiResponse> {
-  const proxyUrl = Deno.env.get('MATRIX_PROXY_URL');
+  const rawProxyUrl = Deno.env.get('MATRIX_PROXY_URL');
   
-  if (!proxyUrl) {
+  if (!rawProxyUrl) {
     console.error('MATRIX_PROXY_URL not configured');
     return { success: false, error: 'Proxy URL not configured', status: 500 };
   }
 
-  console.log('Matrix Sols Request via proxy:', { endpoint, payload });
+  const proxyBase = normalizeProxyUrl(rawProxyUrl);
+  const targetUrl = `${proxyBase}/proxy`;
+  console.log('Matrix Sols Request via proxy:', { targetUrl, endpoint, payload });
 
   try {
-    const response = await fetch(`${proxyUrl}/proxy`, {
+    const response = await fetch(targetUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -250,39 +262,25 @@ serve(async (req) => {
           return errorResponse('product_id, item_id, and user_id are required');
         }
 
-        // Step 1: Validate user first
+        // Step 1: Best-effort user validation (don't block order if it fails)
         const checkPayload: Record<string, string> = { product_id, user_id };
         if (server) checkPayload.server = server;
         if (server_region) checkPayload.server_region = server_region;
 
-        console.log('Validating user before order...');
-        const checkResult = await makeApiRequest('/check_id/', checkPayload, apiKey, clientId);
-        
-        if (!checkResult.success) {
-          // Save as pending_manual if validation fails
-          if (supabase_user_id) {
-            await supabase.from('orders').insert({
-              user_id: supabase_user_id,
-              product_id: product_id,
-              product_name: product_name || 'Unknown Product',
-              amount: amount || 'N/A',
-              price: price || 0,
-              user_game_id: user_id,
-              zone_id: server || null,
-              contact_number: contact_number || '',
-              status: 'pending_manual',
-            });
+        console.log('Validating user (best-effort)...');
+        let username = 'Unknown';
+        try {
+          const checkResult = await makeApiRequest('/check_id/', checkPayload, apiKey, clientId);
+          if (checkResult.success) {
+            const checkData = checkResult.data as Record<string, unknown> | undefined;
+            username = String(checkData?.username || checkData?.name || checkData?.nickname || 'Unknown');
+            console.log('User validated:', username);
+          } else {
+            console.warn('User validation failed (proceeding anyway):', checkResult.error);
           }
-
-          return jsonResponse({
-            success: false,
-            error: checkResult.error || 'User validation failed',
-            message: 'Invalid User ID or Server'
-          });
+        } catch (checkErr) {
+          console.warn('User validation error (proceeding anyway):', checkErr);
         }
-
-        const checkData = checkResult.data as Record<string, unknown> | undefined;
-        const username = checkData?.username || checkData?.name || checkData?.nickname || 'Unknown';
 
         // Step 2: Create the order
         const orderPayload: Record<string, string> = {
