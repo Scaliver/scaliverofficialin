@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type ApiType = 'smm' | 'gametopup' | 'payment' | 'digital-topup';
+type ApiType = 'smm' | 'gametopup' | 'payment' | 'smilecode';
 
 interface SmmApi {
   id: string;
@@ -48,7 +48,7 @@ interface SmmApi {
 
 const API_TYPES = [
   { value: 'smm', label: 'SMM Panel', description: 'For social media services' },
-  { value: 'digital-topup', label: 'Digital Top-Up', description: 'For MLBB & game top-ups (Matrix Sols)' },
+  { value: 'smilecode', label: 'SmileCode', description: 'For MLBB & game top-ups (SmileOne)' },
   { value: 'gametopup', label: 'Game Top-Up API', description: 'For MLBB (x-api-key header)' },
   { value: 'payment', label: 'Payment Gateway', description: 'For payment verification (BharatPe, etc.)' },
 ];
@@ -253,12 +253,11 @@ export const ApiManagement = () => {
     setIsTesting(api.id);
     
     try {
-      if (api.api_type === "digital-topup") {
-        // Test Digital Top-Up API via edge function
-        const { data, error } = await supabase.functions.invoke('digital-topup', {
+      if (api.api_type === "smilecode") {
+        // Test SmileCode API via edge function (balance check)
+        const { data, error } = await supabase.functions.invoke('smilecode-order', {
           body: {
-            action: 'products',
-            category: 'Gaming',
+            action: 'balance',
           }
         });
 
@@ -273,7 +272,7 @@ export const ApiManagement = () => {
         } else if (data.success) {
           toast({
             title: "Connection Successful",
-            description: `${api.name} is working.`,
+            description: `${api.name} is working. Balance: $${data.balance || 'N/A'}`,
           });
         } else {
           toast({
@@ -397,7 +396,7 @@ export const ApiManagement = () => {
   };
 
   const getApiTypeIcon = (type: ApiType) => {
-    if (type === 'digital-topup') return <Gamepad2 className="w-4 h-4" />;
+    if (type === 'smilecode') return <Gamepad2 className="w-4 h-4" />;
     if (type === 'gametopup') return <Gamepad2 className="w-4 h-4" />;
     if (type === 'payment') return <CreditCard className="w-4 h-4" />;
     return <Globe className="w-4 h-4" />;
@@ -455,8 +454,8 @@ export const ApiManagement = () => {
               <Gamepad2 className="w-5 h-5 text-purple-500" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Digital Top-Up</p>
-              <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'digital-topup').length}</p>
+              <p className="text-xs text-muted-foreground">SmileCode</p>
+              <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'smilecode').length}</p>
             </div>
           </div>
         </div>
@@ -610,7 +609,7 @@ export const ApiManagement = () => {
               <Label htmlFor="name">API Name *</Label>
               <Input
                 id="name"
-                placeholder={formData.api_type === 'digital-topup' ? "Digital Top-Up" : "My SMM Panel"}
+                placeholder={formData.api_type === 'smilecode' ? "SmileOne" : "My SMM Panel"}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
@@ -631,8 +630,8 @@ export const ApiManagement = () => {
                   ? "Gateway type identifier (e.g., bharatpe, razorpay, phonepe)"
                   : formData.api_type === 'gametopup'
                   ? "Base URL for Game Top-Up API (e.g., https://api.example.com/api-service)"
-                  : formData.api_type === 'digital-topup'
-                  ? "Digital Top-Up API identifier (uses Matrix Sols backend)"
+                  : formData.api_type === 'smilecode'
+                  ? "SmileCode API (uses system credentials)"
                   : "The full API endpoint URL"}
               </p>
             </div>
@@ -673,9 +672,9 @@ export const ApiManagement = () => {
                   The x-api-key header value for authenticating with the Game Top-Up API
                 </p>
               )}
-              {formData.api_type === 'digital-topup' && (
+              {formData.api_type === 'smilecode' && (
                 <p className="text-xs text-muted-foreground">
-                  Digital Top-Up uses system credentials (no API key needed here)
+                  SmileCode uses system credentials (no API key needed here)
                 </p>
               )}
             </div>
