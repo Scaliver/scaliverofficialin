@@ -114,7 +114,7 @@ export const ProductManagement = () => {
       const { data } = await supabase
         .from("smm_apis")
         .select("id, name, api_type, is_active")
-        .in("api_type", ["digital-topup", "gametopup"])
+        .in("api_type", ["smilecode", "gametopup"])
         .eq("is_active", true);
       
       if (data) {

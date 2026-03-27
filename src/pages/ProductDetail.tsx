@@ -407,14 +407,14 @@ const ProductDetail = () => {
         });
       }
       // Check if this tier has a provider linked and we're in automatic mode
-      // OR if this is an MLBB product (always try digital-topup for MLBB)
+      // OR if this is an MLBB product (always try smilecode for MLBB)
       else if (
         (selectedTier.providerId && selectedTier.providerProductId) ||
         (product?.category === 'Mobile Legends' && !product?.isSocialMedia && rechargeMode === 'automatic')
       ) {
         try {
           // First, determine the provider's API type
-          let apiType = product?.category === 'Mobile Legends' ? 'digital-topup' : 'smileone';
+          let apiType = product?.category === 'Mobile Legends' ? 'smilecode' : 'smilecode';
           
           if (selectedTier.providerId) {
             const { data: apiData, error: apiError } = await supabase
@@ -464,7 +464,6 @@ const ProductDetail = () => {
               })
               .eq("id", orderData.id);
 
-            // Send WhatsApp notification for successful auto order
             sendWhatsAppNotification({
               orderId: orderData.id,
               productName: product.name,
@@ -478,47 +477,47 @@ const ProductDetail = () => {
             });
 
             console.log("Game Top-Up Order placed:", gametopupData);
-          } else if (apiType === 'digital-topup' || product?.category === 'Mobile Legends') {
-            // Use Digital Top-Up API
-            // For MLBB: product_id is always 'mlbb-global', item_id from providerProductId or tier id
-            const matrixProductId = product?.category === 'Mobile Legends' ? 'mlbb-global' : (selectedTier.providerProductId || selectedTier.id);
-            const matrixItemId = selectedTier.providerProductId || selectedTier.id;
-            const { data: digitalData, error: digitalError } = await supabase.functions.invoke('digital-topup', {
+          } else if (apiType === 'smilecode' || product?.category === 'Mobile Legends') {
+            // Use SmileCode API for MLBB and other game top-ups
+            const smileSku = selectedTier.providerProductId || selectedTier.id;
+            const { data: smileData, error: smileError } = await supabase.functions.invoke('smilecode-order', {
               body: {
-                action: 'create_order',
-                product_id: matrixProductId,
-                item_id: matrixItemId,
+                action: 'send_order',
+                apiGame: 'mobilelegends',
+                sku: smileSku,
+                qty: 1,
                 user_id: userId,
-                server: zoneId,
+                server_id: zoneId || undefined,
                 supabase_user_id: user.id,
                 product_name: product.name,
                 amount: selectedTier.amount,
                 price: selectedTier.price,
+                product_id: product.id,
+                zone_id: zoneId || undefined,
                 contact_number: user.email || "",
               }
             });
 
-            if (digitalError) throw digitalError;
+            if (smileError) throw smileError;
 
-            if (!digitalData.success) {
+            if (!smileData.success) {
               await supabase
                 .from("orders")
                 .update({ status: "failed" })
                 .eq("id", orderData.id);
               
-              throw new Error(digitalData.error || 'Digital Top-Up order failed');
+              throw new Error(smileData.error || 'SmileCode order failed');
             }
 
-            // Update order with external order ID
+            // Update order with SmileCode order ID
             await supabase
               .from("orders")
               .update({ 
                 status: "processing",
-                smm_order_id: digitalData.external_order_id ? String(digitalData.external_order_id) : null 
+                smm_order_id: smileData.external_order_id ? String(smileData.external_order_id) : null 
               })
               .eq("id", orderData.id);
 
-            // Send WhatsApp notification for successful auto order
             sendWhatsAppNotification({
               orderId: orderData.id,
               productName: product.name,
@@ -531,7 +530,7 @@ const ProductDetail = () => {
               status: "Auto Processing",
             });
 
-            console.log("Digital Top-Up Order placed:", digitalData);
+            console.log("SmileCode Order placed:", smileData);
           }
         } catch (providerError) {
           console.error("Provider API Error:", providerError);
