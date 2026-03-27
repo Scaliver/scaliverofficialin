@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type ApiType = 'smm' | 'gametopup' | 'payment' | 'digital-topup';
+type ApiType = 'smm' | 'gametopup' | 'payment' | 'smilecode';
 
 interface SmmApi {
   id: string;
@@ -48,7 +48,7 @@ interface SmmApi {
 
 const API_TYPES = [
   { value: 'smm', label: 'SMM Panel', description: 'For social media services' },
-  { value: 'digital-topup', label: 'Digital Top-Up', description: 'For MLBB & game top-ups (Matrix Sols)' },
+  { value: 'smilecode', label: 'SmileCode', description: 'For MLBB & game top-ups (SmileOne)' },
   { value: 'gametopup', label: 'Game Top-Up API', description: 'For MLBB (x-api-key header)' },
   { value: 'payment', label: 'Payment Gateway', description: 'For payment verification (BharatPe, etc.)' },
 ];
@@ -253,12 +253,11 @@ export const ApiManagement = () => {
     setIsTesting(api.id);
     
     try {
-      if (api.api_type === "digital-topup") {
-        // Test Digital Top-Up API via edge function
-        const { data, error } = await supabase.functions.invoke('digital-topup', {
+      if (api.api_type === "smilecode") {
+        // Test SmileCode API via edge function (balance check)
+        const { data, error } = await supabase.functions.invoke('smilecode-order', {
           body: {
-            action: 'products',
-            category: 'Gaming',
+            action: 'balance',
           }
         });
 
@@ -273,7 +272,7 @@ export const ApiManagement = () => {
         } else if (data.success) {
           toast({
             title: "Connection Successful",
-            description: `${api.name} is working.`,
+            description: `${api.name} is working. Balance: $${data.balance || 'N/A'}`,
           });
         } else {
           toast({

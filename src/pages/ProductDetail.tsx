@@ -115,10 +115,10 @@ const ProductDetail = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [isPlayerVerified, setIsPlayerVerified] = useState(false);
-  const verifyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Track which API type to use for this product
-  const [productApiType, setProductApiType] = useState<'digital-topup' | 'gametopup' | null>(null);
+  const [productApiType, setProductApiType] = useState<'smilecode' | 'gametopup' | null>(null);
   const [productApiId, setProductApiId] = useState<string | null>(null);
 
   // Fetch manual recharge setting
@@ -185,7 +185,7 @@ const ProductDetail = () => {
           .single();
         
         if (!error && data) {
-          setProductApiType(data.api_type as 'digital-topup' | 'gametopup');
+          setProductApiType(data.api_type as 'smilecode' | 'gametopup');
           setProductApiId(data.id);
         }
       } catch (err) {
@@ -233,13 +233,13 @@ const ProductDetail = () => {
           setVerificationError(data.message || data.error || 'Invalid Player ID or Zone ID');
         }
       } else {
-        // Use Digital Top-Up API for validation (default)
-        const result = await supabase.functions.invoke('digital-topup', {
+        // Use SmileCode API for validation (default for MLBB)
+        const result = await supabase.functions.invoke('smilecode-order', {
           body: { 
-            action: 'check_id', 
-            product_id: 'mlbb', // Default MLBB product
+            action: 'validate', 
+            apiGame: 'mobilelegends',
             user_id: playerId, 
-            server: zone 
+            server_id: zone 
           }
         });
         data = result.data;
@@ -247,10 +247,10 @@ const ProductDetail = () => {
         
         if (error) throw error;
         
-        if (data.success && data.username) {
+        if (data.success && data.valid && data.username) {
           setPlayerInfo({
             nickname: data.username,
-            region: data.region || 'Unknown'
+            region: 'Unknown'
           });
           setIsPlayerVerified(true);
         } else {
