@@ -1167,6 +1167,70 @@ const ProductDetail = () => {
                         {canPayWithWallet ? "Pay with Coins" : "Insufficient Balance"}
                       </Button>
                       
+                      {/* Online Payment via Chuimei-pe */}
+                      <Button
+                        variant="outline"
+                        className="w-full border-primary/50 hover:bg-primary/10"
+                        onClick={async () => {
+                          if (!validateForm() || !selectedTier) return;
+                          setIsProcessing(true);
+                          try {
+                            const { data: paymentRecord, error: insertError } = await supabase
+                              .from("upi_payment_requests")
+                              .insert({
+                                user_id: user.id,
+                                user_email: user.email,
+                                request_type: "product_order",
+                                amount: selectedTier.price,
+                                product_name: product.name,
+                                product_pack: selectedTier.amount,
+                                player_id: userId,
+                                zone_id: zoneId || null,
+                                utr_number: `CHUIMEI-${Date.now()}`,
+                                status: "pending",
+                              })
+                              .select()
+                              .single();
+                            if (insertError) throw insertError;
+
+                            const { data, error } = await supabase.functions.invoke('chuimei-payment', {
+                              body: {
+                                action: 'create_order',
+                                amount: selectedTier.price,
+                                order_id: paymentRecord.id,
+                                customer_mobile: '0000000000',
+                                redirect_url: window.location.href,
+                                remark1: `${product.name} - ${selectedTier.amount}`,
+                                remark2: `Player: ${userId}${zoneId ? ` Zone: ${zoneId}` : ''}`,
+                              }
+                            });
+                            if (error) throw error;
+                            if (data?.success && data?.payment_url) {
+                              window.open(data.payment_url, '_blank');
+                              toast({
+                                title: "Payment Initiated",
+                                description: "Complete payment in the opened window.",
+                              });
+                            } else {
+                              throw new Error(data?.error || 'Payment failed');
+                            }
+                          } catch (err) {
+                            console.error("Online payment error:", err);
+                            toast({
+                              title: "Payment Error",
+                              description: err instanceof Error ? err.message : "Failed to initiate payment.",
+                              variant: "destructive",
+                            });
+                          } finally {
+                            setIsProcessing(false);
+                          }
+                        }}
+                        disabled={!selectedTier || isProcessing}
+                      >
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Pay Online
+                      </Button>
+                      
                       <Button
                         variant="outline"
                         className="w-full"
@@ -1174,7 +1238,7 @@ const ProductDetail = () => {
                         disabled={!selectedTier || isProcessing}
                       >
                         <CreditCard className="w-4 h-4 mr-2" />
-                        Pay with UPI
+                        Pay with UPI QR
                       </Button>
                     </>
                   ) : (
