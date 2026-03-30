@@ -10,12 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Coins, Copy, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Coins, Copy, CheckCircle2, CreditCard, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import upiQrImage from "@/assets/upi-qr.jpeg";
 
 const coinPackages = [
+  { amount: 1, bonus: 0 },
   { amount: 50, bonus: 0 },
   { amount: 100, bonus: 5 },
   { amount: 200, bonus: 15 },
@@ -37,6 +38,7 @@ const AddCoin = () => {
   const [utrNumber, setUtrNumber] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'chuimei' | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -81,17 +83,16 @@ const AddCoin = () => {
   };
 
   const validateUTR = (utr: string) => {
-    // UTR numbers are typically 12 or 22 digits
     const cleanUtr = utr.replace(/\s/g, "");
     return cleanUtr.length >= 12 && /^\d+$/.test(cleanUtr);
   };
 
   const handleSubmitPayment = async () => {
     const amount = getAmount();
-    if (amount < 10) {
+    if (amount < 1) {
       toast({
         title: "Minimum Amount",
-        description: "Minimum recharge amount is ₹10",
+        description: "Minimum recharge amount is ₹1",
         variant: "destructive",
       });
       return;
@@ -118,7 +119,6 @@ const AddCoin = () => {
     setIsProcessing(true);
 
     try {
-      // Save payment request to database
       const { error } = await supabase
         .from("upi_payment_requests")
         .insert({
@@ -134,7 +134,6 @@ const AddCoin = () => {
 
       if (error) throw error;
 
-      // Create WhatsApp message with payment details
       const message = encodeURIComponent(
         `💰 *COIN RECHARGE REQUEST - Scaliver Official*\n\n` +
         `📧 User Email: ${user?.email || "N/A"}\n` +
@@ -144,7 +143,6 @@ const AddCoin = () => {
         `Please verify and credit coins.`
       );
 
-      // Open WhatsApp with pre-filled message
       window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank");
 
       toast({
@@ -153,11 +151,90 @@ const AddCoin = () => {
       });
 
       setUtrNumber("");
+      setPaymentMethod(null);
     } catch (error) {
       console.error("Error submitting payment:", error);
       toast({
         title: "Error",
         description: "Failed to submit payment request. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleChuimeiPayment = async () => {
+    const amount = getAmount();
+    if (amount < 1) {
+      toast({
+        title: "Minimum Amount",
+        description: "Minimum recharge amount is ₹1",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!user?.email) {
+      toast({
+        title: "Login Required",
+        description: "Please login to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      // Create a payment record first
+      const { data: paymentRecord, error: insertError } = await supabase
+        .from("upi_payment_requests")
+        .insert({
+          user_id: user.id,
+          user_email: user.email,
+          request_type: "coin_recharge",
+          amount: amount,
+          total_coins: getTotalCoins(),
+          bonus_coins: getBonus(),
+          utr_number: `CHUIMEI-${Date.now()}`,
+          status: "pending",
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Call the Chuimei-pe payment edge function
+      const { data, error } = await supabase.functions.invoke('chuimei-payment', {
+        body: {
+          action: 'create_order',
+          amount: amount,
+          order_id: paymentRecord.id,
+          customer_mobile: '0000000000',
+          redirect_url: window.location.origin + '/add-coin',
+          remark1: `Coin recharge - ${getTotalCoins()} coins`,
+          remark2: user.email,
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data?.payment_url) {
+        // Redirect user to payment page
+        window.open(data.payment_url, '_blank');
+        toast({
+          title: "Payment Initiated",
+          description: "Complete payment in the opened window. Coins will be credited after confirmation.",
+        });
+      } else {
+        throw new Error(data?.error || 'Failed to create payment order');
+      }
+    } catch (error) {
+      console.error("Chuimei payment error:", error);
+      toast({
+        title: "Payment Error",
+        description: error instanceof Error ? error.message : "Failed to initiate payment. Please try UPI QR.",
         variant: "destructive",
       });
     } finally {
@@ -229,7 +306,7 @@ const AddCoin = () => {
               <Input
                 id="customAmount"
                 type="number"
-                placeholder="Enter amount (min ₹10)"
+                placeholder="Enter amount (min ₹1)"
                 value={customAmount}
                 onChange={(e) => {
                   setCustomAmount(e.target.value);
@@ -268,14 +345,79 @@ const AddCoin = () => {
           </Card>
         )}
 
+        {/* Payment Method Selection */}
+        {getAmount() >= 1 && !paymentMethod && (
+          <div className="space-y-3 mb-6">
+            <h3 className="font-display text-lg font-bold text-foreground text-center">Choose Payment Method</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant="outline"
+                className="h-auto py-4 flex flex-col items-center gap-2"
+                onClick={() => setPaymentMethod('chuimei')}
+              >
+                <CreditCard className="w-6 h-6 text-primary" />
+                <span className="font-display font-bold">Pay Online</span>
+                <span className="text-xs text-muted-foreground">Instant • Min ₹1</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-auto py-4 flex flex-col items-center gap-2"
+                onClick={() => setPaymentMethod('upi')}
+              >
+                <Copy className="w-6 h-6 text-primary" />
+                <span className="font-display font-bold">UPI QR</span>
+                <span className="text-xs text-muted-foreground">Manual • Min ₹1</span>
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Online Payment (Chuimei-pe) */}
+        {paymentMethod === 'chuimei' && getAmount() >= 1 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg font-display text-center">Pay Online ₹{getAmount()}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-center text-sm text-muted-foreground">
+                You'll be redirected to a secure payment page to complete your payment.
+              </p>
+              <Button
+                onClick={handleChuimeiPayment}
+                disabled={isProcessing}
+                className="w-full bg-gradient-to-r from-primary to-red-600 hover:from-primary/90 hover:to-red-600/90"
+                size="lg"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Pay ₹{getAmount()} Online
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full text-muted-foreground"
+                onClick={() => setPaymentMethod(null)}
+              >
+                ← Choose different method
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* UPI QR Code Section */}
-        {getAmount() >= 10 && (
+        {paymentMethod === 'upi' && getAmount() >= 1 && (
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="text-lg font-display text-center">Scan & Pay ₹{getAmount()}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* QR Code */}
               <div className="flex justify-center">
                 <div className="bg-white p-4 rounded-xl">
                   <img 
@@ -286,7 +428,6 @@ const AddCoin = () => {
                 </div>
               </div>
 
-              {/* UPI ID */}
               <div className="flex items-center justify-center gap-2">
                 <span className="text-sm text-muted-foreground">UPI ID:</span>
                 <code className="bg-secondary px-3 py-1 rounded text-sm font-mono">{UPI_ID}</code>
@@ -308,7 +449,6 @@ const AddCoin = () => {
                 Scan with any UPI app (GPay, PhonePe, Paytm, etc.)
               </p>
 
-              {/* UTR Input */}
               <div className="space-y-2 pt-4 border-t border-border">
                 <Label htmlFor="utrNumber" className="font-medium">
                   Enter UTR Number *
@@ -325,25 +465,25 @@ const AddCoin = () => {
                   You'll find UTR/Reference number in your payment confirmation
                 </p>
               </div>
+
+              <Button
+                onClick={handleSubmitPayment}
+                disabled={isProcessing || !utrNumber.trim()}
+                className="w-full bg-gradient-to-r from-primary to-red-600 hover:from-primary/90 hover:to-red-600/90"
+                size="lg"
+              >
+                {isProcessing ? "Submitting..." : `Submit Payment (₹${getAmount()})`}
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full text-muted-foreground"
+                onClick={() => setPaymentMethod(null)}
+              >
+                ← Choose different method
+              </Button>
             </CardContent>
           </Card>
         )}
-
-        {/* Submit Button */}
-        <Button
-          onClick={handleSubmitPayment}
-          disabled={getAmount() < 10 || isProcessing || !utrNumber.trim()}
-          className="w-full bg-gradient-to-r from-primary to-red-600 hover:from-primary/90 hover:to-red-600/90"
-          size="lg"
-        >
-          {isProcessing ? (
-            "Submitting..."
-          ) : (
-            <>
-              Submit Payment (₹{getAmount()})
-            </>
-          )}
-        </Button>
         
         <p className="text-center text-xs text-muted-foreground mt-3">
           Coins will be credited within 10-30 minutes after verification
