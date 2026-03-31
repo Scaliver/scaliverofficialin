@@ -46,6 +46,30 @@ const AddCoin = () => {
     }
   }, [user, authLoading, navigate]);
 
+  // Check URL params for payment callback redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentOrder = params.get('payment_order');
+    const status = params.get('status');
+    
+    if (paymentOrder && status) {
+      // Clean URL
+      window.history.replaceState({}, '', '/add-coin');
+      
+      if (status === 'success' || status === 'SUCCESS') {
+        toast({
+          title: "Payment Successful! ✅",
+          description: "Coins have been added to your wallet.",
+        });
+        // Reload to refresh wallet balance
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        // Start polling in case callback hasn't been processed yet
+        pollPaymentStatus(paymentOrder);
+      }
+    }
+  }, []);
+
   if (authLoading) {
     return <LoadingSpinner fullScreen size="lg" />;
   }
