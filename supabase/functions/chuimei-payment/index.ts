@@ -127,12 +127,13 @@ serve(async (req) => {
         const paymentStatus = body.status || body.payment_status;
         
         if (callbackOrderId && paymentStatus) {
-          // Update relevant records based on the order type
-          // Check if it's a coin recharge or product order
+          const isSuccess = paymentStatus === 'success' || paymentStatus === 'SUCCESS' || paymentStatus === true;
+          
+          // Update payment request status
           const { error: updateError } = await supabase
             .from('upi_payment_requests')
             .update({ 
-              status: paymentStatus === 'success' ? 'completed' : 'failed',
+              status: isSuccess ? 'completed' : 'failed',
               updated_at: new Date().toISOString(),
             })
             .eq('id', callbackOrderId);
@@ -140,9 +141,74 @@ serve(async (req) => {
           if (updateError) {
             console.error('Failed to update payment status:', updateError);
           }
+
+          // Auto-credit coins on success
+          if (isSuccess) {
+            const { data: paymentReq } = await supabase
+              .from('upi_payment_requests')
+              .select('*')
+              .eq('id', callbackOrderId)
+              .single();
+
+            if (paymentReq && paymentReq.request_type === 'coin_recharge' && paymentReq.user_id) {
+              const totalCoins = paymentReq.total_coins || paymentReq.amount;
+              
+              // Credit wallet
+              const { data: wallet } = await supabase
+                .from('wallets')
+                .select('balance')
+                .eq('user_id', paymentReq.user_id)
+                .single();
+
+              if (wallet) {
+                await supabase
+                  .from('wallets')
+                  .update({ balance: wallet.balance + Number(totalCoins), updated_at: new Date().toISOString() })
+                  .eq('user_id', paymentReq.user_id);
+              }
+
+              // Record transaction
+              await supabase
+                .from('coin_transactions')
+                .insert({
+                  user_id: paymentReq.user_id,
+                  amount: Number(totalCoins),
+                  type: 'credit',
+                  description: `Coin recharge via online payment (₹${paymentReq.amount})`,
+                  reference_id: callbackOrderId,
+                });
+
+              console.log(`Auto-credited ${totalCoins} coins to user ${paymentReq.user_id}`);
+            }
+          }
         }
 
         return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'check_status': {
+        // Check payment status for polling from frontend
+        const checkOrderId = body.order_id;
+        if (!checkOrderId) {
+          return new Response(JSON.stringify({ success: false, error: 'order_id required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const { data: paymentReq } = await supabase
+          .from('upi_payment_requests')
+          .select('status, total_coins, amount')
+          .eq('id', checkOrderId)
+          .single();
+
+        return new Response(JSON.stringify({
+          success: true,
+          status: paymentReq?.status || 'pending',
+          total_coins: paymentReq?.total_coins,
+          amount: paymentReq?.amount,
+        }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
