@@ -96,11 +96,12 @@ serve(async (req) => {
           });
         }
 
-        // Chuimei-pe typically returns a payment URL for the user to complete payment
-        if (result.status === true || result.status === 'true' || result.result === true || result.payment_url) {
+        // Chuimei-pe returns: { status: true, result: { orderId, payment_url } }
+        if (result.status === true || result.status === 'true') {
+          const paymentUrl = result.result?.payment_url || result.payment_url || result.data?.payment_url || result.url;
           return new Response(JSON.stringify({
             success: true,
-            payment_url: result.payment_url || result.data?.payment_url || result.url,
+            payment_url: paymentUrl,
             order_id: order_id,
             data: result,
           }), {
