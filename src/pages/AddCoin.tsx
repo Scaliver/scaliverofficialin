@@ -164,6 +164,37 @@ const AddCoin = () => {
     }
   };
 
+  const pollPaymentStatus = async (orderId: string) => {
+    let attempts = 0;
+    const maxAttempts = 60; // Poll for 5 minutes
+    const interval = setInterval(async () => {
+      attempts++;
+      try {
+        const { data } = await supabase.functions.invoke('chuimei-payment', {
+          body: { action: 'check_status', order_id: orderId }
+        });
+        if (data?.status === 'completed') {
+          clearInterval(interval);
+          toast({
+            title: "Payment Successful! ✅",
+            description: `${data.total_coins} coins have been added to your wallet.`,
+          });
+          window.location.reload();
+        } else if (data?.status === 'failed') {
+          clearInterval(interval);
+          toast({
+            title: "Payment Failed",
+            description: "Payment was not completed. Please try again.",
+            variant: "destructive",
+          });
+        }
+      } catch {
+        // continue polling
+      }
+      if (attempts >= maxAttempts) clearInterval(interval);
+    }, 5000);
+  };
+
   const handleChuimeiPayment = async () => {
     const amount = getAmount();
     if (amount < 1) {
@@ -187,7 +218,6 @@ const AddCoin = () => {
     setIsProcessing(true);
 
     try {
-      // Create a payment record first
       const { data: paymentRecord, error: insertError } = await supabase
         .from("upi_payment_requests")
         .insert({
@@ -205,7 +235,6 @@ const AddCoin = () => {
 
       if (insertError) throw insertError;
 
-      // Call the Chuimei-pe payment edge function
       const { data, error } = await supabase.functions.invoke('chuimei-payment', {
         body: {
           action: 'create_order',
@@ -221,12 +250,13 @@ const AddCoin = () => {
       if (error) throw error;
 
       if (data?.success && data?.payment_url) {
-        // Redirect user to payment page
         window.open(data.payment_url, '_blank');
         toast({
           title: "Payment Initiated",
-          description: "Complete payment in the opened window. Coins will be credited after confirmation.",
+          description: "Complete payment in the opened window. Coins will be credited automatically after confirmation.",
         });
+        // Start polling for payment status
+        pollPaymentStatus(paymentRecord.id);
       } else {
         throw new Error(data?.error || 'Failed to create payment order');
       }
