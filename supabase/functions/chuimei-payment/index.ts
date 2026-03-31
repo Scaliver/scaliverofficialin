@@ -216,7 +216,7 @@ serve(async (req) => {
       default:
         return new Response(JSON.stringify({
           success: false,
-          error: `Unknown action "${action}". Valid: create_order, callback`,
+          error: `Unknown action "${action}". Valid: create_order, callback, check_status`,
         }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
