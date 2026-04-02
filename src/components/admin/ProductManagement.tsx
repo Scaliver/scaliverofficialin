@@ -333,6 +333,7 @@ export const ProductManagement = () => {
           </Select>
         </div>
         <div className="flex gap-2">
+          <SmileCodeAutoFetcher />
           <MLBBAutoLinker />
           <Button onClick={() => openProductDialog()} className="gap-2">
             <Plus className="w-4 h-4" />
