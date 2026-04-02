@@ -166,7 +166,25 @@ async function handlePaymentCallback(supabase: any, orderId: string, status: str
   const isSuccess = status === 'success' || status === 'SUCCESS' || status === 'true' || status === true;
   console.log(`Processing callback for ${orderId}, status: ${status}, isSuccess: ${isSuccess}`);
 
-  // Update payment request
+  // DUPLICATE PROTECTION: Fetch current status FIRST
+  const { data: existingReq } = await supabase
+    .from('upi_payment_requests')
+    .select('status, user_id, total_coins, amount, bonus_coins')
+    .eq('id', orderId)
+    .single();
+
+  if (!existingReq) {
+    console.log(`Payment request ${orderId} not found`);
+    return;
+  }
+
+  // If already completed, skip to prevent double-crediting
+  if (existingReq.status === 'completed') {
+    console.log(`Payment ${orderId} already completed, skipping duplicate callback`);
+    return;
+  }
+
+  // Update payment request status
   await supabase
     .from('upi_payment_requests')
     .update({ status: isSuccess ? 'completed' : 'failed', updated_at: new Date().toISOString() })
@@ -174,41 +192,47 @@ async function handlePaymentCallback(supabase: any, orderId: string, status: str
 
   if (!isSuccess) return;
 
-  // Fetch payment record
-  const { data: paymentReq } = await supabase
-    .from('upi_payment_requests')
-    .select('*')
-    .eq('id', orderId)
-    .single();
+  if (!existingReq.user_id) {
+    console.log(`No user_id for payment ${orderId}`);
+    return;
+  }
 
-  if (!paymentReq?.user_id) return;
-
-  const totalCoins = paymentReq.total_coins || paymentReq.amount;
+  const totalCoins = Number(existingReq.total_coins || existingReq.amount);
 
   // Credit wallet
   const { data: wallet } = await supabase
     .from('wallets')
     .select('balance')
-    .eq('user_id', paymentReq.user_id)
+    .eq('user_id', existingReq.user_id)
     .single();
 
   if (wallet) {
+    const newBalance = wallet.balance + totalCoins;
     await supabase
       .from('wallets')
-      .update({ balance: wallet.balance + Number(totalCoins), updated_at: new Date().toISOString() })
-      .eq('user_id', paymentReq.user_id);
+      .update({ balance: newBalance, updated_at: new Date().toISOString() })
+      .eq('user_id', existingReq.user_id);
+    
+    console.log(`Wallet updated: ${wallet.balance} -> ${newBalance} for user ${existingReq.user_id}`);
+  } else {
+    // Create wallet if doesn't exist
+    await supabase
+      .from('wallets')
+      .insert({ user_id: existingReq.user_id, balance: totalCoins });
+    
+    console.log(`Created wallet with ${totalCoins} coins for user ${existingReq.user_id}`);
   }
 
   // Record transaction
   await supabase
     .from('coin_transactions')
     .insert({
-      user_id: paymentReq.user_id,
-      amount: Number(totalCoins),
+      user_id: existingReq.user_id,
+      amount: totalCoins,
       type: 'credit',
-      description: `Coin recharge via online payment (₹${paymentReq.amount})`,
+      description: `Coin recharge via online payment (₹${existingReq.amount})`,
       reference_id: orderId,
     });
 
-  console.log(`Auto-credited ${totalCoins} coins to user ${paymentReq.user_id}`);
+  console.log(`Auto-credited ${totalCoins} coins to user ${existingReq.user_id}`);
 }
