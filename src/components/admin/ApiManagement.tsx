@@ -379,7 +379,7 @@ export const ApiManagement = () => {
   };
 
   const getApiTypeIcon = (type: ApiType) => {
-    if (type === 'smilecode') return <Gamepad2 className="w-4 h-4" />;
+    if (type === 'aluu') return <Gamepad2 className="w-4 h-4" />;
     if (type === 'gametopup') return <Gamepad2 className="w-4 h-4" />;
     if (type === 'payment') return <CreditCard className="w-4 h-4" />;
     return <Globe className="w-4 h-4" />;
@@ -438,7 +438,7 @@ export const ApiManagement = () => {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">SmileCode</p>
-              <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'smilecode').length}</p>
+              <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'aluu').length}</p>
             </div>
           </div>
         </div>
@@ -592,7 +592,7 @@ export const ApiManagement = () => {
               <Label htmlFor="name">API Name *</Label>
               <Input
                 id="name"
-                placeholder={formData.api_type === 'smilecode' ? "SmileOne" : "My SMM Panel"}
+                placeholder={formData.api_type === 'aluu' ? "Aluu.in" : "My SMM Panel"}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
@@ -613,7 +613,7 @@ export const ApiManagement = () => {
                   ? "Gateway type identifier (e.g., bharatpe, razorpay, phonepe)"
                   : formData.api_type === 'gametopup'
                   ? "Base URL for Game Top-Up API (e.g., https://api.example.com/api-service)"
-                  : formData.api_type === 'smilecode'
+                  : formData.api_type === 'aluu'
                   ? "SmileCode API (uses system credentials)"
                   : "The full API endpoint URL"}
               </p>
@@ -655,7 +655,7 @@ export const ApiManagement = () => {
                   The x-api-key header value for authenticating with the Game Top-Up API
                 </p>
               )}
-              {formData.api_type === 'smilecode' && (
+              {formData.api_type === 'aluu' && (
                 <p className="text-xs text-muted-foreground">
                   SmileCode uses system credentials (no API key needed here)
                 </p>
