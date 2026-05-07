@@ -253,32 +253,15 @@ export const ApiManagement = () => {
     setIsTesting(api.id);
     
     try {
-      if (api.api_type === "smilecode") {
-        // Test SmileCode API via edge function (balance check)
-        const { data, error } = await supabase.functions.invoke('smilecode-order', {
-          body: {
-            action: 'balance',
-          }
+      if (api.api_type === "aluu") {
+        const { data, error } = await supabase.functions.invoke('aluu-order', {
+          body: { action: 'games' }
         });
-
         if (error) throw error;
-
-        if (data.error) {
-          toast({
-            title: "Connection Failed",
-            description: data.error,
-            variant: "destructive",
-          });
-        } else if (data.success) {
-          toast({
-            title: "Connection Successful",
-            description: `${api.name} is working. Balance: $${data.balance || 'N/A'}`,
-          });
+        if (data?.success) {
+          toast({ title: "Connection Successful", description: `${api.name} reachable. ${data.data?.length || 0} games.` });
         } else {
-          toast({
-            title: "Connection Test",
-            description: `Response: ${JSON.stringify(data).substring(0, 100)}`,
-          });
+          toast({ title: "Connection Failed", description: data?.error || "Unknown", variant: "destructive" });
         }
       } else if (api.api_type === "payment") {
         // Test Payment Gateway via edge function
