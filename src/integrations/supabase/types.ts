@@ -250,6 +250,7 @@ export type Database = {
           category: string
           created_at: string
           description: string | null
+          game_code: string | null
           id: string
           image_url: string | null
           in_stock: boolean
@@ -265,6 +266,7 @@ export type Database = {
           category: string
           created_at?: string
           description?: string | null
+          game_code?: string | null
           id?: string
           image_url?: string | null
           in_stock?: boolean
@@ -280,6 +282,7 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
+          game_code?: string | null
           id?: string
           image_url?: string | null
           in_stock?: boolean
