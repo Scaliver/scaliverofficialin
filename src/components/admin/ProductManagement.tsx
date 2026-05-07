@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Plus, Edit2, Trash2, Package, ChevronDown, ChevronUp, Search, ToggleLeft, ToggleRight, Upload, Image, Gamepad2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MLBBAutoLinker } from "./MLBBAutoLinker";
-import { SmileCodeAutoFetcher } from "./SmileCodeAutoFetcher";
+import { AluuGameManager } from "./AluuGameManager";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -115,7 +114,7 @@ export const ProductManagement = () => {
       const { data } = await supabase
         .from("smm_apis")
         .select("id, name, api_type, is_active")
-        .in("api_type", ["smilecode", "gametopup"])
+        .in("api_type", ["aluu", "gametopup"])
         .eq("is_active", true);
       
       if (data) {
@@ -308,6 +307,7 @@ export const ProductManagement = () => {
 
   return (
     <div className="space-y-4">
+      <AluuGameManager />
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
         <div className="flex flex-col sm:flex-row gap-2 flex-1">
@@ -333,8 +333,6 @@ export const ProductManagement = () => {
           </Select>
         </div>
         <div className="flex gap-2">
-          <SmileCodeAutoFetcher />
-          <MLBBAutoLinker />
           <Button onClick={() => openProductDialog()} className="gap-2">
             <Plus className="w-4 h-4" />
             Add Product
@@ -732,7 +730,7 @@ export const ProductManagement = () => {
               </div>
             </div>
 
-            {/* Game Provider Section (SmileOne + Game Top-Up) */}
+            {/* Game Provider Section (Aluu.in + Game Top-Up) */}
             {gameProviderApis.length > 0 && (
               <div className="border-t border-border pt-4 mt-4">
                 <div className="flex items-center gap-2 mb-3">

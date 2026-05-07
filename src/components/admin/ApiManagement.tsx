@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type ApiType = 'smm' | 'gametopup' | 'payment' | 'smilecode';
+type ApiType = 'smm' | 'gametopup' | 'payment' | 'aluu';
 
 interface SmmApi {
   id: string;
@@ -48,7 +48,7 @@ interface SmmApi {
 
 const API_TYPES = [
   { value: 'smm', label: 'SMM Panel', description: 'For social media services' },
-  { value: 'smilecode', label: 'SmileCode', description: 'For MLBB & game top-ups (SmileOne)' },
+  { value: 'aluu', label: 'Aluu.in', description: 'Game top-ups via aluu.in (uses ALUU_API_KEY secret)' },
   { value: 'gametopup', label: 'Game Top-Up API', description: 'For MLBB (x-api-key header)' },
   { value: 'payment', label: 'Payment Gateway', description: 'For payment verification (BharatPe, etc.)' },
 ];
@@ -253,32 +253,15 @@ export const ApiManagement = () => {
     setIsTesting(api.id);
     
     try {
-      if (api.api_type === "smilecode") {
-        // Test SmileCode API via edge function (balance check)
-        const { data, error } = await supabase.functions.invoke('smilecode-order', {
-          body: {
-            action: 'balance',
-          }
+      if (api.api_type === "aluu") {
+        const { data, error } = await supabase.functions.invoke('aluu-order', {
+          body: { action: 'games' }
         });
-
         if (error) throw error;
-
-        if (data.error) {
-          toast({
-            title: "Connection Failed",
-            description: data.error,
-            variant: "destructive",
-          });
-        } else if (data.success) {
-          toast({
-            title: "Connection Successful",
-            description: `${api.name} is working. Balance: $${data.balance || 'N/A'}`,
-          });
+        if (data?.success) {
+          toast({ title: "Connection Successful", description: `${api.name} reachable. ${data.data?.length || 0} games.` });
         } else {
-          toast({
-            title: "Connection Test",
-            description: `Response: ${JSON.stringify(data).substring(0, 100)}`,
-          });
+          toast({ title: "Connection Failed", description: data?.error || "Unknown", variant: "destructive" });
         }
       } else if (api.api_type === "payment") {
         // Test Payment Gateway via edge function
@@ -396,7 +379,7 @@ export const ApiManagement = () => {
   };
 
   const getApiTypeIcon = (type: ApiType) => {
-    if (type === 'smilecode') return <Gamepad2 className="w-4 h-4" />;
+    if (type === 'aluu') return <Gamepad2 className="w-4 h-4" />;
     if (type === 'gametopup') return <Gamepad2 className="w-4 h-4" />;
     if (type === 'payment') return <CreditCard className="w-4 h-4" />;
     return <Globe className="w-4 h-4" />;
@@ -454,8 +437,8 @@ export const ApiManagement = () => {
               <Gamepad2 className="w-5 h-5 text-purple-500" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">SmileCode</p>
-              <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'smilecode').length}</p>
+              <p className="text-xs text-muted-foreground">Aluu</p>
+              <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'aluu').length}</p>
             </div>
           </div>
         </div>
@@ -609,7 +592,7 @@ export const ApiManagement = () => {
               <Label htmlFor="name">API Name *</Label>
               <Input
                 id="name"
-                placeholder={formData.api_type === 'smilecode' ? "SmileOne" : "My SMM Panel"}
+                placeholder={formData.api_type === 'aluu' ? "Aluu.in" : "My SMM Panel"}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
@@ -630,8 +613,8 @@ export const ApiManagement = () => {
                   ? "Gateway type identifier (e.g., bharatpe, razorpay, phonepe)"
                   : formData.api_type === 'gametopup'
                   ? "Base URL for Game Top-Up API (e.g., https://api.example.com/api-service)"
-                  : formData.api_type === 'smilecode'
-                  ? "SmileCode API (uses system credentials)"
+                  : formData.api_type === 'aluu'
+                  ? "Aluu API (uses system credentials)"
                   : "The full API endpoint URL"}
               </p>
             </div>
@@ -672,9 +655,9 @@ export const ApiManagement = () => {
                   The x-api-key header value for authenticating with the Game Top-Up API
                 </p>
               )}
-              {formData.api_type === 'smilecode' && (
+              {formData.api_type === 'aluu' && (
                 <p className="text-xs text-muted-foreground">
-                  SmileCode uses system credentials (no API key needed here)
+                  Aluu uses system credentials (no API key needed here)
                 </p>
               )}
             </div>

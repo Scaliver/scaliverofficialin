@@ -21,8 +21,11 @@ verify_jwt = false
 [functions.secure-order]
 verify_jwt = false
 
-[functions.smilecode-order]
+[functions.chuimei-payment]
 verify_jwt = false
 
-[functions.chuimei-payment]
+[functions.aluu-order]
+verify_jwt = false
+
+[functions.aluu-webhook]
 verify_jwt = false
