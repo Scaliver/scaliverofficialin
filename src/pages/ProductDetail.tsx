@@ -149,17 +149,22 @@ const ProductDetail = () => {
 
   // Get the active product based on category selection for Instagram, Facebook, or TikTok
   const product = useMemo((): LegacyProduct | undefined => {
-    if (isInstagramMainProduct) {
-      return getProductBySubCategory(selectedCategory) || baseProduct;
+    let p: LegacyProduct | undefined;
+    if (isInstagramMainProduct) p = getProductBySubCategory(selectedCategory) || baseProduct;
+    else if (isFacebookMainProduct) p = getProductBySubCategory(selectedFbCategory) || baseProduct;
+    else if (isTikTokMainProduct) p = getProductBySubCategory(selectedTikTokCategory) || baseProduct;
+    else p = baseProduct;
+    if (!p) return p;
+    // Apply reseller discount + filter inactive tiers (is_active is on the raw row, not in legacy mapping;
+    // we keep all here — admin uses in_stock at product level for live toggle).
+    if (isReseller && discountPercent > 0) {
+      return {
+        ...p,
+        pricingTiers: p.pricingTiers.map(t => ({ ...t, price: applyDiscount(t.price) })),
+      };
     }
-    if (isFacebookMainProduct) {
-      return getProductBySubCategory(selectedFbCategory) || baseProduct;
-    }
-    if (isTikTokMainProduct) {
-      return getProductBySubCategory(selectedTikTokCategory) || baseProduct;
-    }
-    return baseProduct;
-  }, [isInstagramMainProduct, isFacebookMainProduct, isTikTokMainProduct, selectedCategory, selectedFbCategory, selectedTikTokCategory, baseProduct, getProductBySubCategory]);
+    return p;
+  }, [isInstagramMainProduct, isFacebookMainProduct, isTikTokMainProduct, selectedCategory, selectedFbCategory, selectedTikTokCategory, baseProduct, getProductBySubCategory, isReseller, discountPercent, applyDiscount]);
 
   // Reset selected tier when category changes
   useEffect(() => {
