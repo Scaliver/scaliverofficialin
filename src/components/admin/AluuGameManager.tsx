@@ -66,6 +66,7 @@ export const AluuGameManager = () => {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkingProduct, setLinkingProduct] = useState<AluuProduct | null>(null);
   const [tiers, setTiers] = useState<PricingTier[]>([]);
+  const [tierSearch, setTierSearch] = useState("");
   const [selectedTierId, setSelectedTierId] = useState<string>("");
   const [serverOptions, setServerOptions] = useState<{ value: string; label: string }[]>([]);
   const [serverDialogOpen, setServerDialogOpen] = useState(false);
@@ -400,7 +401,7 @@ export const AluuGameManager = () => {
 
       {/* Link dialog */}
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Link {linkingProduct?.name} to pricing tier</DialogTitle>
           </DialogHeader>
@@ -408,18 +409,37 @@ export const AluuGameManager = () => {
             <p className="text-sm text-muted-foreground">
               Will store <code className="bg-muted px-1">{linkingProduct?.gamecode}:{linkingProduct?.Pack}</code>
             </p>
-            <Select value={selectedTierId} onValueChange={setSelectedTierId}>
-              <SelectTrigger><SelectValue placeholder="Pick a pricing tier" /></SelectTrigger>
-              <SelectContent>
-                {tiers.map(t => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {(t as any).products?.name || "?"} – {t.amount} (₹{t.price})
-                    {t.provider_id && " ✓"}
-                  </SelectItem>
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by product or amount..."
+                value={tierSearch}
+                onChange={e => setTierSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="border rounded max-h-72 overflow-y-auto">
+              {tiers
+                .filter(t => {
+                  const q = tierSearch.toLowerCase();
+                  if (!q) return true;
+                  return ((t as any).products?.name || "").toLowerCase().includes(q) ||
+                    (t.amount || "").toLowerCase().includes(q) ||
+                    String(t.price).includes(q);
+                })
+                .map(t => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSelectedTierId(t.id)}
+                    className={`w-full text-left px-3 py-2 text-sm border-b hover:bg-muted ${selectedTierId === t.id ? "bg-primary/10" : ""}`}
+                  >
+                    <span className="font-medium">{(t as any).products?.name || "?"}</span>
+                    {" – "}{t.amount} (₹{t.price}){t.provider_id && " ✓"}
+                  </button>
                 ))}
-              </SelectContent>
-            </Select>
-            <Button onClick={linkTier} className="w-full">Link</Button>
+            </div>
+            <Button onClick={linkTier} className="w-full" disabled={!selectedTierId}>Link</Button>
           </div>
         </DialogContent>
       </Dialog>

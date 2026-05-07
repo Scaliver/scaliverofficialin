@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from "react";
-import { Plus, Edit2, Trash2, Package, ChevronDown, ChevronUp, Search, ToggleLeft, ToggleRight, Upload, Image, Gamepad2 } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Plus, Edit2, Trash2, Package, ChevronDown, ChevronUp, Search, ToggleLeft, ToggleRight, Upload, Image, Gamepad2, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AluuGameManager } from "./AluuGameManager";
+import { CategoryManagement } from "./CategoryManagement";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -33,12 +34,6 @@ interface GameProviderApi {
   is_active: boolean;
 }
 
-const CATEGORIES = [
-  "Mobile Legends",
-  "Mobile Games",
-  "Social Media",
-];
-
 const SUB_CATEGORIES = [
   "followers",
   "likes",
@@ -51,8 +46,22 @@ const SUB_CATEGORIES = [
   "reactions",
 ];
 
-export const ProductManagement = () => {
+interface ProductManagementProps {
+  mode?: "all" | "game" | "smm";
+}
+
+export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
   const { toast } = useToast();
+  const [dynamicCategories, setDynamicCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("categories" as any).select("name").order("sort_order").order("name");
+      setDynamicCategories(((data || []) as any[]).map(c => c.name));
+    })();
+  }, []);
+
+  const CATEGORIES = dynamicCategories.length > 0 ? dynamicCategories : ["Mobile Legends", "Mobile Games", "Social Media"];
   const {
     products,
     isLoading,
@@ -140,8 +149,22 @@ export const ProductManagement = () => {
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.slug.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === "all" || product.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+    const matchesMode = mode === "all" || (mode === "smm" ? product.is_social_media : !product.is_social_media);
+    return matchesSearch && matchesCategory && matchesMode;
   });
+
+  // Move a tier up/down by swapping sort_order with its neighbor
+  const moveTier = async (productId: string, tierId: string, dir: -1 | 1) => {
+    const product = products.find(p => p.id === productId);
+    if (!product?.pricing_tiers) return;
+    const sorted = [...product.pricing_tiers].sort((a, b) => a.sort_order - b.sort_order);
+    const idx = sorted.findIndex(t => t.id === tierId);
+    const swap = sorted[idx + dir];
+    if (!swap) return;
+    const me = sorted[idx];
+    await updatePricingTier({ id: me.id, tier: { sort_order: swap.sort_order } });
+    await updatePricingTier({ id: swap.id, tier: { sort_order: me.sort_order } });
+  };
 
   const openProductDialog = (product?: Product) => {
     if (product) {
@@ -307,7 +330,8 @@ export const ProductManagement = () => {
 
   return (
     <div className="space-y-4">
-      <AluuGameManager />
+      {mode !== "smm" && <AluuGameManager />}
+      <CategoryManagement />
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
         <div className="flex flex-col sm:flex-row gap-2 flex-1">
@@ -445,9 +469,17 @@ export const ProductManagement = () => {
                   
                   {product.pricing_tiers && product.pricing_tiers.length > 0 ? (
                     <div className="grid gap-2">
-                      {product.pricing_tiers.map((tier) => (
+                      {[...product.pricing_tiers].sort((a, b) => a.sort_order - b.sort_order).map((tier, tIdx, tArr) => (
                         <div key={tier.id} className="flex items-center justify-between bg-card border border-border rounded-lg p-3">
                           <div className="flex items-center gap-4">
+                            <div className="flex flex-col gap-0.5">
+                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" disabled={tIdx === 0} onClick={() => moveTier(product.id, tier.id, -1)}>
+                                <ArrowUp className="w-3 h-3" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" disabled={tIdx === tArr.length - 1} onClick={() => moveTier(product.id, tier.id, 1)}>
+                                <ArrowDown className="w-3 h-3" />
+                              </Button>
+                            </div>
                             <div>
                               <p className="font-display font-bold text-foreground">{tier.amount}</p>
                               <p className="text-sm text-muted-foreground">
