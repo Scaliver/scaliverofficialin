@@ -118,7 +118,7 @@ const ProductDetail = () => {
   const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Track which API type to use for this product
-  const [productApiType, setProductApiType] = useState<'smilecode' | 'gametopup' | null>(null);
+  const [productApiType, setProductApiType] = useState<'aluu' | 'gametopup' | null>(null);
   const [productApiId, setProductApiId] = useState<string | null>(null);
 
   // Fetch manual recharge setting
@@ -185,7 +185,7 @@ const ProductDetail = () => {
           .single();
         
         if (!error && data) {
-          setProductApiType(data.api_type as 'smilecode' | 'gametopup');
+          setProductApiType(data.api_type as 'aluu' | 'gametopup');
           setProductApiId(data.id);
         }
       } catch (err) {
