@@ -437,7 +437,7 @@ export const ApiManagement = () => {
               <Gamepad2 className="w-5 h-5 text-purple-500" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">SmileCode</p>
+              <p className="text-xs text-muted-foreground">Aluu</p>
               <p className="text-xl font-bold text-foreground">{apis.filter(a => a.api_type === 'aluu').length}</p>
             </div>
           </div>
@@ -614,7 +614,7 @@ export const ApiManagement = () => {
                   : formData.api_type === 'gametopup'
                   ? "Base URL for Game Top-Up API (e.g., https://api.example.com/api-service)"
                   : formData.api_type === 'aluu'
-                  ? "SmileCode API (uses system credentials)"
+                  ? "Aluu API (uses system credentials)"
                   : "The full API endpoint URL"}
               </p>
             </div>
@@ -657,7 +657,7 @@ export const ApiManagement = () => {
               )}
               {formData.api_type === 'aluu' && (
                 <p className="text-xs text-muted-foreground">
-                  SmileCode uses system credentials (no API key needed here)
+                  Aluu uses system credentials (no API key needed here)
                 </p>
               )}
             </div>

@@ -21,9 +21,6 @@ verify_jwt = false
 [functions.secure-order]
 verify_jwt = false
 
-[functions.smilecode-order]
-verify_jwt = false
-
 [functions.chuimei-payment]
 verify_jwt = false
 

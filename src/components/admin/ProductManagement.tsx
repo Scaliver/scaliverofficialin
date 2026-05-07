@@ -730,7 +730,7 @@ export const ProductManagement = () => {
               </div>
             </div>
 
-            {/* Game Provider Section (SmileOne + Game Top-Up) */}
+            {/* Game Provider Section (Aluu.in + Game Top-Up) */}
             {gameProviderApis.length > 0 && (
               <div className="border-t border-border pt-4 mt-4">
                 <div className="flex items-center gap-2 mb-3">
