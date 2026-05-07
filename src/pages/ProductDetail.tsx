@@ -386,159 +386,75 @@ const ProductDetail = () => {
           isManual: true,
         });
       }
-      // Check if this tier has a provider linked and we're in automatic mode
-      // OR if this is an MLBB product (always try smilecode for MLBB)
-      else if (
-        (selectedTier.providerId && selectedTier.providerProductId) ||
-        (product?.category === 'Mobile Legends' && !product?.isSocialMedia && rechargeMode === 'automatic')
-      ) {
+      // Auto-fulfillment via configured provider (Aluu / GameTopUp)
+      else if (selectedTier.providerId && selectedTier.providerProductId) {
         try {
-          // First, determine the provider's API type
-          let apiType = product?.category === 'Mobile Legends' ? 'smilecode' : 'smilecode';
-          
-          if (selectedTier.providerId) {
-            const { data: apiData, error: apiError } = await supabase
-              .from('smm_apis')
-              .select('api_type')
-              .eq('id', selectedTier.providerId)
-              .single();
-
-            if (apiError) {
-              console.error('Failed to fetch API type:', apiError);
-            }
-            if (apiData?.api_type) {
-              apiType = apiData.api_type;
-            }
-          }
+          let apiType = 'aluu';
+          const { data: apiData } = await supabase
+            .from('smm_apis').select('api_type').eq('id', selectedTier.providerId).single();
+          if (apiData?.api_type) apiType = apiData.api_type;
 
           if (apiType === 'gametopup') {
-            // Use Game Top-Up API (x-api-key header)
             const { data: gametopupData, error: gametopupError } = await supabase.functions.invoke('gametopup-order', {
               body: {
-                action: 'order',
-                apiId: selectedTier.providerId,
-                playerId: userId,
-                zoneId: zoneId,
-                productId: selectedTier.providerProductId,
-                currency: 'INR',
+                action: 'order', apiId: selectedTier.providerId,
+                playerId: userId, zoneId: zoneId,
+                productId: selectedTier.providerProductId, currency: 'INR',
               }
             });
-
             if (gametopupError) throw gametopupError;
-
             if (gametopupData.error || !gametopupData.success) {
-              await supabase
-                .from("orders")
-                .update({ status: "failed" })
-                .eq("id", orderData.id);
-              
+              await supabase.from("orders").update({ status: "failed" }).eq("id", orderData.id);
               throw new Error(gametopupData.message || gametopupData.error || 'Game Top-Up order failed');
             }
-
-            // Update order with Game Top-Up order ID
-            await supabase
-              .from("orders")
-              .update({ 
-                status: "processing",
-                smm_order_id: gametopupData.order_id ? String(gametopupData.order_id) : null 
-              })
-              .eq("id", orderData.id);
-
+            await supabase.from("orders").update({
+              status: "processing",
+              smm_order_id: gametopupData.order_id ? String(gametopupData.order_id) : null
+            }).eq("id", orderData.id);
             sendWhatsAppNotification({
-              orderId: orderData.id,
-              productName: product.name,
-              amount: selectedTier.amount,
-              price: selectedTier.price,
-              playerId: userId,
-              zoneId: zoneId || undefined,
-              playerName: playerInfo?.nickname,
-              paymentMethod: "Wallet Balance",
-              status: "Auto Processing",
+              orderId: orderData.id, productName: product.name, amount: selectedTier.amount,
+              price: selectedTier.price, playerId: userId, zoneId: zoneId || undefined,
+              playerName: playerInfo?.nickname, paymentMethod: "Wallet Balance", status: "Auto Processing",
             });
-
-            console.log("Game Top-Up Order placed:", gametopupData);
-          } else if (apiType === 'smilecode' || product?.category === 'Mobile Legends') {
-            // Use SmileCode API for MLBB and other game top-ups
-            const smileSku = selectedTier.providerProductId || selectedTier.id;
-            const { data: smileData, error: smileError } = await supabase.functions.invoke('smilecode-order', {
+          } else if (apiType === 'aluu') {
+            const [game, denom] = String(selectedTier.providerProductId).split(":");
+            if (!game || !denom) throw new Error("Invalid Aluu product mapping");
+            const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aluu-webhook`;
+            const { data: aluuData, error: aluuError } = await supabase.functions.invoke('aluu-order', {
               body: {
-                action: 'send_order',
-                apiGame: 'mobilelegends',
-                sku: smileSku,
-                qty: 1,
-                user_id: userId,
-                server_id: zoneId || undefined,
-                supabase_user_id: user.id,
-                product_name: product.name,
-                amount: selectedTier.amount,
-                price: selectedTier.price,
-                product_id: product.id,
-                zone_id: zoneId || undefined,
-                contact_number: user.email || "",
+                action: 'create_order', game, denom, userid: userId,
+                serverid: zoneId || undefined,
+                partner_orderid: orderData.id,
+                partner_webhook_url: webhookUrl,
               }
             });
-
-            if (smileError) throw smileError;
-
-            if (!smileData.success) {
-              await supabase
-                .from("orders")
-                .update({ status: "failed" })
-                .eq("id", orderData.id);
-              
-              throw new Error(smileData.error || 'SmileCode order failed');
+            if (aluuError) throw aluuError;
+            if (!aluuData?.success) {
+              await supabase.from("orders").update({ status: "failed" }).eq("id", orderData.id);
+              throw new Error(aluuData?.error || aluuData?.message || 'Aluu order failed');
             }
-
-            // Update order with SmileCode order ID
-            await supabase
-              .from("orders")
-              .update({ 
-                status: "processing",
-                smm_order_id: smileData.external_order_id ? String(smileData.external_order_id) : null 
-              })
-              .eq("id", orderData.id);
-
+            await supabase.from("orders").update({
+              status: "processing",
+              smm_order_id: aluuData?.data?.reference || null,
+            }).eq("id", orderData.id);
             sendWhatsAppNotification({
-              orderId: orderData.id,
-              productName: product.name,
-              amount: selectedTier.amount,
-              price: selectedTier.price,
-              playerId: userId,
-              zoneId: zoneId || undefined,
-              playerName: playerInfo?.nickname,
-              paymentMethod: "Wallet Balance",
-              status: "Auto Processing",
+              orderId: orderData.id, productName: product.name, amount: selectedTier.amount,
+              price: selectedTier.price, playerId: userId, zoneId: zoneId || undefined,
+              playerName: playerInfo?.nickname, paymentMethod: "Wallet Balance", status: "Auto Processing",
             });
-
-            console.log("SmileCode Order placed:", smileData);
           }
         } catch (providerError) {
           console.error("Provider API Error:", providerError);
-          
-          // Update order status to pending_manual for manual processing
-          await supabase
-            .from("orders")
-            .update({ status: "pending_manual" })
-            .eq("id", orderData.id);
-          
-          // Send WhatsApp notification for manual processing
+          await supabase.from("orders").update({ status: "pending_manual" }).eq("id", orderData.id);
           sendWhatsAppNotification({
-            orderId: orderData.id,
-            productName: product.name,
-            amount: selectedTier.amount,
-            price: selectedTier.price,
-            playerId: userId,
-            zoneId: zoneId || undefined,
-            playerName: playerInfo?.nickname,
-            paymentMethod: "Wallet Balance",
-            status: "Pending Manual",
-            isManual: true,
+            orderId: orderData.id, productName: product.name, amount: selectedTier.amount,
+            price: selectedTier.price, playerId: userId, zoneId: zoneId || undefined,
+            playerName: playerInfo?.nickname, paymentMethod: "Wallet Balance",
+            status: "Pending Manual", isManual: true,
           });
-          
           toast({
             title: "Manual Processing Required",
             description: "Auto-delivery failed. Your order has been sent to admin via WhatsApp for manual processing.",
-            variant: "default",
           });
         }
       }
