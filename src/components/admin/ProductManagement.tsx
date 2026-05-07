@@ -330,7 +330,8 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
 
   return (
     <div className="space-y-4">
-      <AluuGameManager />
+      {mode !== "smm" && <AluuGameManager />}
+      <CategoryManagement />
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
         <div className="flex flex-col sm:flex-row gap-2 flex-1">
