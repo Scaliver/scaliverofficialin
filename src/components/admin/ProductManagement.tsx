@@ -469,9 +469,17 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
                   
                   {product.pricing_tiers && product.pricing_tiers.length > 0 ? (
                     <div className="grid gap-2">
-                      {product.pricing_tiers.map((tier) => (
+                      {[...product.pricing_tiers].sort((a, b) => a.sort_order - b.sort_order).map((tier, tIdx, tArr) => (
                         <div key={tier.id} className="flex items-center justify-between bg-card border border-border rounded-lg p-3">
                           <div className="flex items-center gap-4">
+                            <div className="flex flex-col gap-0.5">
+                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" disabled={tIdx === 0} onClick={() => moveTier(product.id, tier.id, -1)}>
+                                <ArrowUp className="w-3 h-3" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" disabled={tIdx === tArr.length - 1} onClick={() => moveTier(product.id, tier.id, 1)}>
+                                <ArrowDown className="w-3 h-3" />
+                              </Button>
+                            </div>
                             <div>
                               <p className="font-display font-bold text-foreground">{tier.amount}</p>
                               <p className="text-sm text-muted-foreground">
