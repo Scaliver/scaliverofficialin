@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.chuimei-payment]
 verify_jwt = false
+
+[functions.aluu-order]
+verify_jwt = false
+
+[functions.aluu-webhook]
+verify_jwt = false
