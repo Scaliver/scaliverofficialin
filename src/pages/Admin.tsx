@@ -128,7 +128,7 @@ const Admin = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [activeTab, setActiveTab] = useState<"orders" | "pending_manual" | "users" | "wallets" | "history" | "security" | "audit" | "alerts" | "upi" | "products" | "apis" | "settings" | "banners">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "pending_manual" | "users" | "wallets" | "history" | "security" | "audit" | "alerts" | "upi" | "products" | "smm" | "apis" | "settings" | "banners">("orders");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userOrdersDialogOpen, setUserOrdersDialogOpen] = useState(false);
@@ -1397,7 +1397,18 @@ const Admin = () => {
               }`}
             >
               <ShoppingBag className="w-4 h-4" />
-              Products
+              Game Products
+            </button>
+            <button
+              onClick={() => setActiveTab("smm")}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${
+                activeTab === "smm"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Megaphone className="w-4 h-4" />
+              SMM Services
             </button>
             <button
               onClick={() => setActiveTab("apis")}
@@ -2798,9 +2809,14 @@ const Admin = () => {
             </div>
           )}
 
-          {/* Products Tab */}
+          {/* Products Tab (Games) */}
           {activeTab === "products" && (
-            <ProductManagement />
+            <ProductManagement mode="game" />
+          )}
+
+          {/* SMM Tab */}
+          {activeTab === "smm" && (
+            <ProductManagement mode="smm" />
           )}
 
           {/* APIs Tab */}
