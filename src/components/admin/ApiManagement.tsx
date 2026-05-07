@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type ApiType = 'smm' | 'gametopup' | 'payment' | 'smilecode';
+type ApiType = 'smm' | 'gametopup' | 'payment' | 'aluu';
 
 interface SmmApi {
   id: string;
@@ -48,7 +48,7 @@ interface SmmApi {
 
 const API_TYPES = [
   { value: 'smm', label: 'SMM Panel', description: 'For social media services' },
-  { value: 'smilecode', label: 'SmileCode', description: 'For MLBB & game top-ups (SmileOne)' },
+  { value: 'aluu', label: 'Aluu.in', description: 'Game top-ups via aluu.in (uses ALUU_API_KEY secret)' },
   { value: 'gametopup', label: 'Game Top-Up API', description: 'For MLBB (x-api-key header)' },
   { value: 'payment', label: 'Payment Gateway', description: 'For payment verification (BharatPe, etc.)' },
 ];
