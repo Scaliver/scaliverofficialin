@@ -87,6 +87,7 @@ const ProductDetail = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { balance, wallet } = useWallet();
+  const { isReseller, discountPercent, applyDiscount } = useReseller();
   const { getProductBySlug, getProductBySubCategory, isLoading } = useProducts();
   
   const baseProduct = getProductBySlug(productId || "");
