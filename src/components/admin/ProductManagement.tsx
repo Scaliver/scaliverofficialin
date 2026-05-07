@@ -149,8 +149,22 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.slug.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === "all" || product.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+    const matchesMode = mode === "all" || (mode === "smm" ? product.is_social_media : !product.is_social_media);
+    return matchesSearch && matchesCategory && matchesMode;
   });
+
+  // Move a tier up/down by swapping sort_order with its neighbor
+  const moveTier = async (productId: string, tierId: string, dir: -1 | 1) => {
+    const product = products.find(p => p.id === productId);
+    if (!product?.pricing_tiers) return;
+    const sorted = [...product.pricing_tiers].sort((a, b) => a.sort_order - b.sort_order);
+    const idx = sorted.findIndex(t => t.id === tierId);
+    const swap = sorted[idx + dir];
+    if (!swap) return;
+    const me = sorted[idx];
+    await updatePricingTier({ id: me.id, tier: { sort_order: swap.sort_order } });
+    await updatePricingTier({ id: swap.id, tier: { sort_order: me.sort_order } });
+  };
 
   const openProductDialog = (product?: Product) => {
     if (product) {
