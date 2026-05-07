@@ -946,7 +946,11 @@ const ProductDetail = () => {
                 <h3 className="font-display text-lg font-bold text-foreground mb-4">
                   Select Package
                 </h3>
-                
+                {isReseller && discountPercent > 0 && (
+                  <Badge className="mb-3 bg-accent/20 text-accent border-accent/30">
+                    Reseller pricing • {discountPercent}% OFF applied
+                  </Badge>
+                )}
                 {product.pricingTiers.length === 0 ? (
                   <p className="text-muted-foreground text-center py-4">
                     No pricing options available for this product.
