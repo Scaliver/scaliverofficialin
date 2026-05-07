@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from "react";
-import { Plus, Edit2, Trash2, Package, ChevronDown, ChevronUp, Search, ToggleLeft, ToggleRight, Upload, Image, Gamepad2 } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Plus, Edit2, Trash2, Package, ChevronDown, ChevronUp, Search, ToggleLeft, ToggleRight, Upload, Image, Gamepad2, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AluuGameManager } from "./AluuGameManager";
+import { CategoryManagement } from "./CategoryManagement";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -33,12 +34,6 @@ interface GameProviderApi {
   is_active: boolean;
 }
 
-const CATEGORIES = [
-  "Mobile Legends",
-  "Mobile Games",
-  "Social Media",
-];
-
 const SUB_CATEGORIES = [
   "followers",
   "likes",
@@ -51,8 +46,22 @@ const SUB_CATEGORIES = [
   "reactions",
 ];
 
-export const ProductManagement = () => {
+interface ProductManagementProps {
+  mode?: "all" | "game" | "smm";
+}
+
+export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
   const { toast } = useToast();
+  const [dynamicCategories, setDynamicCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("categories" as any).select("name").order("sort_order").order("name");
+      setDynamicCategories(((data || []) as any[]).map(c => c.name));
+    })();
+  }, []);
+
+  const CATEGORIES = dynamicCategories.length > 0 ? dynamicCategories : ["Mobile Legends", "Mobile Games", "Social Media"];
   const {
     products,
     isLoading,
