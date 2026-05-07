@@ -1,36 +1,55 @@
+## Plan: Replace SmileOne with Aluu.in Provider
 
+### What gets removed
+- Delete `supabase/functions/smilecode-order/` edge function
+- Delete `src/components/admin/SmileCodeAutoFetcher.tsx` and `MLBBAutoLinker.tsx`
+- Remove SmileOne UI references from `ProductManagement.tsx` and `ApiManagement.tsx`
+- Delete secrets: `SMILECODE_API_KEY`, `SMILECODE_UID`, `SMILECODE_SECRET_KEY`
+- Remove `smm_apis` rows where `api_type = 'smilecode'`
+- Clear `provider_id` / `provider_product_id` on tiers linked to old SmileOne provider
 
-## Plan: Link All Products to SmileOne for Auto-Fulfillment
+### What gets added
 
-### Current State
-- **SmileOne provider ID**: `46348dcb-0538-4e1f-ade6-c4670e6e0808`
-- **MLBB SMALL PACK**: Already linked to SmileOne (SKUs: 382, 383, 384, 385, etc.)
-- **MLBB MID PACK, LARGE PACK, DOUBLE DIAMONDS**: NOT linked (no `provider_id` set)
-- **BGMI, Genshin, Honour of Kings**: NOT linked
-- **MLBB BRAZIL**: Product does NOT exist yet - needs to be created based on your screenshot
-- **STARLIGHT CARD, WEEKLY DIAMOND PASS**: Exist but need SmileOne SKU linking
+**Secrets** (via add_secret tool — never paste in chat):
+- `ALUU_API_KEY`
+- `ALUU_SECRET_KEY` (for HMAC webhook verification)
 
-### What's Needed
+> ⚠️ You pasted your API key in chat. Treat it as compromised — rotate it on aluu.in before we save the new one.
 
-To auto-fulfill orders, each pricing tier needs two fields set:
-- `provider_id` → SmileOne's ID (`46348dcb-...`)
-- `provider_product_id` → The exact SmileOne SKU code for that diamond pack
+**Database**
+- Add `'aluu'` as supported `api_type` in `smm_apis`
+- Insert one active Aluu provider row
+- Reuse existing `pricing_tiers.provider_id` + `provider_product_id` (will store Aluu `gamecode` + `denom` Pack code)
+- Add optional `server_id` / `char_name` columns to `orders` if not present (for games needing them)
 
-### Steps
+**Edge functions**
+- New `aluu-order/index.ts` — actions: `games`, `products`, `server_options`, `create_order`, `track_order`
+- New `aluu-webhook/index.ts` (`verify_jwt = false`) — receives final status callbacks, verifies HMAC-SHA256, marks order completed/failed, refunds wallet on failure
 
-1. **Create MLBB BRAZIL product** with all tiers from the screenshot (Diamond x78+8, x156+16, x234+23, x500+65, x625+81, etc.) with R$ prices converted to INR (~₹15/R$1 approximate rate)
+**Admin UI (new tab "Game Codes")**
+- New `src/components/admin/AluuGameManager.tsx`:
+  - "Fetch Games from Aluu" button → lists all games + counts
+  - Click a game → fetch products (denoms) → table with Pack, name, price, requiresUserId/ServerId/CharName, stockStatus
+  - "Auto-Link to Pricing Tiers" — match by Pack/denom and write `provider_product_id` = `gamecode:denom`
+  - Per-row "Edit" → manually map a tier to a specific Aluu denom
+  - Per-game server-options preview
 
-2. **Update all existing MLBB tiers** (MID PACK, LARGE PACK, DOUBLE DIAMONDS, STARLIGHT, WEEKLY PASS) to set `provider_id` to SmileOne and the correct `provider_product_id` SKU
+**Order flow update**
+- `ProductDetail.tsx` → when tier provider is Aluu, call `aluu-order` `create_order` with `partner_orderid = orders.id`, `partner_webhook_url = <project>/functions/v1/aluu-webhook`
+- Mark order `processing`; webhook flips to `completed` or `failed`
+- On `failed`, auto-refund wallet (existing pattern)
 
-3. **Update BGMI, Genshin, Honour of Kings** tiers with their respective SmileOne SKUs (if available on SmileOne)
+### Technical notes
+- Aluu auth header: `x-api-key`
+- Webhook signature: `hex(hmac_sha256(secret, timestamp + "." + rawBody))` — verify with `X-Webhook-Timestamp` + `X-Webhook-Signature`
+- `partner_orderid` will be the Supabase `orders.id` (UUID, unique)
+- Server/char fields passed conditionally per game requirements
 
-4. **Ensure ProductDetail.tsx** order flow correctly passes the `provider_id` and `provider_product_id` to the `smilecode-order` edge function for automatic fulfillment
-
-### What I Need From You
-
-I need the **exact SmileOne SKU IDs** for each product tier. You can find these in your SmileOne dashboard or by using the SmileCode API `sku_list` action. For example:
-- MLBB Brazil: what is the `apiGame` code? (e.g., `mobilelegendsbrazil`)
-- Each diamond pack's SKU number (e.g., SKU `382` = 3 Diamonds)
-
-Without the correct SKU IDs, orders will fail. Should I **call the SmileOne API automatically** to fetch all available games and their SKU lists, then match them to your products?
-
+### Order of execution
+1. Migration: add `'aluu'` to allowed api_types, clean SmileOne data
+2. Add `ALUU_API_KEY` + `ALUU_SECRET_KEY` secrets
+3. Delete old files + deploy delete for `smilecode-order`
+4. Create `aluu-order` + `aluu-webhook` functions, update `config.toml`
+5. Build `AluuGameManager.tsx` admin tab
+6. Update `ProductDetail.tsx` order routing
+7. Test: fetch games → link a tier → place a test order → verify webhook
