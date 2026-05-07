@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Loader2, RefreshCw, Link as LinkIcon, Server, Search } from "lucide-react";
+import { Loader2, RefreshCw, Link as LinkIcon, Server, Search, Download, Plus, Eye, EyeOff, Edit2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -29,6 +31,15 @@ interface AluuProduct {
   stockStatus?: string;
 }
 
+interface DBProduct {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  game_code: string | null;
+  in_stock: boolean;
+}
+
 interface PricingTier {
   id: string;
   amount: string;
@@ -36,8 +47,12 @@ interface PricingTier {
   product_id: string;
   provider_id: string | null;
   provider_product_id: string | null;
+  is_active?: boolean;
   products?: { name: string; category: string };
 }
+
+const slugify = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
 export const AluuGameManager = () => {
   const { toast } = useToast();
@@ -45,6 +60,7 @@ export const AluuGameManager = () => {
   const [products, setProducts] = useState<AluuProduct[]>([]);
   const [selectedGame, setSelectedGame] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [search, setSearch] = useState("");
   const [aluuProviderId, setAluuProviderId] = useState<string>("");
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
@@ -54,22 +70,36 @@ export const AluuGameManager = () => {
   const [serverOptions, setServerOptions] = useState<{ value: string; label: string }[]>([]);
   const [serverDialogOpen, setServerDialogOpen] = useState(false);
 
+  // DB products with editable game_code
+  const [dbProducts, setDbProducts] = useState<DBProduct[]>([]);
+  const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
+  const [editingCodeValue, setEditingCodeValue] = useState("");
+
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from("smm_apis").select("id").eq("api_type", "aluu").eq("is_active", true).maybeSingle();
       if (data) setAluuProviderId(data.id);
+      loadDbProducts();
     })();
   }, []);
+
+  const loadDbProducts = async () => {
+    const { data } = await supabase
+      .from("products")
+      .select("id, name, slug, category, game_code, in_stock")
+      .order("name");
+    setDbProducts((data || []) as DBProduct[]);
+  };
 
   const fetchGames = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("aluu-order", { body: { action: "games" } });
       if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || "Failed");
-      setGames(data.data || []);
-      toast({ title: "Games loaded", description: `Found ${data.data?.length || 0} games` });
+      const list: AluuGame[] = data?.data || data?.games || data || [];
+      setGames(Array.isArray(list) ? list : []);
+      toast({ title: "Games loaded", description: `Found ${Array.isArray(list) ? list.length : 0} games` });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally { setLoading(false); }
@@ -83,8 +113,8 @@ export const AluuGameManager = () => {
         body: { action: "products", gameCode }
       });
       if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || "Failed");
-      setProducts(data.data || []);
+      const list: AluuProduct[] = data?.data || data?.products || data || [];
+      setProducts(Array.isArray(list) ? list : []);
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally { setLoading(false); }
@@ -97,11 +127,79 @@ export const AluuGameManager = () => {
         body: { action: "server_options", gameCode }
       });
       if (error) throw error;
-      setServerOptions(data?.servers || []);
+      setServerOptions(data?.servers || data?.data || []);
       setServerDialogOpen(true);
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally { setLoading(false); }
+  };
+
+  // Import the currently-selected game as a Product (with all denoms as tiers)
+  const importGameAsProduct = async () => {
+    if (!aluuProviderId || !selectedGame || products.length === 0) {
+      toast({ title: "Load a game first", variant: "destructive" });
+      return;
+    }
+    setImporting(true);
+    try {
+      const game = games.find(g => g.gamecode === selectedGame);
+      const name = game?.Name || selectedGame;
+      const slug = slugify(name);
+
+      // Find or create product
+      let productId: string;
+      const { data: existing } = await supabase
+        .from("products").select("id").eq("slug", slug).maybeSingle();
+      if (existing?.id) {
+        productId = existing.id;
+        await supabase.from("products").update({
+          game_code: selectedGame,
+          category: name,
+        }).eq("id", productId);
+      } else {
+        const { data: created, error } = await supabase.from("products").insert({
+          name,
+          slug,
+          category: name,
+          game_code: selectedGame,
+          in_stock: false, // start hidden until admin reviews
+          is_social_media: false,
+          sort_order: dbProducts.length,
+        }).select("id").single();
+        if (error) throw error;
+        productId = created.id;
+      }
+
+      // Insert tiers (skip duplicates by provider_product_id)
+      const { data: existingTiers } = await supabase
+        .from("pricing_tiers").select("provider_product_id").eq("product_id", productId);
+      const haveSet = new Set((existingTiers || []).map((t: any) => t.provider_product_id));
+
+      const newTiers = products
+        .filter(p => !haveSet.has(`${p.gamecode}:${p.Pack}`))
+        .map((p, i) => ({
+          product_id: productId,
+          amount: p.name || p.Pack,
+          price: Number(p.price) || 0,
+          provider_id: aluuProviderId,
+          provider_product_id: `${p.gamecode}:${p.Pack}`,
+          sort_order: i,
+          is_active: true,
+        }));
+
+      if (newTiers.length > 0) {
+        const { error } = await supabase.from("pricing_tiers").insert(newTiers);
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Imported!",
+        description: `Product "${name}" + ${newTiers.length} new tier(s). Edit prices and toggle live in Products tab.`,
+      });
+      loadDbProducts();
+    } catch (e: any) {
+      toast({ title: "Import failed", description: e.message, variant: "destructive" });
+    } finally { setImporting(false); }
   };
 
   const openLinkDialog = async (product: AluuProduct) => {
@@ -109,7 +207,7 @@ export const AluuGameManager = () => {
     setSelectedTierId("");
     const { data } = await supabase
       .from("pricing_tiers")
-      .select("id, amount, price, product_id, provider_id, provider_product_id, products(name, category)")
+      .select("id, amount, price, product_id, provider_id, provider_product_id, is_active, products(name, category)")
       .order("sort_order");
     setTiers((data || []) as any);
     setLinkDialogOpen(true);
@@ -132,169 +230,215 @@ export const AluuGameManager = () => {
     setLinkDialogOpen(false);
   };
 
-  const autoLink = async () => {
-    if (!aluuProviderId || products.length === 0) {
-      toast({ title: "Load products first", variant: "destructive" });
-      return;
-    }
-    setLoading(true);
-    let matched = 0;
-    try {
-      const { data: allTiers } = await supabase
-        .from("pricing_tiers")
-        .select("id, amount, products(name, category)");
+  const saveGameCode = async (productId: string) => {
+    const { error } = await supabase
+      .from("products").update({ game_code: editingCodeValue.trim() || null }).eq("id", productId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    setEditingCodeId(null);
+    setEditingCodeValue("");
+    loadDbProducts();
+  };
 
-      for (const ap of products) {
-        // match by Pack contained in tier amount or numeric equality
-        const candidates = (allTiers || []).filter((t: any) => {
-          const a = String(t.amount).toLowerCase();
-          const p = String(ap.Pack).toLowerCase();
-          return a === p || a.includes(p) || p.includes(a);
-        });
-        if (candidates.length === 1) {
-          await supabase.from("pricing_tiers").update({
-            provider_id: aluuProviderId,
-            provider_product_id: `${ap.gamecode}:${ap.Pack}`,
-          }).eq("id", candidates[0].id);
-          matched++;
-        }
-      }
-      toast({ title: "Auto-link complete", description: `${matched} tiers linked` });
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
-    } finally { setLoading(false); }
+  const toggleProductLive = async (p: DBProduct) => {
+    await supabase.from("products").update({ in_stock: !p.in_stock }).eq("id", p.id);
+    loadDbProducts();
   };
 
   const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.Pack.toLowerCase().includes(search.toLowerCase())
+    (p.name || "").toLowerCase().includes(search.toLowerCase()) ||
+    (p.Pack || "").toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>Aluu.in Game Codes & Products</span>
-          <Button onClick={fetchGames} disabled={loading} size="sm">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            <span className="ml-2">Fetch Games</span>
-          </Button>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {games.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {games.map(g => (
-              <Button
-                key={g.gamecode}
-                variant={selectedGame === g.gamecode ? "default" : "outline"}
-                size="sm"
-                onClick={() => fetchProducts(g.gamecode)}
-              >
-                {g.Name} <Badge variant="secondary" className="ml-2">{g.gamecode}</Badge>
-                {g.totalProducts ? <span className="ml-1 text-xs opacity-70">({g.totalProducts})</span> : null}
-              </Button>
-            ))}
-          </div>
-        )}
-
-        {selectedGame && (
-          <div className="flex gap-2 items-center">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search products..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+    <div className="space-y-4">
+      {/* Aluu fetcher */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between flex-wrap gap-2">
+            <span>Aluu.in Game Codes & Products</span>
+            <Button onClick={fetchGames} disabled={loading} size="sm">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              <span className="ml-2">Fetch Games</span>
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {games.length > 0 && (
+            <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto p-2 border rounded">
+              {games.map(g => (
+                <Button
+                  key={g.gamecode}
+                  variant={selectedGame === g.gamecode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => fetchProducts(g.gamecode)}
+                >
+                  {g.Name} <Badge variant="secondary" className="ml-2">{g.gamecode}</Badge>
+                </Button>
+              ))}
             </div>
-            <Button variant="outline" size="sm" onClick={() => fetchServerOptions(selectedGame)}>
-              <Server className="w-4 h-4 mr-2" /> Server Options
-            </Button>
-            <Button size="sm" onClick={autoLink} disabled={loading}>
-              <LinkIcon className="w-4 h-4 mr-2" /> Auto-Link Tiers
-            </Button>
-          </div>
-        )}
+          )}
 
-        {filteredProducts.length > 0 && (
-          <div className="border rounded-lg overflow-x-auto">
+          {selectedGame && (
+            <div className="flex gap-2 items-center flex-wrap">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Search packs..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+              </div>
+              <Button variant="outline" size="sm" onClick={() => fetchServerOptions(selectedGame)}>
+                <Server className="w-4 h-4 mr-2" /> Server Options
+              </Button>
+              <Button size="sm" onClick={importGameAsProduct} disabled={importing}>
+                {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                Import Game as Product
+              </Button>
+            </div>
+          )}
+
+          {filteredProducts.length > 0 && (
+            <div className="border rounded-lg overflow-x-auto max-h-96 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pack</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Requires</TableHead>
+                    <TableHead>Stock</TableHead>
+                    <TableHead>Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredProducts.map(p => (
+                    <TableRow key={p._id}>
+                      <TableCell className="font-mono text-xs">{p.Pack}</TableCell>
+                      <TableCell>{p.name}</TableCell>
+                      <TableCell>₹{p.price}</TableCell>
+                      <TableCell className="text-xs space-x-1">
+                        {p.requiresUserId && <Badge variant="outline">UserID</Badge>}
+                        {p.requiresServerId && <Badge variant="outline">Server</Badge>}
+                        {p.requiresCharName && <Badge variant="outline">CharName</Badge>}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={p.stockStatus === "in_stock" ? "default" : "destructive"}>
+                          {p.stockStatus || "unknown"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button size="sm" variant="outline" onClick={() => openLinkDialog(p)}>
+                          <LinkIcon className="w-3 h-3 mr-1" /> Link
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Game-code editor for existing DB products */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Game Codes (existing products)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="border rounded-lg overflow-x-auto max-h-96 overflow-y-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Pack</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Requires</TableHead>
-                  <TableHead>Stock</TableHead>
-                  <TableHead>Action</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Game Code</TableHead>
+                  <TableHead>Live</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProducts.map(p => (
-                  <TableRow key={p._id}>
-                    <TableCell className="font-mono text-xs">{p.Pack}</TableCell>
-                    <TableCell>{p.name}</TableCell>
-                    <TableCell>₹{p.price}</TableCell>
-                    <TableCell className="text-xs space-x-1">
-                      {p.requiresUserId && <Badge variant="outline">UserID</Badge>}
-                      {p.requiresServerId && <Badge variant="outline">Server</Badge>}
-                      {p.requiresCharName && <Badge variant="outline">CharName</Badge>}
+                {dbProducts.map(p => (
+                  <TableRow key={p.id}>
+                    <TableCell>
+                      <div className="font-medium">{p.name}</div>
+                      <div className="text-xs text-muted-foreground">{p.category}</div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={p.stockStatus === "in_stock" ? "default" : "destructive"}>
-                        {p.stockStatus || "unknown"}
-                      </Badge>
+                      {editingCodeId === p.id ? (
+                        <Input
+                          value={editingCodeValue}
+                          onChange={e => setEditingCodeValue(e.target.value)}
+                          placeholder="e.g. mlbb"
+                          className="h-8 w-40"
+                        />
+                      ) : (
+                        <code className="text-xs bg-muted px-2 py-1 rounded">{p.game_code || "—"}</code>
+                      )}
                     </TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline" onClick={() => openLinkDialog(p)}>
-                        <LinkIcon className="w-3 h-3 mr-1" /> Link
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Switch checked={p.in_stock} onCheckedChange={() => toggleProductLive(p)} />
+                        {p.in_stock ? <Eye className="w-3 h-3 text-green-500" /> : <EyeOff className="w-3 h-3 text-muted-foreground" />}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {editingCodeId === p.id ? (
+                        <div className="flex gap-1">
+                          <Button size="sm" onClick={() => saveGameCode(p.id)}><Save className="w-3 h-3" /></Button>
+                          <Button size="sm" variant="ghost" onClick={() => { setEditingCodeId(null); setEditingCodeValue(""); }}>X</Button>
+                        </div>
+                      ) : (
+                        <Button size="sm" variant="ghost" onClick={() => { setEditingCodeId(p.id); setEditingCodeValue(p.game_code || ""); }}>
+                          <Edit2 className="w-3 h-3" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
-        )}
+        </CardContent>
+      </Card>
 
-        <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Link {linkingProduct?.name} to pricing tier</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Will store <code className="bg-muted px-1">{linkingProduct?.gamecode}:{linkingProduct?.Pack}</code>
-              </p>
-              <Select value={selectedTierId} onValueChange={setSelectedTierId}>
-                <SelectTrigger><SelectValue placeholder="Pick a pricing tier" /></SelectTrigger>
-                <SelectContent>
-                  {tiers.map(t => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {(t as any).products?.name || "?"} – {t.amount} (₹{t.price})
-                      {t.provider_id && " ✓"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button onClick={linkTier} className="w-full">Link</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+      {/* Link dialog */}
+      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Link {linkingProduct?.name} to pricing tier</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Will store <code className="bg-muted px-1">{linkingProduct?.gamecode}:{linkingProduct?.Pack}</code>
+            </p>
+            <Select value={selectedTierId} onValueChange={setSelectedTierId}>
+              <SelectTrigger><SelectValue placeholder="Pick a pricing tier" /></SelectTrigger>
+              <SelectContent>
+                {tiers.map(t => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {(t as any).products?.name || "?"} – {t.amount} (₹{t.price})
+                    {t.provider_id && " ✓"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button onClick={linkTier} className="w-full">Link</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-        <Dialog open={serverDialogOpen} onOpenChange={setServerDialogOpen}>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Server Options ({selectedGame})</DialogTitle></DialogHeader>
-            <div className="space-y-1 max-h-96 overflow-y-auto">
-              {serverOptions.length === 0 && <p className="text-sm text-muted-foreground">No server selection required.</p>}
-              {serverOptions.map(s => (
-                <div key={s.value} className="flex justify-between p-2 border rounded">
-                  <span>{s.label}</span>
-                  <code className="text-xs bg-muted px-2 rounded">{s.value}</code>
-                </div>
-              ))}
-            </div>
-          </DialogContent>
-        </Dialog>
-      </CardContent>
-    </Card>
+      <Dialog open={serverDialogOpen} onOpenChange={setServerDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Server Options ({selectedGame})</DialogTitle></DialogHeader>
+          <div className="space-y-1 max-h-96 overflow-y-auto">
+            {serverOptions.length === 0 && <p className="text-sm text-muted-foreground">No server selection required.</p>}
+            {serverOptions.map(s => (
+              <div key={s.value} className="flex justify-between p-2 border rounded">
+                <span>{s.label}</span>
+                <code className="text-xs bg-muted px-2 rounded">{s.value}</code>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 

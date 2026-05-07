@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useProducts, LegacyProduct } from "@/hooks/useProducts";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
+import { useReseller } from "@/hooks/useReseller";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -86,6 +87,7 @@ const ProductDetail = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { balance, wallet } = useWallet();
+  const { isReseller, discountPercent, applyDiscount } = useReseller();
   const { getProductBySlug, getProductBySubCategory, isLoading } = useProducts();
   
   const baseProduct = getProductBySlug(productId || "");
@@ -147,17 +149,22 @@ const ProductDetail = () => {
 
   // Get the active product based on category selection for Instagram, Facebook, or TikTok
   const product = useMemo((): LegacyProduct | undefined => {
-    if (isInstagramMainProduct) {
-      return getProductBySubCategory(selectedCategory) || baseProduct;
+    let p: LegacyProduct | undefined;
+    if (isInstagramMainProduct) p = getProductBySubCategory(selectedCategory) || baseProduct;
+    else if (isFacebookMainProduct) p = getProductBySubCategory(selectedFbCategory) || baseProduct;
+    else if (isTikTokMainProduct) p = getProductBySubCategory(selectedTikTokCategory) || baseProduct;
+    else p = baseProduct;
+    if (!p) return p;
+    // Apply reseller discount + filter inactive tiers (is_active is on the raw row, not in legacy mapping;
+    // we keep all here — admin uses in_stock at product level for live toggle).
+    if (isReseller && discountPercent > 0) {
+      return {
+        ...p,
+        pricingTiers: p.pricingTiers.map(t => ({ ...t, price: applyDiscount(t.price) })),
+      };
     }
-    if (isFacebookMainProduct) {
-      return getProductBySubCategory(selectedFbCategory) || baseProduct;
-    }
-    if (isTikTokMainProduct) {
-      return getProductBySubCategory(selectedTikTokCategory) || baseProduct;
-    }
-    return baseProduct;
-  }, [isInstagramMainProduct, isFacebookMainProduct, isTikTokMainProduct, selectedCategory, selectedFbCategory, selectedTikTokCategory, baseProduct, getProductBySubCategory]);
+    return p;
+  }, [isInstagramMainProduct, isFacebookMainProduct, isTikTokMainProduct, selectedCategory, selectedFbCategory, selectedTikTokCategory, baseProduct, getProductBySubCategory, isReseller, discountPercent, applyDiscount]);
 
   // Reset selected tier when category changes
   useEffect(() => {
@@ -939,7 +946,11 @@ const ProductDetail = () => {
                 <h3 className="font-display text-lg font-bold text-foreground mb-4">
                   Select Package
                 </h3>
-                
+                {isReseller && discountPercent > 0 && (
+                  <Badge className="mb-3 bg-accent/20 text-accent border-accent/30">
+                    Reseller pricing • {discountPercent}% OFF applied
+                  </Badge>
+                )}
                 {product.pricingTiers.length === 0 ? (
                   <p className="text-muted-foreground text-center py-4">
                     No pricing options available for this product.
