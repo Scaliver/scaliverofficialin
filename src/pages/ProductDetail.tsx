@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useProducts, LegacyProduct } from "@/hooks/useProducts";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
+import { useReseller } from "@/hooks/useReseller";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
