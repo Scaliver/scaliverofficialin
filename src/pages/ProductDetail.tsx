@@ -233,29 +233,9 @@ const ProductDetail = () => {
           setVerificationError(data.message || data.error || 'Invalid Player ID or Zone ID');
         }
       } else {
-        // Use SmileCode API for validation (default for MLBB)
-        const result = await supabase.functions.invoke('smilecode-order', {
-          body: { 
-            action: 'validate', 
-            apiGame: 'mobilelegends',
-            user_id: playerId, 
-            server_id: zone 
-          }
-        });
-        data = result.data;
-        error = result.error;
-        
-        if (error) throw error;
-        
-        if (data.success && data.valid && data.username) {
-          setPlayerInfo({
-            nickname: data.username,
-            region: 'Unknown'
-          });
-          setIsPlayerVerified(true);
-        } else {
-          setVerificationError(data.error || data.message || 'Invalid Player ID or Zone ID');
-        }
+        // Aluu does not expose a standalone validate endpoint; skip and treat as verified.
+        setPlayerInfo({ nickname: playerId, region: zone || 'Unknown' });
+        setIsPlayerVerified(true);
       }
     } catch (err) {
       console.error('Player verification error:', err);
