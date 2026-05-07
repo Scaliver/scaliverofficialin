@@ -307,6 +307,7 @@ export const ProductManagement = () => {
 
   return (
     <div className="space-y-4">
+      <AluuGameManager />
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
         <div className="flex flex-col sm:flex-row gap-2 flex-1">
