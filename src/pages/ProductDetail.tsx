@@ -372,6 +372,19 @@ const ProductDetail = () => {
 
       if (orderError) throw orderError;
 
+      // ATOMIC wallet deduction (prevents negative balance + double-spend)
+      const { error: rpcError } = await supabase.rpc("process_order_payment", {
+        p_user_id: user.id,
+        p_amount: selectedTier.price,
+        p_order_id: orderData.id,
+        p_description: `Purchase: ${product.name} - ${selectedTier.amount}`,
+      });
+      if (rpcError) {
+        // Rollback order
+        await supabase.from("orders").update({ status: "failed" }).eq("id", orderData.id);
+        throw new Error(rpcError.message || "Payment failed");
+      }
+
       // For manual mode, skip API calls and mark for manual processing
       if (rechargeMode === 'manual') {
         // Update order status to pending_manual
