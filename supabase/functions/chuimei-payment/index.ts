@@ -31,10 +31,20 @@ serve(async (req) => {
         await handlePaymentCallback(supabase, callbackOrderId, paymentStatus);
       }
 
-      // Redirect user back. On success, send to /wallet to view credited balance.
+      // Determine target path: product orders return to product page, recharges to /wallet
       const isSuccess = paymentStatus === 'success' || paymentStatus === 'SUCCESS' || paymentStatus === 'true';
+      let targetPath = isSuccess ? '/wallet' : '/add-coin';
+      if (callbackOrderId) {
+        const { data: pr } = await supabase
+          .from('upi_payment_requests')
+          .select('request_type, redirect_path')
+          .eq('id', callbackOrderId)
+          .maybeSingle();
+        if (pr?.request_type === 'product_order') {
+          targetPath = pr.redirect_path || '/orders';
+        }
+      }
       const baseRedirect = params.redirect_url || 'https://scaliverofficialin.lovable.app';
-      const targetPath = isSuccess ? '/wallet' : '/add-coin';
       const redirectTo = baseRedirect.replace(/\/$/, '') + targetPath;
       return new Response(null, {
         status: 302,
