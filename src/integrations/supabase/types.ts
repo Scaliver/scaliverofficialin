@@ -137,6 +137,7 @@ export type Database = {
           contact_number: string
           created_at: string
           id: string
+          payment_request_id: string | null
           price: number
           product_id: string
           product_name: string
@@ -152,6 +153,7 @@ export type Database = {
           contact_number: string
           created_at?: string
           id?: string
+          payment_request_id?: string | null
           price: number
           product_id: string
           product_name: string
@@ -167,6 +169,7 @@ export type Database = {
           contact_number?: string
           created_at?: string
           id?: string
+          payment_request_id?: string | null
           price?: number
           product_id?: string
           product_name?: string
@@ -443,11 +446,19 @@ export type Database = {
           bonus_coins: number | null
           created_at: string
           id: string
+          is_social_media: boolean | null
           player_id: string | null
+          product_id: string | null
           product_name: string | null
           product_pack: string | null
+          provider_id: string | null
+          provider_product_id: string | null
+          redirect_path: string | null
           request_type: string
+          smm_quantity: number | null
+          smm_service_id: string | null
           status: string
+          tier_id: string | null
           total_coins: number | null
           updated_at: string
           user_email: string | null
@@ -460,11 +471,19 @@ export type Database = {
           bonus_coins?: number | null
           created_at?: string
           id?: string
+          is_social_media?: boolean | null
           player_id?: string | null
+          product_id?: string | null
           product_name?: string | null
           product_pack?: string | null
+          provider_id?: string | null
+          provider_product_id?: string | null
+          redirect_path?: string | null
           request_type?: string
+          smm_quantity?: number | null
+          smm_service_id?: string | null
           status?: string
+          tier_id?: string | null
           total_coins?: number | null
           updated_at?: string
           user_email?: string | null
@@ -477,11 +496,19 @@ export type Database = {
           bonus_coins?: number | null
           created_at?: string
           id?: string
+          is_social_media?: boolean | null
           player_id?: string | null
+          product_id?: string | null
           product_name?: string | null
           product_pack?: string | null
+          provider_id?: string | null
+          provider_product_id?: string | null
+          redirect_path?: string | null
           request_type?: string
+          smm_quantity?: number | null
+          smm_service_id?: string | null
           status?: string
+          tier_id?: string | null
           total_coins?: number | null
           updated_at?: string
           user_email?: string | null

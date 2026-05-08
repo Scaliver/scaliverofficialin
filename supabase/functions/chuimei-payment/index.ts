@@ -31,10 +31,20 @@ serve(async (req) => {
         await handlePaymentCallback(supabase, callbackOrderId, paymentStatus);
       }
 
-      // Redirect user back. On success, send to /wallet to view credited balance.
+      // Determine target path: product orders return to product page, recharges to /wallet
       const isSuccess = paymentStatus === 'success' || paymentStatus === 'SUCCESS' || paymentStatus === 'true';
+      let targetPath = isSuccess ? '/wallet' : '/add-coin';
+      if (callbackOrderId) {
+        const { data: pr } = await supabase
+          .from('upi_payment_requests')
+          .select('request_type, redirect_path')
+          .eq('id', callbackOrderId)
+          .maybeSingle();
+        if (pr?.request_type === 'product_order') {
+          targetPath = pr.redirect_path || '/orders';
+        }
+      }
       const baseRedirect = params.redirect_url || 'https://scaliverofficialin.lovable.app';
-      const targetPath = isSuccess ? '/wallet' : '/add-coin';
       const redirectTo = baseRedirect.replace(/\/$/, '') + targetPath;
       return new Response(null, {
         status: 302,
@@ -172,7 +182,7 @@ async function handlePaymentCallback(supabase: any, orderId: string, status: str
   // DUPLICATE PROTECTION: Fetch current status FIRST
   const { data: existingReq } = await supabase
     .from('upi_payment_requests')
-    .select('status, user_id, total_coins, amount, bonus_coins')
+    .select('*')
     .eq('id', orderId)
     .single();
 
@@ -181,61 +191,137 @@ async function handlePaymentCallback(supabase: any, orderId: string, status: str
     return;
   }
 
-  // If already completed, skip to prevent double-crediting
   if (existingReq.status === 'completed') {
     console.log(`Payment ${orderId} already completed, skipping duplicate callback`);
     return;
   }
 
-  // Update payment request status
   await supabase
     .from('upi_payment_requests')
     .update({ status: isSuccess ? 'completed' : 'failed', updated_at: new Date().toISOString() })
     .eq('id', orderId);
 
   if (!isSuccess) return;
-
   if (!existingReq.user_id) {
     console.log(`No user_id for payment ${orderId}`);
     return;
   }
 
-  const totalCoins = Number(existingReq.total_coins || existingReq.amount);
-
-  // Credit wallet
-  const { data: wallet } = await supabase
-    .from('wallets')
-    .select('balance')
-    .eq('user_id', existingReq.user_id)
-    .single();
-
-  if (wallet) {
-    const newBalance = wallet.balance + totalCoins;
-    await supabase
-      .from('wallets')
-      .update({ balance: newBalance, updated_at: new Date().toISOString() })
-      .eq('user_id', existingReq.user_id);
-    
-    console.log(`Wallet updated: ${wallet.balance} -> ${newBalance} for user ${existingReq.user_id}`);
-  } else {
-    // Create wallet if doesn't exist
-    await supabase
-      .from('wallets')
-      .insert({ user_id: existingReq.user_id, balance: totalCoins });
-    
-    console.log(`Created wallet with ${totalCoins} coins for user ${existingReq.user_id}`);
+  if (existingReq.request_type === 'product_order') {
+    await fulfillProductOrder(supabase, existingReq);
+    return;
   }
 
-  // Record transaction
-  await supabase
-    .from('coin_transactions')
-    .insert({
-      user_id: existingReq.user_id,
-      amount: totalCoins,
-      type: 'credit',
-      description: `Coin recharge via online payment (₹${existingReq.amount})`,
-      reference_id: orderId,
-    });
+  const totalCoins = Number(existingReq.total_coins || existingReq.amount);
+  const { data: wallet } = await supabase
+    .from('wallets').select('balance').eq('user_id', existingReq.user_id).single();
+
+  if (wallet) {
+    await supabase.from('wallets')
+      .update({ balance: Number(wallet.balance) + totalCoins, updated_at: new Date().toISOString() })
+      .eq('user_id', existingReq.user_id);
+  } else {
+    await supabase.from('wallets').insert({ user_id: existingReq.user_id, balance: totalCoins });
+  }
+
+  await supabase.from('coin_transactions').insert({
+    user_id: existingReq.user_id,
+    amount: totalCoins,
+    type: 'credit',
+    description: `Coin recharge via online payment (₹${existingReq.amount})`,
+    reference_id: orderId,
+  });
 
   console.log(`Auto-credited ${totalCoins} coins to user ${existingReq.user_id}`);
+}
+
+async function fulfillProductOrder(supabase: any, req: any) {
+  console.log(`Fulfilling product order for payment ${req.id}`);
+
+  const { data: existingOrder } = await supabase
+    .from('orders').select('id').eq('payment_request_id', req.id).maybeSingle();
+  if (existingOrder) {
+    console.log(`Order already created for payment ${req.id}`);
+    return;
+  }
+
+  const { data: orderData, error: orderError } = await supabase
+    .from('orders').insert({
+      user_id: req.user_id,
+      product_id: req.product_id,
+      product_name: req.product_name,
+      amount: req.product_pack,
+      price: req.amount,
+      user_game_id: req.player_id,
+      zone_id: req.zone_id,
+      contact_number: req.user_email || '',
+      status: 'pending',
+      payment_request_id: req.id,
+    }).select().single();
+
+  if (orderError) {
+    console.error('Failed to create order:', orderError);
+    return;
+  }
+
+  if (req.provider_id && req.provider_product_id) {
+    try {
+      const { data: apiData } = await supabase
+        .from('smm_apis').select('api_type').eq('id', req.provider_id).single();
+      const apiType = apiData?.api_type || 'aluu';
+
+      if (apiType === 'aluu') {
+        const [game, denom] = String(req.provider_product_id).split(':');
+        const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/aluu-webhook`;
+        const { data: aluuData, error: aluuError } = await supabase.functions.invoke('aluu-order', {
+          body: {
+            action: 'create_order', game, denom,
+            userid: req.player_id, serverid: req.zone_id || undefined,
+            partner_orderid: orderData.id, partner_webhook_url: webhookUrl,
+          },
+        });
+        if (aluuError || !aluuData?.success) {
+          throw new Error(aluuData?.error || aluuData?.message || aluuError?.message || 'Aluu order failed');
+        }
+        await supabase.from('orders').update({
+          status: 'processing',
+          smm_order_id: aluuData?.data?.reference || null,
+        }).eq('id', orderData.id);
+      } else if (apiType === 'gametopup') {
+        const { data: gtData, error: gtErr } = await supabase.functions.invoke('gametopup-order', {
+          body: {
+            action: 'order', apiId: req.provider_id,
+            playerId: req.player_id, zoneId: req.zone_id,
+            productId: req.provider_product_id, currency: 'INR',
+          },
+        });
+        if (gtErr || gtData?.error || !gtData?.success) {
+          throw new Error(gtData?.message || gtData?.error || gtErr?.message || 'GameTopUp order failed');
+        }
+        await supabase.from('orders').update({
+          status: 'processing',
+          smm_order_id: gtData.order_id ? String(gtData.order_id) : null,
+        }).eq('id', orderData.id);
+      }
+    } catch (err) {
+      console.error('Provider fulfillment failed:', err);
+      await supabase.from('orders').update({ status: 'pending_manual' }).eq('id', orderData.id);
+    }
+  } else if (req.is_social_media && req.smm_service_id && req.smm_quantity) {
+    try {
+      const { data: smmData, error: smmErr } = await supabase.functions.invoke('smm-order', {
+        body: { action: 'order', service: req.smm_service_id, link: req.player_id, quantity: req.smm_quantity },
+      });
+      if (smmErr || smmData?.error) throw new Error(smmData?.error || smmErr?.message || 'SMM order failed');
+      await supabase.from('orders').update({
+        status: 'processing',
+        smm_order_id: smmData.order ? String(smmData.order) : null,
+      }).eq('id', orderData.id);
+    } catch (err) {
+      console.error('SMM fulfillment failed:', err);
+      await supabase.from('orders').update({ status: 'pending_manual' }).eq('id', orderData.id);
+    }
+  } else {
+    await supabase.from('orders').update({ status: 'pending_manual' }).eq('id', orderData.id);
+  }
 }
