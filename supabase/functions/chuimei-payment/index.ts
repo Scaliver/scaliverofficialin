@@ -31,8 +31,11 @@ serve(async (req) => {
         await handlePaymentCallback(supabase, callbackOrderId, paymentStatus);
       }
 
-      // Redirect user back to add-coin page
-      const redirectTo = params.redirect_url || 'https://scaliverofficialin.lovable.app/add-coin';
+      // Redirect user back. On success, send to /wallet to view credited balance.
+      const isSuccess = paymentStatus === 'success' || paymentStatus === 'SUCCESS' || paymentStatus === 'true';
+      const baseRedirect = params.redirect_url || 'https://scaliverofficialin.lovable.app';
+      const targetPath = isSuccess ? '/wallet' : '/add-coin';
+      const redirectTo = baseRedirect.replace(/\/$/, '') + targetPath;
       return new Response(null, {
         status: 302,
         headers: { 'Location': redirectTo + `?payment_order=${callbackOrderId || ''}&status=${paymentStatus || 'unknown'}` },
