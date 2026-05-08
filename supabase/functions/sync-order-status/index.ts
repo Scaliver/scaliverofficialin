@@ -8,252 +8,153 @@ const corsHeaders = {
 
 const SMM_API_KEY = Deno.env.get('SMM_API_KEY');
 const SMM_API_URL = Deno.env.get('SMM_API_URL');
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const ALUU_API_KEY = Deno.env.get('ALUU_API_KEY');
+const ALUU_BASE = 'https://aluu.in/api/v.1';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-function getSmmApiUrl(): string {
-  if (!SMM_API_URL) throw new Error('SMM_API_URL not configured');
+function mapStatus(raw: string): string {
+  const s = (raw || '').toLowerCase();
+  if (['completed', 'complete', 'success', 'successful', 'delivered', 'partial'].includes(s)) return 'completed';
+  if (['canceled', 'cancelled', 'refunded', 'failed', 'fail', 'error'].includes(s)) return 'failed';
+  if (['processing', 'in progress', 'inprogress'].includes(s)) return 'processing';
+  if (s === 'pending') return 'pending';
+  return 'processing';
+}
 
-  const trimmed = SMM_API_URL.trim();
-
-  if (/^[a-f0-9]{32,}$/i.test(trimmed) && !trimmed.includes('.') && !trimmed.includes('/')) {
-    throw new Error('SMM_API_URL looks like an API key, not a URL.');
-  }
-
-  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-
+async function fetchAluuStatus(orderId: string) {
+  if (!ALUU_API_KEY) return null;
   try {
-    return new URL(withScheme).toString();
-  } catch {
-    throw new Error(`SMM_API_URL is invalid.`);
+    const res = await fetch(`${ALUU_BASE}/${encodeURIComponent(orderId)}`, {
+      headers: { 'x-api-key': ALUU_API_KEY },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const data = json?.data || json;
+    const status = data?.status;
+    if (!status) return null;
+    return { status, providerOrderId: data?.provider_order_id || data?.reference || null };
+  } catch (e) {
+    console.error('Aluu fetch error:', e);
+    return null;
   }
 }
 
-// Map SMM API status to our status
-function mapSmmStatus(smmStatus: string): string {
-  const statusLower = smmStatus.toLowerCase();
-  
-  if (statusLower === 'completed' || statusLower === 'complete') {
-    return 'completed';
-  } else if (statusLower === 'partial') {
-    return 'completed'; // Partial is treated as completed
-  } else if (statusLower === 'canceled' || statusLower === 'cancelled' || statusLower === 'refunded') {
-    return 'cancelled';
-  } else if (statusLower === 'processing' || statusLower === 'in progress' || statusLower === 'inprogress') {
-    return 'processing';
-  } else if (statusLower === 'pending') {
-    return 'pending';
-  } else if (statusLower === 'error' || statusLower === 'fail' || statusLower === 'failed') {
-    return 'failed';
+async function fetchSmmStatus(smmOrderId: string) {
+  if (!SMM_API_KEY || !SMM_API_URL) return null;
+  try {
+    const url = /^https?:\/\//i.test(SMM_API_URL) ? SMM_API_URL : `https://${SMM_API_URL}`;
+    const fd = new URLSearchParams();
+    fd.append('key', SMM_API_KEY);
+    fd.append('action', 'status');
+    fd.append('order', smmOrderId);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: fd.toString(),
+    });
+    const json = await res.json();
+    if (json?.error) return null;
+    return { status: json?.status };
+  } catch (e) {
+    console.error('SMM fetch error:', e);
+    return null;
   }
-  
-  return 'processing'; // Default to processing for unknown statuses
-}
-
-// Get order status from SMM Panel
-async function getOrderStatus(orderId: string): Promise<any> {
-  const formData = new URLSearchParams();
-  formData.append('key', SMM_API_KEY!);
-  formData.append('action', 'status');
-  formData.append('order', orderId);
-
-  console.log(`Fetching status for SMM order: ${orderId}`);
-
-  const response = await fetch(getSmmApiUrl(), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: formData.toString(),
-  });
-
-  const result = await response.json();
-  console.log(`SMM API status response for order ${orderId}:`, result);
-  return result;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    // Validate API configuration
-    if (!SMM_API_KEY || !SMM_API_URL) {
-      console.error('SMM API not configured');
-      return new Response(
-        JSON.stringify({ error: 'SMM API not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      console.error('Supabase not configured');
-      return new Response(
-        JSON.stringify({ error: 'Supabase not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Parse request body for optional filters
     let specificOrderId: string | null = null;
-    try {
-      const body = await req.json();
-      specificOrderId = body.orderId || null;
-    } catch {
-      // No body or invalid JSON, sync all pending orders
-    }
+    try { const body = await req.json(); specificOrderId = body?.orderId || null; } catch { /* noop */ }
 
-    // Build query for orders to sync
     let query = supabase
       .from('orders')
-      .select('id, smm_order_id, status, zone_id')
-      .not('smm_order_id', 'is', null)
+      .select('id, smm_order_id, status, user_id, price, product_name')
       .in('status', ['pending', 'processing']);
+    if (specificOrderId) query = query.eq('id', specificOrderId);
 
-    // If specific order ID provided, only sync that one
-    if (specificOrderId) {
-      query = query.eq('id', specificOrderId);
+    const { data: orders, error } = await query;
+    if (error) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const { data: orders, error: fetchError } = await query;
+    const results: any[] = [];
+    let updatedCount = 0;
 
-    if (fetchError) {
-      console.error('Error fetching orders:', fetchError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch orders' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Also check for legacy orders where SMM ID is in zone_id
-    const { data: legacyOrders, error: legacyError } = await supabase
-      .from('orders')
-      .select('id, smm_order_id, status, zone_id')
-      .is('smm_order_id', null)
-      .like('zone_id', 'SMM#%')
-      .in('status', ['pending', 'processing']);
-
-    if (legacyError) {
-      console.error('Error fetching legacy orders:', legacyError);
-    }
-
-    // Combine orders, migrating legacy ones
-    const allOrders = [...(orders || [])];
-    
-    if (legacyOrders) {
-      for (const legacyOrder of legacyOrders) {
-        // Extract SMM ID from zone_id
-        const smmId = legacyOrder.zone_id?.replace('SMM#', '');
-        if (smmId) {
-          // Migrate the SMM ID to the new column
-          await supabase
-            .from('orders')
-            .update({ smm_order_id: smmId, zone_id: null })
-            .eq('id', legacyOrder.id);
-          
-          allOrders.push({ ...legacyOrder, smm_order_id: smmId });
-        }
-      }
-    }
-
-    console.log(`Found ${allOrders.length} orders to sync`);
-
-    const results: { orderId: string; smmOrderId: string; oldStatus: string; newStatus: string; synced: boolean }[] = [];
-
-    // Sync each order
-    for (const order of allOrders) {
-      if (!order.smm_order_id) continue;
-
+    for (const order of orders || []) {
       try {
-        const smmResponse = await getOrderStatus(order.smm_order_id);
+        // Try Aluu first using our order id as partner_orderid
+        let result = await fetchAluuStatus(order.id);
+        let provider = 'aluu';
 
-        if (smmResponse.error) {
-          console.error(`SMM API error for order ${order.id}:`, smmResponse.error);
-          results.push({
-            orderId: order.id,
-            smmOrderId: order.smm_order_id,
-            oldStatus: order.status,
-            newStatus: order.status,
-            synced: false,
-          });
+        // Fall back to SMM if Aluu didn't recognize it and we have an SMM ID
+        if (!result && order.smm_order_id) {
+          result = await fetchSmmStatus(order.smm_order_id);
+          provider = 'smm';
+        }
+
+        if (!result) {
+          results.push({ orderId: order.id, synced: false, reason: 'no provider match' });
           continue;
         }
 
-        const newStatus = mapSmmStatus(smmResponse.status);
+        const newStatus = mapStatus(result.status);
+        if (newStatus === order.status) {
+          results.push({ orderId: order.id, synced: true, status: newStatus, provider });
+          continue;
+        }
 
-        // Update if status changed
-        if (newStatus !== order.status) {
-          const { error: updateError } = await supabase
-            .from('orders')
-            .update({ status: newStatus })
-            .eq('id', order.id);
+        const update: any = { status: newStatus };
+        if (provider === 'aluu' && (result as any).providerOrderId) {
+          update.smm_order_id = (result as any).providerOrderId;
+        }
 
-          if (updateError) {
-            console.error(`Error updating order ${order.id}:`, updateError);
-            results.push({
-              orderId: order.id,
-              smmOrderId: order.smm_order_id,
-              oldStatus: order.status,
-              newStatus: order.status,
-              synced: false,
-            });
-          } else {
-            console.log(`Updated order ${order.id}: ${order.status} -> ${newStatus}`);
-            results.push({
-              orderId: order.id,
-              smmOrderId: order.smm_order_id,
-              oldStatus: order.status,
-              newStatus: newStatus,
-              synced: true,
+        await supabase.from('orders').update(update).eq('id', order.id);
+
+        // Auto refund on failure
+        if (newStatus === 'failed' && order.user_id && order.price) {
+          // Avoid duplicate refunds
+          const { data: existing } = await supabase
+            .from('coin_transactions')
+            .select('id')
+            .eq('reference_id', order.id)
+            .eq('type', 'credit')
+            .maybeSingle();
+          if (!existing) {
+            const { data: wallet } = await supabase
+              .from('wallets').select('balance').eq('user_id', order.user_id).maybeSingle();
+            const current = Number(wallet?.balance || 0);
+            await supabase.from('wallets')
+              .update({ balance: current + Number(order.price), updated_at: new Date().toISOString() })
+              .eq('user_id', order.user_id);
+            await supabase.from('coin_transactions').insert({
+              user_id: order.user_id, amount: order.price, type: 'credit',
+              description: `Refund: ${order.product_name} (order failed)`,
+              reference_id: order.id,
             });
           }
-        } else {
-          results.push({
-            orderId: order.id,
-            smmOrderId: order.smm_order_id,
-            oldStatus: order.status,
-            newStatus: order.status,
-            synced: true,
-          });
         }
-      } catch (orderError) {
-        console.error(`Error syncing order ${order.id}:`, orderError);
-        results.push({
-          orderId: order.id,
-          smmOrderId: order.smm_order_id || '',
-          oldStatus: order.status,
-          newStatus: order.status,
-          synced: false,
-        });
+
+        updatedCount++;
+        results.push({ orderId: order.id, synced: true, oldStatus: order.status, newStatus, provider });
+      } catch (e) {
+        console.error('Order sync error', order.id, e);
+        results.push({ orderId: order.id, synced: false, reason: String(e) });
       }
     }
 
-    const syncedCount = results.filter(r => r.synced).length;
-    const updatedCount = results.filter(r => r.synced && r.oldStatus !== r.newStatus).length;
-
-    console.log(`Sync complete: ${syncedCount}/${results.length} synced, ${updatedCount} updated`);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        totalOrders: results.length,
-        syncedCount,
-        updatedCount,
-        results,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
-  } catch (error: unknown) {
-    console.error('Error in sync-order-status function:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({
+      success: true, totalOrders: results.length, updatedCount, results,
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

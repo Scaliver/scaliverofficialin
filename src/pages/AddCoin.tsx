@@ -59,10 +59,9 @@ const AddCoin = () => {
       if (status === 'success' || status === 'SUCCESS') {
         toast({
           title: "Payment Successful! ✅",
-          description: "Coins have been added to your wallet.",
+          description: "Coins have been added to your wallet. Redirecting...",
         });
-        // Reload to refresh wallet balance
-        setTimeout(() => window.location.reload(), 1500);
+        setTimeout(() => navigate('/wallet'), 1500);
       } else {
         // Start polling in case callback hasn't been processed yet
         pollPaymentStatus(paymentOrder);
@@ -201,9 +200,9 @@ const AddCoin = () => {
           clearInterval(interval);
           toast({
             title: "Payment Successful! ✅",
-            description: `${data.total_coins} coins have been added to your wallet.`,
+            description: `${data.total_coins} coins added. Redirecting to wallet...`,
           });
-          window.location.reload();
+          setTimeout(() => navigate('/wallet'), 1500);
         } else if (data?.status === 'failed') {
           clearInterval(interval);
           toast({
