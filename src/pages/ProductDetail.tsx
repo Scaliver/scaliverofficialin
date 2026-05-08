@@ -553,26 +553,8 @@ const ProductDetail = () => {
         }
       }
 
-      // Deduct from wallet
-      const newBalance = balance - selectedTier.price;
-      const { error: walletError } = await supabase
-        .from("wallets")
-        .update({ balance: newBalance })
-        .eq("user_id", user.id);
+      // Wallet was already debited atomically via process_order_payment RPC.
 
-      if (walletError) throw walletError;
-
-      // Record transaction
-      const { error: txError } = await supabase
-        .from("coin_transactions")
-        .insert({
-          user_id: user.id,
-          amount: selectedTier.price,
-          type: "debit",
-          description: `Purchase: ${product.name} - ${selectedTier.amount}`,
-        });
-
-      if (txError) throw txError;
 
       // Show receipt
       setReceiptData({
