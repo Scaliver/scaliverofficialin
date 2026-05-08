@@ -137,6 +137,7 @@ export type Database = {
           contact_number: string
           created_at: string
           id: string
+          payment_request_id: string | null
           price: number
           product_id: string
           product_name: string
@@ -152,6 +153,7 @@ export type Database = {
           contact_number: string
           created_at?: string
           id?: string
+          payment_request_id?: string | null
           price: number
           product_id: string
           product_name: string
@@ -167,6 +169,7 @@ export type Database = {
           contact_number?: string
           created_at?: string
           id?: string
+          payment_request_id?: string | null
           price?: number
           product_id?: string
           product_name?: string
