@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Header from "@/components/Header";
 import HeroBanner from "@/components/HeroBanner";
 import MarqueeBanner from "@/components/MarqueeBanner";
@@ -20,7 +20,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, Search, X } from "lucide-react";
 
 interface SiteAlert {
   id: string;
@@ -34,12 +35,23 @@ const Index = () => {
   const [showAlert, setShowAlert] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [siteAlert, setSiteAlert] = useState<SiteAlert | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   
   const { getDisplayProducts, isLoading } = useProducts();
   
   const mobileLegendsProducts = getDisplayProducts("Mobile Legends");
   const mobileGamesProducts = getDisplayProducts("Mobile Games");
   const socialMediaProducts = getDisplayProducts("Social Media");
+
+  const filterBySearch = (products: any[]) => {
+    if (!searchQuery.trim()) return products;
+    const q = searchQuery.toLowerCase();
+    return products.filter((p) => p.name?.toLowerCase().includes(q));
+  };
+
+  const filteredML = useMemo(() => filterBySearch(mobileLegendsProducts), [mobileLegendsProducts, searchQuery]);
+  const filteredMG = useMemo(() => filterBySearch(mobileGamesProducts), [mobileGamesProducts, searchQuery]);
+  const filteredSM = useMemo(() => filterBySearch(socialMediaProducts), [socialMediaProducts, searchQuery]);
 
   useEffect(() => {
     const fetchActiveAlert = async () => {
@@ -147,25 +159,55 @@ const Index = () => {
         {/* Quick Actions - Easy access to wallet features */}
         <QuickActions />
 
-        {mobileLegendsProducts.length > 0 && (
+        {/* Search Bar */}
+        <div className="container pt-4 pb-2">
+          <div className="relative w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
+            <Input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search games, products..."
+              className="w-full h-12 pl-12 pr-12 text-base rounded-full border-2 border-border bg-card focus-visible:ring-primary"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {filteredML.length > 0 && (
           <ProductSection
             title="Mobile Legends"
-            products={mobileLegendsProducts}
+            products={filteredML}
           />
         )}
 
-        {mobileGamesProducts.length > 0 && (
+        {filteredMG.length > 0 && (
           <ProductSection
             title="Mobile Games"
-            products={mobileGamesProducts}
+            products={filteredMG}
           />
         )}
 
-        {socialMediaProducts.length > 0 && (
+        {filteredSM.length > 0 && (
           <ProductSection
             title="Social Media"
-            products={socialMediaProducts}
+            products={filteredSM}
           />
+        )}
+
+        {searchQuery && filteredML.length === 0 && filteredMG.length === 0 && filteredSM.length === 0 && (
+          <div className="container py-12 text-center text-muted-foreground">
+            No products match "{searchQuery}".
+          </div>
         )}
 
         {/* Features Section */}
