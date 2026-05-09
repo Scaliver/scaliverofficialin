@@ -27,8 +27,31 @@ serve(async (req) => {
       const callbackOrderId = params.order_id || params.orderId || params.client_txn_id;
       const paymentStatus = params.status || params.payment_status;
 
+      let resolvedStatus = paymentStatus;
       if (callbackOrderId) {
-        await handlePaymentCallback(supabase, callbackOrderId, paymentStatus);
+        // If status is missing/unclear, actively verify with Chuimei before processing.
+        const isExplicit = paymentStatus && ['success','SUCCESS','true','failed','failure','cancelled'].includes(paymentStatus);
+        if (!isExplicit) {
+          try {
+            const apiToken = Deno.env.get('CHUIMEI_API_TOKEN') || '';
+            const fd = new URLSearchParams();
+            fd.append('user_token', apiToken);
+            fd.append('order_id', callbackOrderId);
+            const r = await fetch('https://chuimei-pe.in/api/check-order-status', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: fd.toString(),
+            });
+            const txt = await r.text();
+            console.log('GET-callback verify response:', txt);
+            let parsed: any = {}; try { parsed = JSON.parse(txt); } catch {}
+            const inner = parsed?.results || parsed?.data || parsed?.result || parsed;
+            const raw = (inner?.txnStatus || inner?.status || parsed?.status || '').toString().toLowerCase();
+            if (raw === 'success' || raw === 'completed' || raw === 'paid' || parsed?.status === true) resolvedStatus = 'success';
+            else if (raw === 'failed' || raw === 'failure' || raw === 'cancelled') resolvedStatus = 'failed';
+          } catch (e) { console.error('verify-on-callback error:', e); }
+        }
+        await handlePaymentCallback(supabase, callbackOrderId, resolvedStatus || '');
       }
 
       // Determine target path: product orders return to product page, recharges to /wallet
