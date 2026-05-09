@@ -35,12 +35,23 @@ const Index = () => {
   const [showAlert, setShowAlert] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [siteAlert, setSiteAlert] = useState<SiteAlert | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   
   const { getDisplayProducts, isLoading } = useProducts();
   
   const mobileLegendsProducts = getDisplayProducts("Mobile Legends");
   const mobileGamesProducts = getDisplayProducts("Mobile Games");
   const socialMediaProducts = getDisplayProducts("Social Media");
+
+  const filterBySearch = (products: any[]) => {
+    if (!searchQuery.trim()) return products;
+    const q = searchQuery.toLowerCase();
+    return products.filter((p) => p.name?.toLowerCase().includes(q));
+  };
+
+  const filteredML = useMemo(() => filterBySearch(mobileLegendsProducts), [mobileLegendsProducts, searchQuery]);
+  const filteredMG = useMemo(() => filterBySearch(mobileGamesProducts), [mobileGamesProducts, searchQuery]);
+  const filteredSM = useMemo(() => filterBySearch(socialMediaProducts), [socialMediaProducts, searchQuery]);
 
   useEffect(() => {
     const fetchActiveAlert = async () => {
