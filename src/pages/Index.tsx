@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Header from "@/components/Header";
 import HeroBanner from "@/components/HeroBanner";
 import MarqueeBanner from "@/components/MarqueeBanner";
@@ -20,7 +20,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, Search, X } from "lucide-react";
 
 interface SiteAlert {
   id: string;
