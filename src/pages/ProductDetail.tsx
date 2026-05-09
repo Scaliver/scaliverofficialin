@@ -1095,7 +1095,7 @@ const ProductDetail = () => {
                                 is_social_media: !!product.isSocialMedia,
                                 player_id: userId,
                                 zone_id: zoneId || null,
-                                redirect_path: window.location.pathname,
+                                redirect_path: `/?category=${encodeURIComponent(product.category || '')}`,
                                 utr_number: `CHUIMEI-${Date.now()}`,
                                 status: "pending",
                               })
