@@ -55,7 +55,7 @@ serve(async (req) => {
       }
 
       // Determine target path: product orders return to product page, recharges to /wallet
-      const isSuccess = paymentStatus === 'success' || paymentStatus === 'SUCCESS' || paymentStatus === 'true';
+      const isSuccess = resolvedStatus === 'success' || resolvedStatus === 'SUCCESS' || resolvedStatus === 'true';
       let targetPath = isSuccess ? '/wallet' : '/add-coin';
       if (callbackOrderId) {
         const { data: pr } = await supabase
@@ -71,7 +71,7 @@ serve(async (req) => {
       const redirectTo = baseRedirect.replace(/\/$/, '') + targetPath;
       return new Response(null, {
         status: 302,
-        headers: { 'Location': redirectTo + `?payment_order=${callbackOrderId || ''}&status=${paymentStatus || 'unknown'}` },
+        headers: { 'Location': redirectTo + `?payment_order=${callbackOrderId || ''}&status=${resolvedStatus || 'unknown'}` },
       });
     }
 
