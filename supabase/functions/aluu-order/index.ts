@@ -69,8 +69,20 @@ serve(async (req) => {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      return new Response(JSON.stringify(json), {
-        status: status >= 500 ? 200 : 200,
+      // Normalize Aluu response. Aluu may return { status: "success"/"pending"/..., data: {...} }
+      // or { error: "..." } / { message: "..." }. Treat HTTP 2xx + no explicit error as success.
+      const aluuStatus = (json?.status ?? "").toString().toLowerCase();
+      const explicitOk = aluuStatus === "success" || aluuStatus === "pending" || aluuStatus === "processing" || json?.success === true;
+      const explicitFail = !!(json?.error) || aluuStatus === "failed" || aluuStatus === "error" || json?.success === false;
+      const ok = status >= 200 && status < 300 && !explicitFail && (explicitOk || (!aluuStatus && !json?.message));
+      const envelope = {
+        success: ok,
+        error: ok ? undefined : (json?.error || json?.message || `Aluu HTTP ${status}`),
+        data: json?.data ?? json,
+        raw: json,
+      };
+      return new Response(JSON.stringify(envelope), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
