@@ -160,6 +160,86 @@ serve(async (req) => {
         });
       }
 
+      case 'verify_payment': {
+        // Called by the frontend after the user is redirected back. Actively
+        // queries Chuimei-pe to confirm payment status, then runs the same
+        // fulfillment logic as the webhook callback (credits coins or creates
+        // the Aluu order automatically).
+        const verifyOrderId = body.order_id;
+        if (!verifyOrderId) {
+          return new Response(JSON.stringify({ success: false, error: 'order_id required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Short-circuit if already finalised in DB
+        const { data: existing } = await supabase
+          .from('upi_payment_requests')
+          .select('status')
+          .eq('id', verifyOrderId)
+          .maybeSingle();
+        if (existing?.status === 'completed') {
+          return new Response(JSON.stringify({ success: true, status: 'completed' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const apiToken = Deno.env.get('CHUIMEI_API_TOKEN');
+        if (!apiToken) {
+          return new Response(JSON.stringify({ success: false, error: 'Chuimei API token not configured' }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const fd = new URLSearchParams();
+        fd.append('user_token', apiToken);
+        fd.append('order_id', verifyOrderId);
+
+        let providerStatus = 'pending';
+        try {
+          const r = await fetch('https://chuimei-pe.in/api/check-order-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: fd.toString(),
+          });
+          const txt = await r.text();
+          console.log('Chuimei verify response:', txt);
+          let parsed: any = {};
+          try { parsed = JSON.parse(txt); } catch {}
+          const inner = parsed?.results || parsed?.data || parsed?.result || parsed;
+          const raw = (inner?.txnStatus || inner?.status || parsed?.status || '').toString().toLowerCase();
+          if (raw === 'success' || raw === 'completed' || raw === 'true' || raw === 'paid' || parsed?.status === true) {
+            providerStatus = 'success';
+          } else if (raw === 'failed' || raw === 'failure' || raw === 'cancelled') {
+            providerStatus = 'failed';
+          }
+        } catch (e) {
+          console.error('Chuimei verify error:', e);
+        }
+
+        if (providerStatus === 'success') {
+          await handlePaymentCallback(supabase, verifyOrderId, 'success');
+        } else if (providerStatus === 'failed') {
+          await handlePaymentCallback(supabase, verifyOrderId, 'failed');
+        }
+
+        const { data: after } = await supabase
+          .from('upi_payment_requests')
+          .select('status, total_coins, amount, request_type')
+          .eq('id', verifyOrderId)
+          .maybeSingle();
+
+        return new Response(JSON.stringify({
+          success: true,
+          status: after?.status || providerStatus,
+          total_coins: after?.total_coins,
+          amount: after?.amount,
+          request_type: after?.request_type,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       default:
         return new Response(JSON.stringify({ success: false, error: `Unknown action "${action}"` }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
