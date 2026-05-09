@@ -52,20 +52,27 @@ const AddCoin = () => {
     const paymentOrder = params.get('payment_order');
     const status = params.get('status');
     
-    if (paymentOrder && status) {
+    if (paymentOrder) {
       // Clean URL
       window.history.replaceState({}, '', '/add-coin');
-      
-      if (status === 'success' || status === 'SUCCESS') {
-        toast({
-          title: "Payment Successful! ✅",
-          description: "Coins have been added to your wallet. Redirecting...",
-        });
-        setTimeout(() => navigate('/wallet'), 1500);
-      } else {
-        // Start polling in case callback hasn't been processed yet
+      // Always verify with the gateway after redirect — don't trust the URL status alone.
+      (async () => {
+        try {
+          const { data } = await supabase.functions.invoke('chuimei-payment', {
+            body: { action: 'verify_payment', order_id: paymentOrder },
+          });
+          if (data?.status === 'completed') {
+            toast({
+              title: "Payment Successful! ✅",
+              description: `${data.total_coins ?? ''} coins added to your wallet.`.trim(),
+            });
+            setTimeout(() => navigate('/wallet'), 1200);
+            return;
+          }
+        } catch {}
+        // Not yet confirmed — keep polling
         pollPaymentStatus(paymentOrder);
-      }
+      })();
     }
   }, []);
 
@@ -194,7 +201,7 @@ const AddCoin = () => {
       attempts++;
       try {
         const { data } = await supabase.functions.invoke('chuimei-payment', {
-          body: { action: 'check_status', order_id: orderId }
+          body: { action: 'verify_payment', order_id: orderId }
         });
         if (data?.status === 'completed') {
           clearInterval(interval);

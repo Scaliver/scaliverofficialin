@@ -53,6 +53,45 @@ const Index = () => {
   const filteredMG = useMemo(() => filterBySearch(mobileGamesProducts), [mobileGamesProducts, searchQuery]);
   const filteredSM = useMemo(() => filterBySearch(socialMediaProducts), [socialMediaProducts, searchQuery]);
 
+  // Verify Chuimei-pe payment when user is redirected back to home from gateway
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentOrder = params.get('payment_order');
+    if (!paymentOrder) return;
+    // Strip payment params from URL but preserve other params (e.g. category)
+    params.delete('payment_order');
+    params.delete('status');
+    const newSearch = params.toString();
+    window.history.replaceState({}, '', `/${newSearch ? `?${newSearch}` : ''}`);
+
+    let attempts = 0;
+    const tick = async () => {
+      attempts++;
+      try {
+        const { data } = await supabase.functions.invoke('chuimei-payment', {
+          body: { action: 'verify_payment', order_id: paymentOrder },
+        });
+        if (data?.status === 'completed') {
+          const { toast } = await import('@/hooks/use-toast');
+          toast({
+            title: 'Payment Successful ✅',
+            description: data?.request_type === 'product_order'
+              ? 'Your order has been placed and is being processed.'
+              : `${data?.total_coins ?? ''} coins added to your wallet.`.trim(),
+          });
+          return;
+        }
+        if (data?.status === 'failed') {
+          const { toast } = await import('@/hooks/use-toast');
+          toast({ title: 'Payment Failed', description: 'Payment was not completed.', variant: 'destructive' });
+          return;
+        }
+      } catch {}
+      if (attempts < 24) setTimeout(tick, 5000);
+    };
+    tick();
+  }, []);
+
   useEffect(() => {
     const fetchActiveAlert = async () => {
       try {
