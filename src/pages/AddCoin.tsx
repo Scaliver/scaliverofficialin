@@ -201,7 +201,7 @@ const AddCoin = () => {
       attempts++;
       try {
         const { data } = await supabase.functions.invoke('chuimei-payment', {
-          body: { action: 'check_status', order_id: orderId }
+          body: { action: 'verify_payment', order_id: orderId }
         });
         if (data?.status === 'completed') {
           clearInterval(interval);
