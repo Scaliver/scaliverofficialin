@@ -70,6 +70,10 @@ export const AluuGameManager = () => {
   const [selectedTierId, setSelectedTierId] = useState<string>("");
   const [serverOptions, setServerOptions] = useState<{ value: string; label: string }[]>([]);
   const [serverDialogOpen, setServerDialogOpen] = useState(false);
+  const [selectedPacks, setSelectedPacks] = useState<Set<string>>(new Set());
+  const togglePack = (pack: string) => setSelectedPacks(prev => {
+    const n = new Set(prev); n.has(pack) ? n.delete(pack) : n.add(pack); return n;
+  });
 
   // DB products with editable game_code
   const [dbProducts, setDbProducts] = useState<DBProduct[]>([]);
@@ -185,6 +189,7 @@ export const AluuGameManager = () => {
 
       const newTiers = products
         .filter(p => !haveSet.has(`${p.gamecode}:${p.Pack}`))
+        .filter(p => selectedPacks.size === 0 || selectedPacks.has(p.Pack))
         .map((p, i) => ({
           product_id: productId,
           amount: p.name || p.Pack,
