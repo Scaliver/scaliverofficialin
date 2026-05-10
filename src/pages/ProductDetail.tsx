@@ -836,32 +836,38 @@ const ProductDetail = () => {
                   </div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="userId" className="font-body text-foreground">
-                          Player ID *
-                        </Label>
-                        <Input
-                          id="userId"
-                          placeholder="Enter your Player ID"
-                          value={userId}
-                          onChange={(e) => setUserId(e.target.value)}
-                          className="bg-secondary border-border"
-                        />
+                    {(product.requiresPlayerId !== false || product.requiresServerId) && (
+                      <div className={`grid gap-4 ${product.requiresServerId && product.requiresPlayerId !== false ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                        {product.requiresPlayerId !== false && (
+                          <div className="space-y-2">
+                            <Label htmlFor="userId" className="font-body text-foreground">
+                              Player ID *
+                            </Label>
+                            <Input
+                              id="userId"
+                              placeholder="Enter your Player ID"
+                              value={userId}
+                              onChange={(e) => setUserId(e.target.value)}
+                              className="bg-secondary border-border"
+                            />
+                          </div>
+                        )}
+                        {product.requiresServerId && (
+                          <div className="space-y-2">
+                            <Label htmlFor="zoneId" className="font-body text-foreground">
+                              Server / Zone ID
+                            </Label>
+                            <Input
+                              id="zoneId"
+                              placeholder="Enter Zone ID"
+                              value={zoneId}
+                              onChange={(e) => setZoneId(e.target.value)}
+                              className="bg-secondary border-border"
+                            />
+                          </div>
+                        )}
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="zoneId" className="font-body text-foreground">
-                          Server / Zone ID
-                        </Label>
-                        <Input
-                          id="zoneId"
-                          placeholder="Enter Zone ID"
-                          value={zoneId}
-                          onChange={(e) => setZoneId(e.target.value)}
-                          className="bg-secondary border-border"
-                        />
-                      </div>
-                    </div>
+                    )}
                     
                     {/* Player Verification Section - Only show in automatic mode */}
                     {product.category === 'Mobile Legends' && rechargeMode === 'automatic' && (
