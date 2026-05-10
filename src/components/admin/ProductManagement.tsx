@@ -585,6 +585,20 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
                                 Provider: {tier.provider_product_id || 'N/A'}
                               </Badge>
                             )}
+                            <div className="flex items-center gap-1 ml-2 px-2 py-1 rounded bg-accent/10 border border-accent/30">
+                              <span className="text-[10px] font-bold text-accent uppercase">Reseller ₹</span>
+                              <Input
+                                type="number"
+                                className="h-7 w-20 text-xs"
+                                placeholder={String(tier.price)}
+                                value={resellerEdits[tier.id] ?? (resellerPrices[tier.id] != null ? String(resellerPrices[tier.id]) : "")}
+                                onChange={(e) => setResellerEdits(prev => ({ ...prev, [tier.id]: e.target.value }))}
+                              />
+                              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => saveResellerPrice(tier.id)}>Save</Button>
+                              {resellerPrices[tier.id] != null && (
+                                <Button size="sm" variant="ghost" className="h-7 px-1 text-xs text-red-500" onClick={() => clearResellerPrice(tier.id)}>×</Button>
+                              )}
+                            </div>
                           </div>
                           <div className="flex gap-1">
                             <Button variant="ghost" size="sm" onClick={() => openTierDialog(product.id, tier)}>
