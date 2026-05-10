@@ -87,7 +87,7 @@ const ProductDetail = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { balance, wallet } = useWallet();
-  const { isReseller, discountPercent, applyDiscount } = useReseller();
+  const { isReseller, discountPercent, getTierPrice } = useReseller();
   const { getProductBySlug, getProductBySubCategory, isLoading } = useProducts();
   
   const baseProduct = getProductBySlug(productId || "");
@@ -155,16 +155,15 @@ const ProductDetail = () => {
     else if (isTikTokMainProduct) p = getProductBySubCategory(selectedTikTokCategory) || baseProduct;
     else p = baseProduct;
     if (!p) return p;
-    // Apply reseller discount + filter inactive tiers (is_active is on the raw row, not in legacy mapping;
-    // we keep all here — admin uses in_stock at product level for live toggle).
-    if (isReseller && discountPercent > 0) {
+    // Apply effective price (per-tier reseller override, then percent fallback)
+    if (isReseller) {
       return {
         ...p,
-        pricingTiers: p.pricingTiers.map(t => ({ ...t, price: applyDiscount(t.price) })),
+        pricingTiers: p.pricingTiers.map(t => ({ ...t, price: getTierPrice(t) })),
       };
     }
     return p;
-  }, [isInstagramMainProduct, isFacebookMainProduct, isTikTokMainProduct, selectedCategory, selectedFbCategory, selectedTikTokCategory, baseProduct, getProductBySubCategory, isReseller, discountPercent, applyDiscount]);
+  }, [isInstagramMainProduct, isFacebookMainProduct, isTikTokMainProduct, selectedCategory, selectedFbCategory, selectedTikTokCategory, baseProduct, getProductBySubCategory, isReseller, getTierPrice]);
 
   // Reset selected tier when category changes
   useEffect(() => {
@@ -311,10 +310,11 @@ const ProductDetail = () => {
       return false;
     }
 
-    if (!userId.trim()) {
+    const needsPlayerId = product?.isSocialMedia ? true : (product?.requiresPlayerId !== false);
+    if (needsPlayerId && !userId.trim()) {
       toast({
-        title: "Player ID required",
-        description: "Please enter your Player ID.",
+        title: product?.isSocialMedia ? "URL required" : "Player ID required",
+        description: product?.isSocialMedia ? "Please enter the profile or post URL." : "Please enter your Player ID.",
         variant: "destructive",
       });
       return false;
