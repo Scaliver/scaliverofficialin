@@ -28,6 +28,8 @@ export interface Product {
   is_social_media: boolean;
   sub_category: string | null;
   sort_order: number;
+  requires_player_id?: boolean;
+  requires_server_id?: boolean;
   created_at: string;
   updated_at: string;
   pricing_tiers?: PricingTier[];
@@ -44,6 +46,8 @@ export interface ProductFormData {
   is_social_media: boolean;
   sub_category: string | null;
   sort_order: number;
+  requires_player_id?: boolean;
+  requires_server_id?: boolean;
 }
 
 export interface PricingTierFormData {
@@ -71,6 +75,8 @@ export interface LegacyProduct {
   instagramSubCategory?: string;
   facebookSubCategory?: string;
   tiktokSubCategory?: string;
+  requiresPlayerId?: boolean;
+  requiresServerId?: boolean;
   pricingTiers: {
     id: string;
     amount: string;
