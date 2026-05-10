@@ -94,10 +94,20 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
     is_social_media: false,
     sub_category: null,
     sort_order: 0,
+    requires_player_id: true,
+    requires_server_id: false,
   });
   const [instructionsText, setInstructionsText] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // USD->INR conversion rate (admin-tunable)
+  const [usdRate, setUsdRate] = useState<number>(95);
+  const [tierUsdPrice, setTierUsdPrice] = useState<string>("");
+
+  // Per-tier reseller price overrides (tier_id -> price)
+  const [resellerPrices, setResellerPrices] = useState<Record<string, number>>({});
+  const [resellerEdits, setResellerEdits] = useState<Record<string, string>>({});
 
   // Tier dialog state
   const [tierDialogOpen, setTierDialogOpen] = useState(false);
