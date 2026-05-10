@@ -142,7 +142,64 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
     };
     fetchGameProviderApis();
   }, []);
-  
+
+  // Fetch USD->INR rate from site_settings
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("site_settings").select("value").eq("key", "usd_inr_rate").maybeSingle();
+      const v = data?.value as { rate?: number } | undefined;
+      if (v?.rate) setUsdRate(Number(v.rate));
+    })();
+  }, []);
+
+  const saveUsdRate = async (rate: number) => {
+    const { error } = await supabase
+      .from("site_settings").update({ value: { rate } }).eq("key", "usd_inr_rate");
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    setUsdRate(rate);
+    toast({ title: "USD rate saved", description: `1 USD = ₹${rate}` });
+  };
+
+  // Fetch reseller price overrides
+  const fetchResellerPrices = async () => {
+    const { data } = await supabase.from("reseller_prices" as any).select("tier_id, price");
+    const map: Record<string, number> = {};
+    ((data as any[]) || []).forEach(r => { map[r.tier_id] = Number(r.price); });
+    setResellerPrices(map);
+  };
+  useEffect(() => { fetchResellerPrices(); }, []);
+
+  const saveResellerPrice = async (tierId: string) => {
+    const raw = resellerEdits[tierId];
+    const num = parseFloat(raw);
+    if (isNaN(num) || num < 0) {
+      toast({ title: "Invalid price", variant: "destructive" });
+      return;
+    }
+    const { error } = await supabase
+      .from("reseller_prices" as any)
+      .upsert({ tier_id: tierId, price: num }, { onConflict: "tier_id" });
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Reseller price saved" });
+    setResellerEdits(prev => { const n = { ...prev }; delete n[tierId]; return n; });
+    fetchResellerPrices();
+  };
+
+  const clearResellerPrice = async (tierId: string) => {
+    const { error } = await supabase.from("reseller_prices" as any).delete().eq("tier_id", tierId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Reseller price removed" });
+    fetchResellerPrices();
+  };
+
+  // Auto sort_order: parse leading number from amount label, fallback to price
+  const parseSortOrder = (amount: string, price: number): number => {
+    const m = (amount || "").match(/\d+/);
+    if (m) return parseInt(m[0], 10);
+    return Math.round(price) || 0;
+  };
+
   // Get label for provider based on API type
   const getProviderLabel = (apiId: string) => {
     const api = gameProviderApis.find(a => a.id === apiId);
