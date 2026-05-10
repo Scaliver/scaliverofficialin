@@ -103,6 +103,8 @@ const toLegacyProduct = (product: Product): LegacyProduct => ({
   instagramSubCategory: product.sub_category && product.category === 'Social Media' && product.name.toLowerCase().includes('instagram') ? product.sub_category : undefined,
   facebookSubCategory: product.sub_category && product.category === 'Social Media' && product.name.toLowerCase().includes('facebook') ? product.sub_category : undefined,
   tiktokSubCategory: product.sub_category && product.category === 'Social Media' && product.name.toLowerCase().includes('tiktok') ? product.sub_category : undefined,
+  requiresPlayerId: product.requires_player_id !== false,
+  requiresServerId: product.requires_server_id === true,
   pricingTiers: (product.pricing_tiers || []).map(tier => ({
     id: tier.id,
     amount: tier.amount,
