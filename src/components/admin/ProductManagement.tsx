@@ -451,6 +451,18 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
         </div>
       </div>
 
+      {/* USD → INR rate banner */}
+      <div className="bg-card border border-border rounded-xl p-4 flex flex-wrap items-center gap-3">
+        <span className="text-sm font-semibold">USD → INR rate:</span>
+        <Input
+          type="number" step="0.01" className="w-28 h-8"
+          value={usdRate}
+          onChange={(e) => setUsdRate(parseFloat(e.target.value) || 0)}
+        />
+        <Button size="sm" variant="outline" onClick={() => saveUsdRate(usdRate)}>Save Rate</Button>
+        <span className="text-xs text-muted-foreground">Used by tier price converter & Aluu game import.</span>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-card border border-border rounded-xl p-4">
