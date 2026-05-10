@@ -247,6 +247,8 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
         is_social_media: product.is_social_media,
         sub_category: product.sub_category,
         sort_order: product.sort_order,
+        requires_player_id: (product as any).requires_player_id !== false,
+        requires_server_id: (product as any).requires_server_id === true,
       });
       setInstructionsText((product.instructions || []).join("\n"));
     } else {
@@ -262,6 +264,8 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
         is_social_media: false,
         sub_category: null,
         sort_order: products.length,
+        requires_player_id: true,
+        requires_server_id: false,
       });
       setInstructionsText("");
     }
@@ -329,6 +333,7 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
 
   const openTierDialog = (productId: string, tier?: any) => {
     setTierProductId(productId);
+    setTierUsdPrice("");
     if (tier) {
       setEditingTier(tier);
       setTierForm({
@@ -343,14 +348,13 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
       });
     } else {
       setEditingTier(null);
-      const product = products.find(p => p.id === productId);
       setTierForm({
         amount: "",
         price: 0,
         bonus: null,
         smm_service_id: null,
         quantity: null,
-        sort_order: product?.pricing_tiers?.length || 0,
+        sort_order: 0,
         provider_id: null,
         provider_product_id: null,
       });
@@ -359,12 +363,28 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
   };
 
   const handleSaveTier = async () => {
+    // Auto-compute sort_order from the amount label so admins don't manage it.
+    const finalForm = {
+      ...tierForm,
+      sort_order: parseSortOrder(tierForm.amount, tierForm.price),
+    };
     if (editingTier) {
-      await updatePricingTier({ id: editingTier.id, tier: tierForm });
+      await updatePricingTier({ id: editingTier.id, tier: finalForm });
     } else {
-      await createPricingTier({ productId: tierProductId, tier: tierForm });
+      await createPricingTier({ productId: tierProductId, tier: finalForm });
     }
     setTierDialogOpen(false);
+  };
+
+  const convertUsdToInr = () => {
+    const usd = parseFloat(tierUsdPrice);
+    if (isNaN(usd) || usd <= 0) {
+      toast({ title: "Invalid USD price", variant: "destructive" });
+      return;
+    }
+    const inr = Math.round(usd * usdRate);
+    setTierForm({ ...tierForm, price: inr });
+    toast({ title: `Converted: $${usd} × ${usdRate} = ₹${inr}` });
   };
 
   const confirmDelete = (type: "product" | "tier", id: string, name: string) => {
