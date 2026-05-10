@@ -732,7 +732,7 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
               />
             </div>
 
-            <div className="flex items-center gap-6">
+            <div className="flex flex-wrap items-center gap-6">
               <div className="flex items-center gap-2">
                 <Switch
                   checked={productForm.in_stock}
@@ -747,6 +747,24 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
                 />
                 <Label>Social Media (SMM)</Label>
               </div>
+              {!productForm.is_social_media && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={productForm.requires_player_id !== false}
+                      onCheckedChange={(checked) => setProductForm({ ...productForm, requires_player_id: checked })}
+                    />
+                    <Label>Requires Player ID</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={!!productForm.requires_server_id}
+                      onCheckedChange={(checked) => setProductForm({ ...productForm, requires_server_id: checked })}
+                    />
+                    <Label>Requires Server ID</Label>
+                  </div>
+                </>
+              )}
             </div>
 
             {productForm.is_social_media && (
@@ -800,24 +818,36 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Price (₹)</Label>
+            <div className="space-y-2">
+              <Label>Price (₹)</Label>
+              <Input
+                type="number"
+                placeholder="99"
+                value={tierForm.price}
+                onChange={(e) => setTierForm({ ...tierForm, price: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+
+            {/* USD → INR converter */}
+            <div className="rounded-lg border border-dashed p-3 space-y-2">
+              <Label className="text-xs font-semibold uppercase">USD → INR Converter</Label>
+              <div className="flex gap-2 items-center">
                 <Input
                   type="number"
-                  placeholder="99"
-                  value={tierForm.price}
-                  onChange={(e) => setTierForm({ ...tierForm, price: parseFloat(e.target.value) || 0 })}
+                  step="0.01"
+                  placeholder="USD price (e.g. 9.10)"
+                  value={tierUsdPrice}
+                  onChange={(e) => setTierUsdPrice(e.target.value)}
+                  className="flex-1"
                 />
+                <span className="text-xs text-muted-foreground whitespace-nowrap">× ₹{usdRate}</span>
+                <Button type="button" variant="outline" size="sm" onClick={convertUsdToInr}>
+                  Convert
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label>Sort Order</Label>
-                <Input
-                  type="number"
-                  value={tierForm.sort_order}
-                  onChange={(e) => setTierForm({ ...tierForm, sort_order: parseInt(e.target.value) || 0 })}
-                />
-              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Sets the INR price above. Manual edits are kept.
+              </p>
             </div>
 
             <div className="space-y-2">
