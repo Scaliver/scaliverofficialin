@@ -70,6 +70,10 @@ export const AluuGameManager = () => {
   const [selectedTierId, setSelectedTierId] = useState<string>("");
   const [serverOptions, setServerOptions] = useState<{ value: string; label: string }[]>([]);
   const [serverDialogOpen, setServerDialogOpen] = useState(false);
+  const [selectedPacks, setSelectedPacks] = useState<Set<string>>(new Set());
+  const togglePack = (pack: string) => setSelectedPacks(prev => {
+    const n = new Set(prev); n.has(pack) ? n.delete(pack) : n.add(pack); return n;
+  });
 
   // DB products with editable game_code
   const [dbProducts, setDbProducts] = useState<DBProduct[]>([]);
@@ -176,15 +180,24 @@ export const AluuGameManager = () => {
         .from("pricing_tiers").select("provider_product_id").eq("product_id", productId);
       const haveSet = new Set((existingTiers || []).map((t: any) => t.provider_product_id));
 
+      // Fetch USD->INR rate
+      let rate = 95;
+      const { data: rateRow } = await supabase
+        .from("site_settings").select("value").eq("key", "usd_inr_rate").maybeSingle();
+      const v = rateRow?.value as { rate?: number } | undefined;
+      if (v?.rate) rate = Number(v.rate);
+
       const newTiers = products
         .filter(p => !haveSet.has(`${p.gamecode}:${p.Pack}`))
+        .filter(p => selectedPacks.size === 0 || selectedPacks.has(p.Pack))
         .map((p, i) => ({
           product_id: productId,
           amount: p.name || p.Pack,
-          price: Number(p.price) || 0,
+          // Aluu prices are USD; convert to INR using configured rate.
+          price: Math.round((Number(p.price) || 0) * rate),
           provider_id: aluuProviderId,
           provider_product_id: `${p.gamecode}:${p.Pack}`,
-          sort_order: i,
+          sort_order: (p.name || p.Pack || "").match(/\d+/)?.[0] ? parseInt((p.name || p.Pack).match(/\d+/)![0], 10) : i,
           is_active: true,
         }));
 

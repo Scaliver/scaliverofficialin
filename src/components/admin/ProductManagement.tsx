@@ -94,10 +94,20 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
     is_social_media: false,
     sub_category: null,
     sort_order: 0,
+    requires_player_id: true,
+    requires_server_id: false,
   });
   const [instructionsText, setInstructionsText] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // USD->INR conversion rate (admin-tunable)
+  const [usdRate, setUsdRate] = useState<number>(95);
+  const [tierUsdPrice, setTierUsdPrice] = useState<string>("");
+
+  // Per-tier reseller price overrides (tier_id -> price)
+  const [resellerPrices, setResellerPrices] = useState<Record<string, number>>({});
+  const [resellerEdits, setResellerEdits] = useState<Record<string, string>>({});
 
   // Tier dialog state
   const [tierDialogOpen, setTierDialogOpen] = useState(false);
@@ -132,7 +142,64 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
     };
     fetchGameProviderApis();
   }, []);
-  
+
+  // Fetch USD->INR rate from site_settings
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("site_settings").select("value").eq("key", "usd_inr_rate").maybeSingle();
+      const v = data?.value as { rate?: number } | undefined;
+      if (v?.rate) setUsdRate(Number(v.rate));
+    })();
+  }, []);
+
+  const saveUsdRate = async (rate: number) => {
+    const { error } = await supabase
+      .from("site_settings").update({ value: { rate } }).eq("key", "usd_inr_rate");
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    setUsdRate(rate);
+    toast({ title: "USD rate saved", description: `1 USD = ₹${rate}` });
+  };
+
+  // Fetch reseller price overrides
+  const fetchResellerPrices = async () => {
+    const { data } = await supabase.from("reseller_prices" as any).select("tier_id, price");
+    const map: Record<string, number> = {};
+    ((data as any[]) || []).forEach(r => { map[r.tier_id] = Number(r.price); });
+    setResellerPrices(map);
+  };
+  useEffect(() => { fetchResellerPrices(); }, []);
+
+  const saveResellerPrice = async (tierId: string) => {
+    const raw = resellerEdits[tierId];
+    const num = parseFloat(raw);
+    if (isNaN(num) || num < 0) {
+      toast({ title: "Invalid price", variant: "destructive" });
+      return;
+    }
+    const { error } = await supabase
+      .from("reseller_prices" as any)
+      .upsert({ tier_id: tierId, price: num }, { onConflict: "tier_id" });
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Reseller price saved" });
+    setResellerEdits(prev => { const n = { ...prev }; delete n[tierId]; return n; });
+    fetchResellerPrices();
+  };
+
+  const clearResellerPrice = async (tierId: string) => {
+    const { error } = await supabase.from("reseller_prices" as any).delete().eq("tier_id", tierId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Reseller price removed" });
+    fetchResellerPrices();
+  };
+
+  // Auto sort_order: parse leading number from amount label, fallback to price
+  const parseSortOrder = (amount: string, price: number): number => {
+    const m = (amount || "").match(/\d+/);
+    if (m) return parseInt(m[0], 10);
+    return Math.round(price) || 0;
+  };
+
   // Get label for provider based on API type
   const getProviderLabel = (apiId: string) => {
     const api = gameProviderApis.find(a => a.id === apiId);
@@ -180,6 +247,8 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
         is_social_media: product.is_social_media,
         sub_category: product.sub_category,
         sort_order: product.sort_order,
+        requires_player_id: (product as any).requires_player_id !== false,
+        requires_server_id: (product as any).requires_server_id === true,
       });
       setInstructionsText((product.instructions || []).join("\n"));
     } else {
@@ -195,6 +264,8 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
         is_social_media: false,
         sub_category: null,
         sort_order: products.length,
+        requires_player_id: true,
+        requires_server_id: false,
       });
       setInstructionsText("");
     }
@@ -262,6 +333,7 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
 
   const openTierDialog = (productId: string, tier?: any) => {
     setTierProductId(productId);
+    setTierUsdPrice("");
     if (tier) {
       setEditingTier(tier);
       setTierForm({
@@ -276,14 +348,13 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
       });
     } else {
       setEditingTier(null);
-      const product = products.find(p => p.id === productId);
       setTierForm({
         amount: "",
         price: 0,
         bonus: null,
         smm_service_id: null,
         quantity: null,
-        sort_order: product?.pricing_tiers?.length || 0,
+        sort_order: 0,
         provider_id: null,
         provider_product_id: null,
       });
@@ -292,12 +363,28 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
   };
 
   const handleSaveTier = async () => {
+    // Auto-compute sort_order from the amount label so admins don't manage it.
+    const finalForm = {
+      ...tierForm,
+      sort_order: parseSortOrder(tierForm.amount, tierForm.price),
+    };
     if (editingTier) {
-      await updatePricingTier({ id: editingTier.id, tier: tierForm });
+      await updatePricingTier({ id: editingTier.id, tier: finalForm });
     } else {
-      await createPricingTier({ productId: tierProductId, tier: tierForm });
+      await createPricingTier({ productId: tierProductId, tier: finalForm });
     }
     setTierDialogOpen(false);
+  };
+
+  const convertUsdToInr = () => {
+    const usd = parseFloat(tierUsdPrice);
+    if (isNaN(usd) || usd <= 0) {
+      toast({ title: "Invalid USD price", variant: "destructive" });
+      return;
+    }
+    const inr = Math.round(usd * usdRate);
+    setTierForm({ ...tierForm, price: inr });
+    toast({ title: `Converted: $${usd} × ${usdRate} = ₹${inr}` });
   };
 
   const confirmDelete = (type: "product" | "tier", id: string, name: string) => {
@@ -362,6 +449,18 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
             Add Product
           </Button>
         </div>
+      </div>
+
+      {/* USD → INR rate banner */}
+      <div className="bg-card border border-border rounded-xl p-4 flex flex-wrap items-center gap-3">
+        <span className="text-sm font-semibold">USD → INR rate:</span>
+        <Input
+          type="number" step="0.01" className="w-28 h-8"
+          value={usdRate}
+          onChange={(e) => setUsdRate(parseFloat(e.target.value) || 0)}
+        />
+        <Button size="sm" variant="outline" onClick={() => saveUsdRate(usdRate)}>Save Rate</Button>
+        <span className="text-xs text-muted-foreground">Used by tier price converter & Aluu game import.</span>
       </div>
 
       {/* Stats */}
@@ -498,6 +597,20 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
                                 Provider: {tier.provider_product_id || 'N/A'}
                               </Badge>
                             )}
+                            <div className="flex items-center gap-1 ml-2 px-2 py-1 rounded bg-accent/10 border border-accent/30">
+                              <span className="text-[10px] font-bold text-accent uppercase">Reseller ₹</span>
+                              <Input
+                                type="number"
+                                className="h-7 w-20 text-xs"
+                                placeholder={String(tier.price)}
+                                value={resellerEdits[tier.id] ?? (resellerPrices[tier.id] != null ? String(resellerPrices[tier.id]) : "")}
+                                onChange={(e) => setResellerEdits(prev => ({ ...prev, [tier.id]: e.target.value }))}
+                              />
+                              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => saveResellerPrice(tier.id)}>Save</Button>
+                              {resellerPrices[tier.id] != null && (
+                                <Button size="sm" variant="ghost" className="h-7 px-1 text-xs text-red-500" onClick={() => clearResellerPrice(tier.id)}>×</Button>
+                              )}
+                            </div>
                           </div>
                           <div className="flex gap-1">
                             <Button variant="ghost" size="sm" onClick={() => openTierDialog(product.id, tier)}>
@@ -645,7 +758,7 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
               />
             </div>
 
-            <div className="flex items-center gap-6">
+            <div className="flex flex-wrap items-center gap-6">
               <div className="flex items-center gap-2">
                 <Switch
                   checked={productForm.in_stock}
@@ -660,6 +773,24 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
                 />
                 <Label>Social Media (SMM)</Label>
               </div>
+              {!productForm.is_social_media && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={productForm.requires_player_id !== false}
+                      onCheckedChange={(checked) => setProductForm({ ...productForm, requires_player_id: checked })}
+                    />
+                    <Label>Requires Player ID</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={!!productForm.requires_server_id}
+                      onCheckedChange={(checked) => setProductForm({ ...productForm, requires_server_id: checked })}
+                    />
+                    <Label>Requires Server ID</Label>
+                  </div>
+                </>
+              )}
             </div>
 
             {productForm.is_social_media && (
@@ -713,24 +844,36 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Price (₹)</Label>
+            <div className="space-y-2">
+              <Label>Price (₹)</Label>
+              <Input
+                type="number"
+                placeholder="99"
+                value={tierForm.price}
+                onChange={(e) => setTierForm({ ...tierForm, price: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+
+            {/* USD → INR converter */}
+            <div className="rounded-lg border border-dashed p-3 space-y-2">
+              <Label className="text-xs font-semibold uppercase">USD → INR Converter</Label>
+              <div className="flex gap-2 items-center">
                 <Input
                   type="number"
-                  placeholder="99"
-                  value={tierForm.price}
-                  onChange={(e) => setTierForm({ ...tierForm, price: parseFloat(e.target.value) || 0 })}
+                  step="0.01"
+                  placeholder="USD price (e.g. 9.10)"
+                  value={tierUsdPrice}
+                  onChange={(e) => setTierUsdPrice(e.target.value)}
+                  className="flex-1"
                 />
+                <span className="text-xs text-muted-foreground whitespace-nowrap">× ₹{usdRate}</span>
+                <Button type="button" variant="outline" size="sm" onClick={convertUsdToInr}>
+                  Convert
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label>Sort Order</Label>
-                <Input
-                  type="number"
-                  value={tierForm.sort_order}
-                  onChange={(e) => setTierForm({ ...tierForm, sort_order: parseInt(e.target.value) || 0 })}
-                />
-              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Sets the INR price above. Manual edits are kept.
+              </p>
             </div>
 
             <div className="space-y-2">

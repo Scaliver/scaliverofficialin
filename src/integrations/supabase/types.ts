@@ -284,6 +284,8 @@ export type Database = {
           instructions: string[] | null
           is_social_media: boolean
           name: string
+          requires_player_id: boolean
+          requires_server_id: boolean
           slug: string
           sort_order: number
           sub_category: string | null
@@ -300,6 +302,8 @@ export type Database = {
           instructions?: string[] | null
           is_social_media?: boolean
           name: string
+          requires_player_id?: boolean
+          requires_server_id?: boolean
           slug: string
           sort_order?: number
           sub_category?: string | null
@@ -316,6 +320,8 @@ export type Database = {
           instructions?: string[] | null
           is_social_media?: boolean
           name?: string
+          requires_player_id?: boolean
+          requires_server_id?: boolean
           slug?: string
           sort_order?: number
           sub_category?: string | null
@@ -343,6 +349,30 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reseller_prices: {
+        Row: {
+          created_at: string
+          id: string
+          price: number
+          tier_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          price: number
+          tier_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          price?: number
+          tier_id?: string
           updated_at?: string
         }
         Relationships: []
