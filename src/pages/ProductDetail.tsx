@@ -107,8 +107,22 @@ const ProductDetail = () => {
   const [utrNumber, setUtrNumber] = useState("");
   const [copied, setCopied] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
-  
-  
+
+  // Manual recharge removed; always automatic.
+  const rechargeMode: 'automatic' | 'manual' = 'automatic';
+  const isManualRechargeEnabled = false;
+
+  // Player verification state
+  const [playerInfo, setPlayerInfo] = useState<{ nickname: string; region: string } | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [isPlayerVerified, setIsPlayerVerified] = useState(false);
+  const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Track which API type to use for this product
+  const [productApiType, setProductApiType] = useState<'aluu' | 'gametopup' | null>(null);
+  const [productApiId, setProductApiId] = useState<string | null>(null);
+
   // Get the active product based on category selection for Instagram, Facebook, or TikTok
   const product = useMemo((): LegacyProduct | undefined => {
     let p: LegacyProduct | undefined;
