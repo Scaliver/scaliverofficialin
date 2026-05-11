@@ -1,73 +1,55 @@
-## Goal
+## Plan
 
-Wrap up the online-payment product flow so it auto-creates the Aluu order on success, and add several admin productivity features around tiers, pricing, reseller pricing, and per-product field visibility.
+### 1. Remove manual recharge (product side)
+- `ProductDetail.tsx`: delete the Recharge Mode selector block (lines ~776-816), remove `rechargeMode` state, `isManualRechargeEnabled` fetch, and the `if (rechargeMode === 'manual')` branch in the wallet purchase flow. All wallet purchases go through automatic Aluu/GameTopUp fulfillment.
+- `SiteSettings.tsx`: remove the "Manual Recharge Mode" toggle UI (keep the DB key untouched — harmless).
+- Keep the `pending_manual` order status as a *fallback* only when an automated provider call fails (existing behavior in chuimei callback already does this).
 
----
+### 2. Rename "Pay Online" → "Pay UPI"
+- `ProductDetail.tsx` line 1147: change button label `Pay Online` → `Pay UPI`. Update icon/toast copy ("Payment Initiated" stays).
+- The existing "Pay with UPI QR" (manual UTR) button stays renamed to **"Pay UPI (Manual QR)"** to avoid confusion, OR is removed if you want only the gateway flow. (Default in plan: keep both, rename QR variant.)
+- `AddCoin.tsx` line 419 & 439: also rename "Pay Online" → "Pay UPI" for consistency.
 
-## 1. Pay-Online → Auto Order Fulfillment (verify)
+### 3. Instant 24/7 product purchase via Pay UPI → Aluu auto-order
+Already wired end-to-end; this step just verifies/locks it in:
+- On click: insert `upi_payment_requests` with `request_type='product_order'`, `tier_id`, `provider_id`, `provider_product_id`, `player_id`, `zone_id`, `redirect_path`. ✅ already done.
+- `chuimei-payment` GET callback + `verify_payment` action calls `handlePaymentCallback` → `fulfillProductOrder` → invokes `aluu-order` `create_order` automatically. ✅ already done.
+- Add `redirect_path` default to `/orders` (instead of category page) so user lands on order history right after payment.
+- Add a polling effect on `/orders` (and existing one on `/`) that calls `verify_payment` for any `?payment_order=...` URL param and shows a success toast.
 
-The `chuimei-payment` callback already triggers `aluu-order` for `request_type='product_order'`. We will:
+### 4. Order + history row creation after gateway payment
+- `fulfillProductOrder` already inserts an `orders` row (status `processing` on success, `pending_manual` on failure). ✅
+- Also insert a `coin_transactions` row of type `debit` referencing the order so it shows up in the user's wallet history. (New: currently only wallet-based purchases create that row via `process_order_payment`.)
 
-- Audit `ProductDetail.tsx` "Pay Online" path to confirm it inserts an `upi_payment_requests` row with: `request_type='product_order'`, `tier_id`, `provider_product_id`, `player_id`, `zone_id`, `product_id`, `redirect_path`.
-- In `chuimei-payment` `handlePaymentCallback`, after marking request `completed`, immediately invoke `aluu-order` `create_order` with the stored tier/player/zone, then create an `orders` row with `status='completed'` (or `pending_manual` on Aluu failure + WhatsApp notify, matching wallet flow).
-- On the frontend (`Index.tsx` redirect handler), after verification show a success toast and redirect to `redirect_path` (the product page) instead of staying on `/`.
+### 5. Auto-sort pricing tiers (small → high) by amount
+- `ProductManagement.tsx`: add an **"Auto-Sort Tiers"** button next to each product's tier list.
+- Logic: read all `pricing_tiers` for that product, parse the leading integer from `amount` (e.g. "5 Diamonds" → 5, "10000 Diamonds" → 10000), sort ascending, then `update` `sort_order = index` for each tier.
+- Tier list rendering already orders by `sort_order`, so it will reflect immediately.
+- Optional: also run this automatically on tier insert/edit (already partially wired — confirm and unify).
 
-## 2. Auto-Sort Tiers (no manual sort_order)
+### 6. Webhook + payment-detection hardening for Pay UPI
+- Add a dedicated POST webhook action `chuimei_webhook` (no JWT) at `/functions/v1/chuimei-payment` (already supported via `case 'callback'`). Provide a stable webhook URL the user can paste into the Chuimei-pe dashboard:
+  ```
+  https://rhfpvuwefqfdqxscnquf.supabase.co/functions/v1/chuimei-payment
+  ```
+  This same endpoint handles GET redirect *and* POST webhook.
+- Improve verify logic:
+  - Accept more status synonyms (`paid`, `complete`, `Success`, numeric `1`).
+  - Always run `verify_payment` against Chuimei `/check-order-status` even if callback says success (source of truth).
+  - Idempotency guard via `existingReq.status === 'completed'` is already present. ✅
+- Frontend:
+  - On redirect back, poll `verify_payment` every 3s up to 60s on `/orders` and `/` for `?payment_order=...`. On `completed` → toast + refresh orders list.
+- Failure path: if Aluu call fails, mark order `pending_manual` and notify admin via WhatsApp (already implemented in `fulfillProductOrder` partial; will add WhatsApp ping using existing `send-payment-notification` style helper).
 
-- Remove the `Sort Order` input from the admin Tier form in `ProductManagement.tsx`.
-- Compute `sort_order` automatically on save by parsing the numeric portion of `amount` (e.g. "86 Diamonds" → 86, "Weekly Pass" → fallback to price). Save = parsed value ascending.
-- Backfill existing tiers with a one-shot SQL that recomputes `sort_order` from `amount`/`price`.
+### Out of scope
+- Reseller pricing changes
+- New payment providers
+- Refactor of Aluu webhook signature verification
 
-## 3. Reseller System
-
-Schema:
-- Add `'reseller'` to the `app_role` enum (already may exist — verify; the existing `useReseller` hook uses it).
-- New table `reseller_prices(id, tier_id uuid, price numeric, created_at, updated_at)` with unique(tier_id). RLS: admins manage; resellers can SELECT all.
-
-Admin UI:
-- New tab "Resellers" in Admin: list users, toggle reseller role on/off (insert/delete `user_roles` row with role='reseller').
-- New tab "Reseller Pricing": for each product → list tiers with an editable "Reseller Price" column; saves into `reseller_prices`.
-
-Storefront:
-- Extend `useReseller` to also return a `getTierPrice(tier)` helper that returns `reseller_prices.price` if user is reseller and override exists, else falls back to existing percent discount, else `tier.price`.
-- Update `ProductDetail.tsx` and `ProductCard.tsx` price displays to use this helper. Order/payment amounts use the same resolved price.
-
-## 4. Tier Picker During Game Import (Aluu)
-
-In `AluuGameManager.tsx`:
-- After fetching products for a game, render a checkbox list of all available denoms with their Aluu price.
-- On import, only create `pricing_tiers` for selected denoms. Each tier saves `provider_id` (Aluu), `provider_product_id` (denom code), `amount` (denom name), and `price` computed via the USD converter (see #5).
-
-## 5. USD → INR Price Converter
-
-- New site setting key `usd_inr_rate` (default 95). Editable in Admin → Site Settings (numeric input 80–120).
-- In tier admin form, add a "USD price" optional input + "Convert" button: sets `price = round(usd * rate)`. Manual override remains editable; we never auto-overwrite an existing price.
-- Apply the same conversion automatically during the Aluu game-import in #4 (Aluu prices are USD).
-
-## 6. Per-Product ID / Server Field Toggles
-
-Schema:
-- Add `requires_player_id boolean default true` and `requires_server_id boolean default false` to `products`.
-
-Admin:
-- Two switches in `ProductManagement.tsx` product form: "Requires Player ID", "Requires Server ID".
-
-Storefront:
-- `ProductDetail.tsx`: hide Player ID / Zone ID inputs when respective flag is false; skip validation; pass empty/null to order payload. Aluu `create_order` already accepts optional `serverid`/`charname`.
-
----
-
-## Technical notes
-
-- DB migration: `app_role` enum check, `reseller_prices` table + RLS, `products.requires_player_id`/`requires_server_id`, `site_settings` seed for `usd_inr_rate`.
-- Backfill script: UPDATE `pricing_tiers` SET sort_order = COALESCE(NULLIF(regexp_replace(amount,'[^0-9]','','g'),'')::int, price::int).
-- Edge function changes: `chuimei-payment` ensures order row + Aluu create call on product_order verification (tighten existing path).
-- Frontend price reads centralized through a new `getEffectivePrice(tier)` in `useReseller` to avoid drift.
-
-## Out of scope (this round)
-
-- Reseller-only catalog visibility filter (resellers will see all products with overridden prices, not a separate catalog).
-- Bulk tier import from CSV.
-- Multi-currency display toggle for end users.
-
-Confirm and I'll implement, starting with the migration.
+### Technical files touched
+- `src/pages/ProductDetail.tsx` — remove manual mode UI/logic, rename button, default redirect to `/orders`
+- `src/pages/AddCoin.tsx` — rename label
+- `src/pages/Index.tsx` / `src/pages/Orders.tsx` — payment_order polling
+- `src/components/admin/ProductManagement.tsx` — Auto-Sort Tiers button
+- `src/components/admin/SiteSettings.tsx` — remove manual recharge toggle
+- `supabase/functions/chuimei-payment/index.ts` — broader status parsing, debit transaction insert on product_order success, webhook hardening
