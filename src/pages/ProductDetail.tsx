@@ -832,13 +832,6 @@ const ProductDetail = () => {
                       </div>
                     )}
                     
-                    {/* Manual mode notice */}
-                    {product.category === 'Mobile Legends' && rechargeMode === 'manual' && (
-                      <div className="mt-3 flex items-center gap-2 text-orange-500 bg-orange-500/10 px-3 py-2 rounded-lg">
-                        <AlertCircle className="w-4 h-4" />
-                        <span className="text-sm">Username verification skipped. Order will be processed manually by admin.</span>
-                      </div>
-                    )}
                   </>
                 )}
               </div>
