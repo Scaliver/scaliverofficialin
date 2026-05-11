@@ -279,7 +279,9 @@ serve(async (req) => {
 async function handlePaymentCallback(supabase: any, orderId: string, status: string) {
   if (!orderId) return;
   
-  const isSuccess = status === 'success' || status === 'SUCCESS' || status === 'true' || status === true;
+  const isSuccess = status === 'success' || status === 'SUCCESS' || status === 'true' || status === true ||
+    status === 'paid' || status === 'PAID' || status === 'completed' || status === 'COMPLETED' ||
+    status === 'complete' || status === '1' || status === 1;
   console.log(`Processing callback for ${orderId}, status: ${status}, isSuccess: ${isSuccess}`);
 
   // DUPLICATE PROTECTION: Fetch current status FIRST
