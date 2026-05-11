@@ -247,6 +247,8 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
     }
     toast({ title: "Tiers sorted", description: "Arranged from low to high." });
   };
+
+  const openProductDialog = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
       setProductForm({
