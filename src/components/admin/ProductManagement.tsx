@@ -233,6 +233,21 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
     await updatePricingTier({ id: swap.id, tier: { sort_order: me.sort_order } });
   };
 
+  // Auto-sort all tiers of a product ascending by numeric value parsed from amount.
+  const autoSortTiers = async (productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (!product?.pricing_tiers || product.pricing_tiers.length === 0) return;
+    const sorted = [...product.pricing_tiers].sort((a, b) => {
+      const av = parseSortOrder(a.amount, Number(a.price));
+      const bv = parseSortOrder(b.amount, Number(b.price));
+      return av - bv;
+    });
+    for (let i = 0; i < sorted.length; i++) {
+      await updatePricingTier({ id: sorted[i].id, tier: { sort_order: i } });
+    }
+    toast({ title: "Tiers sorted", description: "Arranged from low to high." });
+  };
+
   const openProductDialog = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
@@ -560,10 +575,16 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
                 <div className="border-t border-border p-4 bg-secondary/20">
                   <div className="flex items-center justify-between mb-3">
                     <p className="font-display font-semibold text-foreground">Pricing Tiers</p>
-                    <Button size="sm" variant="outline" onClick={() => openTierDialog(product.id)} className="gap-1">
-                      <Plus className="w-3 h-3" />
-                      Add Tier
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => autoSortTiers(product.id)} className="gap-1" disabled={!product.pricing_tiers || product.pricing_tiers.length < 2}>
+                        <ArrowUp className="w-3 h-3" />
+                        Auto-Sort
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => openTierDialog(product.id)} className="gap-1">
+                        <Plus className="w-3 h-3" />
+                        Add Tier
+                      </Button>
+                    </div>
                   </div>
                   
                   {product.pricing_tiers && product.pricing_tiers.length > 0 ? (

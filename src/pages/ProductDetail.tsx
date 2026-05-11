@@ -107,45 +107,21 @@ const ProductDetail = () => {
   const [utrNumber, setUtrNumber] = useState("");
   const [copied, setCopied] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
-  
-  // Recharge mode: 'automatic' or 'manual'
-  const [rechargeMode, setRechargeMode] = useState<'automatic' | 'manual'>('automatic');
-  const [isManualRechargeEnabled, setIsManualRechargeEnabled] = useState(true);
-  
+
+  // Manual recharge removed; always automatic.
+  const rechargeMode: 'automatic' | 'manual' = 'automatic';
+  const isManualRechargeEnabled = false;
+
   // Player verification state
   const [playerInfo, setPlayerInfo] = useState<{ nickname: string; region: string } | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [isPlayerVerified, setIsPlayerVerified] = useState(false);
   const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
+
   // Track which API type to use for this product
   const [productApiType, setProductApiType] = useState<'aluu' | 'gametopup' | null>(null);
   const [productApiId, setProductApiId] = useState<string | null>(null);
-
-  // Fetch manual recharge setting
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('site_settings')
-          .select('value')
-          .eq('key', 'manual_recharge_enabled')
-          .maybeSingle();
-
-        if (error) throw error;
-
-        if (data) {
-          const value = data.value as { enabled: boolean };
-          setIsManualRechargeEnabled(value.enabled);
-        }
-      } catch (error) {
-        console.error("Error fetching manual recharge setting:", error);
-      }
-    };
-
-    fetchSettings();
-  }, []);
 
   // Get the active product based on category selection for Instagram, Facebook, or TikTok
   const product = useMemo((): LegacyProduct | undefined => {
@@ -385,29 +361,8 @@ const ProductDetail = () => {
         throw new Error(rpcError.message || "Payment failed");
       }
 
-      // For manual mode, skip API calls and mark for manual processing
-      if (rechargeMode === 'manual') {
-        // Update order status to pending_manual
-        await supabase
-          .from("orders")
-          .update({ status: "pending_manual" })
-          .eq("id", orderData.id);
-        
-        // Send WhatsApp notification for manual processing
-        sendWhatsAppNotification({
-          orderId: orderData.id,
-          productName: product.name,
-          amount: selectedTier.amount,
-          price: selectedTier.price,
-          playerId: userId,
-          zoneId: zoneId || undefined,
-          paymentMethod: "Wallet Balance",
-          status: "Manual Recharge",
-          isManual: true,
-        });
-      }
       // Auto-fulfillment via configured provider (Aluu / GameTopUp)
-      else if (selectedTier.providerId && selectedTier.providerProductId) {
+      if (selectedTier.providerId && selectedTier.providerProductId) {
         try {
           let apiType = 'aluu';
           const { data: apiData } = await supabase
@@ -773,47 +728,6 @@ const ProductDetail = () => {
                 />
               )}
 
-              {/* Recharge Mode Selector - Only for non-social media products and if manual recharge is enabled */}
-              {!product.isSocialMedia && isManualRechargeEnabled && (
-                <div className="bg-card border border-border rounded-xl p-4">
-                  <h3 className="font-display text-sm font-bold text-foreground mb-3">Recharge Mode</h3>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setRechargeMode('automatic')}
-                      className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
-                        rechargeMode === 'automatic'
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-border bg-secondary/50 text-muted-foreground hover:border-primary/50'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center gap-1">
-                        <Loader2 className={`w-5 h-5 ${rechargeMode === 'automatic' ? 'text-primary' : ''}`} />
-                        <span className="font-display text-sm font-bold">Automatic</span>
-                        <span className="text-xs text-muted-foreground">Instant delivery</span>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setRechargeMode('manual')}
-                      className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
-                        rechargeMode === 'manual'
-                          ? 'border-orange-500 bg-orange-500/10 text-orange-500'
-                          : 'border-border bg-secondary/50 text-muted-foreground hover:border-orange-500/50'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center gap-1">
-                        <AlertCircle className={`w-5 h-5 ${rechargeMode === 'manual' ? 'text-orange-500' : ''}`} />
-                        <span className="font-display text-sm font-bold">Manual</span>
-                        <span className="text-xs text-muted-foreground">Admin will process</span>
-                      </div>
-                    </button>
-                  </div>
-                  {rechargeMode === 'manual' && (
-                    <p className="text-xs text-orange-500 mt-2 text-center">
-                      No username verification required. Order will be sent to admin for manual processing.
-                    </p>
-                  )}
-                </div>
-              )}
 
               {/* User Details Form */}
               <div className="bg-card border border-border rounded-xl p-6 space-y-4">
@@ -918,13 +832,6 @@ const ProductDetail = () => {
                       </div>
                     )}
                     
-                    {/* Manual mode notice */}
-                    {product.category === 'Mobile Legends' && rechargeMode === 'manual' && (
-                      <div className="mt-3 flex items-center gap-2 text-orange-500 bg-orange-500/10 px-3 py-2 rounded-lg">
-                        <AlertCircle className="w-4 h-4" />
-                        <span className="text-sm">Username verification skipped. Order will be processed manually by admin.</span>
-                      </div>
-                    )}
                   </>
                 )}
               </div>
@@ -1101,7 +1008,7 @@ const ProductDetail = () => {
                                 is_social_media: !!product.isSocialMedia,
                                 player_id: userId,
                                 zone_id: zoneId || null,
-                                redirect_path: `/?category=${encodeURIComponent(product.category || '')}`,
+                                redirect_path: `/orders`,
                                 utr_number: `CHUIMEI-${Date.now()}`,
                                 status: "pending",
                               })
@@ -1144,7 +1051,7 @@ const ProductDetail = () => {
                         disabled={!selectedTier || isProcessing}
                       >
                         <CreditCard className="w-4 h-4 mr-2" />
-                        Pay Online
+                        Pay UPI
                       </Button>
                       
                       <Button

@@ -279,7 +279,9 @@ serve(async (req) => {
 async function handlePaymentCallback(supabase: any, orderId: string, status: string) {
   if (!orderId) return;
   
-  const isSuccess = status === 'success' || status === 'SUCCESS' || status === 'true' || status === true;
+  const isSuccess = status === 'success' || status === 'SUCCESS' || status === 'true' || status === true ||
+    status === 'paid' || status === 'PAID' || status === 'completed' || status === 'COMPLETED' ||
+    status === 'complete' || status === '1' || status === 1;
   console.log(`Processing callback for ${orderId}, status: ${status}, isSuccess: ${isSuccess}`);
 
   // DUPLICATE PROTECTION: Fetch current status FIRST
@@ -365,6 +367,19 @@ async function fulfillProductOrder(supabase: any, req: any) {
   if (orderError) {
     console.error('Failed to create order:', orderError);
     return;
+  }
+
+  // Record a debit transaction so the purchase appears in user's wallet history.
+  try {
+    await supabase.from('coin_transactions').insert({
+      user_id: req.user_id,
+      amount: Number(req.amount),
+      type: 'debit',
+      description: `Purchase: ${req.product_name || 'Product'} (UPI gateway)`,
+      reference_id: orderData.id,
+    });
+  } catch (e) {
+    console.error('coin_transactions insert failed:', e);
   }
 
   if (req.provider_id && req.provider_product_id) {

@@ -416,7 +416,7 @@ const AddCoin = () => {
                 onClick={() => setPaymentMethod('chuimei')}
               >
                 <CreditCard className="w-6 h-6 text-primary" />
-                <span className="font-display font-bold">Pay Online</span>
+                <span className="font-display font-bold">Pay UPI</span>
                 <span className="text-xs text-muted-foreground">Instant • Min ₹1</span>
               </Button>
               <Button
@@ -436,7 +436,7 @@ const AddCoin = () => {
         {paymentMethod === 'chuimei' && getAmount() >= 1 && (
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle className="text-lg font-display text-center">Pay Online ₹{getAmount()}</CardTitle>
+              <CardTitle className="text-lg font-display text-center">Pay UPI ₹{getAmount()}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-center text-sm text-muted-foreground">
