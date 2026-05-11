@@ -575,10 +575,16 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
                 <div className="border-t border-border p-4 bg-secondary/20">
                   <div className="flex items-center justify-between mb-3">
                     <p className="font-display font-semibold text-foreground">Pricing Tiers</p>
-                    <Button size="sm" variant="outline" onClick={() => openTierDialog(product.id)} className="gap-1">
-                      <Plus className="w-3 h-3" />
-                      Add Tier
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => autoSortTiers(product.id)} className="gap-1" disabled={!product.pricing_tiers || product.pricing_tiers.length < 2}>
+                        <ArrowUp className="w-3 h-3" />
+                        Auto-Sort
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => openTierDialog(product.id)} className="gap-1">
+                        <Plus className="w-3 h-3" />
+                        Add Tier
+                      </Button>
+                    </div>
                   </div>
                   
                   {product.pricing_tiers && product.pricing_tiers.length > 0 ? (
