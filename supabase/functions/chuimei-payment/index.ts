@@ -369,6 +369,19 @@ async function fulfillProductOrder(supabase: any, req: any) {
     return;
   }
 
+  // Record a debit transaction so the purchase appears in user's wallet history.
+  try {
+    await supabase.from('coin_transactions').insert({
+      user_id: req.user_id,
+      amount: Number(req.amount),
+      type: 'debit',
+      description: `Purchase: ${req.product_name || 'Product'} (UPI gateway)`,
+      reference_id: orderData.id,
+    });
+  } catch (e) {
+    console.error('coin_transactions insert failed:', e);
+  }
+
   if (req.provider_id && req.provider_product_id) {
     try {
       const { data: apiData } = await supabase
