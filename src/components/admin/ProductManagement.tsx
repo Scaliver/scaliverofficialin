@@ -233,7 +233,20 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
     await updatePricingTier({ id: swap.id, tier: { sort_order: me.sort_order } });
   };
 
-  const openProductDialog = (product?: Product) => {
+  // Auto-sort all tiers of a product ascending by numeric value parsed from amount.
+  const autoSortTiers = async (productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (!product?.pricing_tiers || product.pricing_tiers.length === 0) return;
+    const sorted = [...product.pricing_tiers].sort((a, b) => {
+      const av = parseSortOrder(a.amount, Number(a.price));
+      const bv = parseSortOrder(b.amount, Number(b.price));
+      return av - bv;
+    });
+    for (let i = 0; i < sorted.length; i++) {
+      await updatePricingTier({ id: sorted[i].id, tier: { sort_order: i } });
+    }
+    toast({ title: "Tiers sorted", description: "Arranged from low to high." });
+  };
     if (product) {
       setEditingProduct(product);
       setProductForm({
