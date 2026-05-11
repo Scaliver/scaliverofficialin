@@ -1051,7 +1051,7 @@ const ProductDetail = () => {
                         disabled={!selectedTier || isProcessing}
                       >
                         <CreditCard className="w-4 h-4 mr-2" />
-                        Pay Online
+                        Pay UPI
                       </Button>
                       
                       <Button
