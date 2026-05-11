@@ -728,47 +728,6 @@ const ProductDetail = () => {
                 />
               )}
 
-              {/* Recharge Mode Selector - Only for non-social media products and if manual recharge is enabled */}
-              {!product.isSocialMedia && isManualRechargeEnabled && (
-                <div className="bg-card border border-border rounded-xl p-4">
-                  <h3 className="font-display text-sm font-bold text-foreground mb-3">Recharge Mode</h3>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setRechargeMode('automatic')}
-                      className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
-                        rechargeMode === 'automatic'
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-border bg-secondary/50 text-muted-foreground hover:border-primary/50'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center gap-1">
-                        <Loader2 className={`w-5 h-5 ${rechargeMode === 'automatic' ? 'text-primary' : ''}`} />
-                        <span className="font-display text-sm font-bold">Automatic</span>
-                        <span className="text-xs text-muted-foreground">Instant delivery</span>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setRechargeMode('manual')}
-                      className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
-                        rechargeMode === 'manual'
-                          ? 'border-orange-500 bg-orange-500/10 text-orange-500'
-                          : 'border-border bg-secondary/50 text-muted-foreground hover:border-orange-500/50'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center gap-1">
-                        <AlertCircle className={`w-5 h-5 ${rechargeMode === 'manual' ? 'text-orange-500' : ''}`} />
-                        <span className="font-display text-sm font-bold">Manual</span>
-                        <span className="text-xs text-muted-foreground">Admin will process</span>
-                      </div>
-                    </button>
-                  </div>
-                  {rechargeMode === 'manual' && (
-                    <p className="text-xs text-orange-500 mt-2 text-center">
-                      No username verification required. Order will be sent to admin for manual processing.
-                    </p>
-                  )}
-                </div>
-              )}
 
               {/* User Details Form */}
               <div className="bg-card border border-border rounded-xl p-6 space-y-4">
