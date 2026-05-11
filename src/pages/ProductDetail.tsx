@@ -385,29 +385,8 @@ const ProductDetail = () => {
         throw new Error(rpcError.message || "Payment failed");
       }
 
-      // For manual mode, skip API calls and mark for manual processing
-      if (rechargeMode === 'manual') {
-        // Update order status to pending_manual
-        await supabase
-          .from("orders")
-          .update({ status: "pending_manual" })
-          .eq("id", orderData.id);
-        
-        // Send WhatsApp notification for manual processing
-        sendWhatsAppNotification({
-          orderId: orderData.id,
-          productName: product.name,
-          amount: selectedTier.amount,
-          price: selectedTier.price,
-          playerId: userId,
-          zoneId: zoneId || undefined,
-          paymentMethod: "Wallet Balance",
-          status: "Manual Recharge",
-          isManual: true,
-        });
-      }
       // Auto-fulfillment via configured provider (Aluu / GameTopUp)
-      else if (selectedTier.providerId && selectedTier.providerProductId) {
+      if (selectedTier.providerId && selectedTier.providerProductId) {
         try {
           let apiType = 'aluu';
           const { data: apiData } = await supabase
