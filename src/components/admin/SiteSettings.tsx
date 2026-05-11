@@ -116,18 +116,6 @@ const SiteSettings = () => {
           <CardDescription>Manage site-wide settings and features</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div className="space-y-1">
-              <Label htmlFor="manual-recharge" className="text-base font-medium">Manual Recharge Mode</Label>
-              <p className="text-sm text-muted-foreground">
-                Allow users to select manual recharge option on product pages.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-              <Switch checked={isManualRechargeEnabled} onCheckedChange={handleToggleManualRecharge} disabled={isSaving} />
-            </div>
-          </div>
 
           <div className="p-4 border rounded-lg space-y-3">
             <Label className="text-base font-medium flex items-center gap-2"><Percent className="w-4 h-4" /> Reseller Discount</Label>
