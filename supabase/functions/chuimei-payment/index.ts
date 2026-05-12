@@ -75,13 +75,35 @@ serve(async (req) => {
       });
     }
 
-    const body = await req.json();
-    const { action } = body;
+    // Parse body — accept JSON or form-urlencoded (Chuimei webhook posts form data)
+    const ctype = (req.headers.get('content-type') || '').toLowerCase();
+    const rawBody = await req.text();
+    let body: any = {};
+    try {
+      if (ctype.includes('application/json')) {
+        body = JSON.parse(rawBody);
+      } else if (ctype.includes('application/x-www-form-urlencoded') || ctype.includes('multipart/form-data')) {
+        body = Object.fromEntries(new URLSearchParams(rawBody).entries());
+      } else {
+        // Try JSON first, fall back to form parsing
+        try { body = JSON.parse(rawBody); } catch { body = Object.fromEntries(new URLSearchParams(rawBody).entries()); }
+      }
+    } catch (e) {
+      console.error('Body parse error:', e, 'raw:', rawBody.substring(0, 300));
+    }
+    let { action } = body;
 
+    // Webhook callbacks from Chuimei don't include "action" — treat any POST
+    // carrying an order_id (and no recognised action) as a webhook callback.
     if (!action) {
-      return new Response(JSON.stringify({ success: false, error: 'Action is required' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      const probableOrderId = body.order_id || body.orderId || body.client_txn_id;
+      if (probableOrderId) {
+        action = 'callback';
+      } else {
+        return new Response(JSON.stringify({ success: false, error: 'Action is required' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     switch (action) {
