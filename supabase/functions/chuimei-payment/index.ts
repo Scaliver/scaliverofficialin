@@ -171,12 +171,37 @@ serve(async (req) => {
       }
 
       case 'callback': {
-        // POST webhook callback
-        console.log('Chuimei-pe POST callback:', JSON.stringify(body));
+        // POST webhook callback. Chuimei's payload format isn't guaranteed, so
+        // we ALWAYS re-verify with /check-order-status before fulfilling.
+        console.log('Chuimei-pe POST callback raw:', rawBody.substring(0, 500));
+        console.log('Chuimei-pe POST callback parsed:', JSON.stringify(body));
         const callbackOrderId = body.order_id || body.orderId || body.client_txn_id;
-        const paymentStatus = body.status || body.payment_status;
-        await handlePaymentCallback(supabase, callbackOrderId, paymentStatus);
-        return new Response(JSON.stringify({ success: true }), {
+        if (!callbackOrderId) {
+          return new Response(JSON.stringify({ success: false, error: 'order_id missing in webhook' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        let resolved = body.status || body.payment_status || '';
+        try {
+          const apiToken = Deno.env.get('CHUIMEI_API_TOKEN') || '';
+          const fd = new URLSearchParams();
+          fd.append('user_token', apiToken);
+          fd.append('order_id', callbackOrderId);
+          const r = await fetch('https://chuimei-pe.in/api/check-order-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: fd.toString(),
+          });
+          const txt = await r.text();
+          console.log('Webhook verify response:', txt);
+          let parsed: any = {}; try { parsed = JSON.parse(txt); } catch {}
+          const inner = parsed?.results || parsed?.data || parsed?.result || parsed;
+          const raw = (inner?.txnStatus || inner?.status || '').toString().toLowerCase();
+          if (raw === 'success' || raw === 'completed' || raw === 'paid') resolved = 'success';
+          else if (raw === 'failed' || raw === 'failure' || raw === 'cancelled') resolved = 'failed';
+        } catch (e) { console.error('webhook verify error:', e); }
+        await handlePaymentCallback(supabase, callbackOrderId, resolved);
+        return new Response(JSON.stringify({ success: true, resolved }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
