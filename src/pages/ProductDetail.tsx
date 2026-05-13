@@ -542,22 +542,8 @@ const ProductDetail = () => {
     }
   };
 
-  const copyUpiId = () => {
-    navigator.clipboard.writeText(UPI_ID);
-    setCopied(true);
-    toast({
-      title: "Copied!",
-      description: "UPI ID copied to clipboard",
-    });
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const validateUTR = (utr: string) => {
-    const cleanUtr = utr.replace(/\s/g, "");
-    return cleanUtr.length >= 12 && /^\d+$/.test(cleanUtr);
-  };
-
   // UPI QR manual flow removed.
+
 
   const canPayWithWallet = user && wallet && selectedTier && balance >= selectedTier.price;
 
