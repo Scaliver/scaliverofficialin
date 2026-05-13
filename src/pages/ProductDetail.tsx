@@ -1054,15 +1054,6 @@ const ProductDetail = () => {
                         Pay UPI
                       </Button>
                       
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={handleUPIPayment}
-                        disabled={!selectedTier || isProcessing}
-                      >
-                        <CreditCard className="w-4 h-4 mr-2" />
-                        Pay with UPI QR
-                      </Button>
                     </>
                   ) : (
                     <Button
