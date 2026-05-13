@@ -1428,6 +1428,12 @@ const Admin = () => {
               <Image className="w-4 h-4" />
               Banners
             </button>
+            <button onClick={() => setActiveTab("coinpackages")} className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${activeTab === "coinpackages" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
+              <Coins className="w-4 h-4" /> Coin Packages
+            </button>
+            <button onClick={() => setActiveTab("redeem")} className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${activeTab === "redeem" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
+              <Gift className="w-4 h-4" /> Redeem Codes
+            </button>
           </div>
 
           {/* Dashboard Stats */}
