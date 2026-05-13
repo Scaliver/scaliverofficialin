@@ -1278,22 +1278,7 @@ const Admin = () => {
                 </span>
               )}
             </button>
-            <button
-              onClick={() => setActiveTab("pending_manual")}
-              className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap relative ${
-                activeTab === "pending_manual"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <AlertTriangle className="w-4 h-4" />
-              Pending Manual ({orders.filter(o => o.status === "pending_manual").length})
-              {orders.filter(o => o.status === "pending_manual").length > 0 && activeTab !== "pending_manual" && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                  {orders.filter(o => o.status === "pending_manual").length}
-                </span>
-              )}
-            </button>
+            {/* Pending Manual tab removed — manual flow disabled */}
             <button
               onClick={() => {
                 setActiveTab("users");
