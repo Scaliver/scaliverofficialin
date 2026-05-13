@@ -103,9 +103,8 @@ const ProductDetail = () => {
   const [zoneId, setZoneId] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
-  const [showUpiPayment, setShowUpiPayment] = useState(false);
-  const [utrNumber, setUtrNumber] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [receiptData2, setReceiptData2] = useState<null>(null); // placeholder removed
+
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   // Manual recharge removed; always automatic.
@@ -543,95 +542,8 @@ const ProductDetail = () => {
     }
   };
 
-  const copyUpiId = () => {
-    navigator.clipboard.writeText(UPI_ID);
-    setCopied(true);
-    toast({
-      title: "Copied!",
-      description: "UPI ID copied to clipboard",
-    });
-    setTimeout(() => setCopied(false), 2000);
-  };
+  // UPI QR manual flow removed.
 
-  const validateUTR = (utr: string) => {
-    const cleanUtr = utr.replace(/\s/g, "");
-    return cleanUtr.length >= 12 && /^\d+$/.test(cleanUtr);
-  };
-
-  const handleUPIPayment = () => {
-    if (!validateForm() || !selectedTier) return;
-    setShowUpiPayment(true);
-  };
-
-  const handleSubmitUPIPayment = async () => {
-    if (!selectedTier) return;
-
-    if (!utrNumber.trim()) {
-      toast({
-        title: "UTR Required",
-        description: "Please enter the UTR number from your payment",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!validateUTR(utrNumber)) {
-      toast({
-        title: "Invalid UTR",
-        description: "Please enter a valid UTR number (minimum 12 digits)",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      // Save UPI order request to database
-      const { error } = await supabase
-        .from("upi_payment_requests")
-        .insert({
-          user_id: user?.id || null,
-          user_email: user?.email || null,
-          request_type: "product_order",
-          amount: selectedTier.price,
-          product_name: product.name,
-          product_pack: selectedTier.amount,
-          player_id: userId,
-          zone_id: zoneId || null,
-          utr_number: utrNumber.trim(),
-          status: "pending",
-        });
-
-      if (error) throw error;
-
-      const message = encodeURIComponent(
-        `🎮 *UPI ORDER - Scaliver Official*\n\n` +
-        `📦 Product: ${product.name}\n` +
-        `💎 Pack: ${selectedTier.amount}\n` +
-        `💰 Price: ₹${selectedTier.price}\n` +
-        `🆔 ${product.isSocialMedia ? "Profile/Post URL" : "Player ID"}: ${userId}\n` +
-        `${zoneId ? `🌐 Zone/Server: ${zoneId}\n` : ""}` +
-        `🔢 UTR Number: ${utrNumber.trim()}\n\n` +
-        `Please verify payment and process order.`
-      );
-
-      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank");
-
-      toast({
-        title: "Order Submitted",
-        description: "Your order details have been sent. Order will be processed after payment verification.",
-      });
-
-      setShowUpiPayment(false);
-      setUtrNumber("");
-    } catch (error) {
-      console.error("Error submitting UPI order:", error);
-      toast({
-        title: "Error",
-        description: "Failed to submit order. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const canPayWithWallet = user && wallet && selectedTier && balance >= selectedTier.price;
 
@@ -914,57 +826,10 @@ const ProductDetail = () => {
                 </div>
               )}
 
-              {/* UPI Payment Section */}
-              {showUpiPayment && selectedTier && (
-                <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-                  <h3 className="font-display text-lg font-bold text-foreground flex items-center gap-2">
-                    <CreditCard className="w-5 h-5 text-primary" />
-                    UPI Payment
-                  </h3>
-                  
-                  <div className="flex flex-col items-center gap-4">
-                    <img 
-                      src={upiQrImage} 
-                      alt="UPI QR Code" 
-                      className="w-48 h-48 rounded-xl border border-border"
-                    />
-                    
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground mb-2">Or pay to UPI ID:</p>
-                      <div className="flex items-center gap-2 bg-secondary rounded-lg px-4 py-2">
-                        <span className="font-mono text-foreground">{UPI_ID}</span>
-                        <button onClick={copyUpiId} className="text-primary hover:text-accent">
-                          {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="w-full space-y-2">
-                      <Label htmlFor="utr" className="font-body text-foreground">
-                        Enter UTR Number after payment
-                      </Label>
-                      <Input
-                        id="utr"
-                        placeholder="Enter 12-digit UTR number"
-                        value={utrNumber}
-                        onChange={(e) => setUtrNumber(e.target.value)}
-                        className="bg-secondary border-border"
-                      />
-                    </div>
-
-                    <Button 
-                      onClick={handleSubmitUPIPayment}
-                      className="w-full"
-                      disabled={!utrNumber.trim()}
-                    >
-                      Submit Order
-                    </Button>
-                  </div>
-                </div>
-              )}
+              {/* UPI QR manual flow removed — only gateway payments */}
 
               {/* Payment Buttons */}
-              {!showUpiPayment && (
+              {(
                 <div className="space-y-3">
                   {user ? (
                     <>
@@ -1054,15 +919,6 @@ const ProductDetail = () => {
                         Pay UPI
                       </Button>
                       
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={handleUPIPayment}
-                        disabled={!selectedTier || isProcessing}
-                      >
-                        <CreditCard className="w-4 h-4 mr-2" />
-                        Pay with UPI QR
-                      </Button>
                     </>
                   ) : (
                     <Button

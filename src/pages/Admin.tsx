@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search, ShieldCheck, ShieldAlert, Mail, Phone, Lock, FileText, Megaphone, Power, CreditCard, ShoppingBag, Globe, AlertTriangle, Settings, Image } from "lucide-react";
+import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search, ShieldCheck, ShieldAlert, Mail, Phone, Lock, FileText, Megaphone, Power, CreditCard, ShoppingBag, Globe, AlertTriangle, Settings, Image, Gift } from "lucide-react";
 import { ProductManagement } from "@/components/admin/ProductManagement";
 import { ApiManagement } from "@/components/admin/ApiManagement";
 import BannerManagement from "@/components/admin/BannerManagement";
 import SiteSettings from "@/components/admin/SiteSettings";
+import CoinPackageManagement from "@/components/admin/CoinPackageManagement";
+import RedeemCodeManagement from "@/components/admin/RedeemCodeManagement";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -128,7 +130,7 @@ const Admin = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [activeTab, setActiveTab] = useState<"orders" | "pending_manual" | "users" | "wallets" | "history" | "security" | "audit" | "alerts" | "upi" | "products" | "smm" | "apis" | "settings" | "banners">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history" | "security" | "audit" | "alerts" | "upi" | "products" | "smm" | "apis" | "settings" | "banners" | "coinpackages" | "redeem">("orders");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userOrdersDialogOpen, setUserOrdersDialogOpen] = useState(false);
@@ -1278,22 +1280,7 @@ const Admin = () => {
                 </span>
               )}
             </button>
-            <button
-              onClick={() => setActiveTab("pending_manual")}
-              className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap relative ${
-                activeTab === "pending_manual"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <AlertTriangle className="w-4 h-4" />
-              Pending Manual ({orders.filter(o => o.status === "pending_manual").length})
-              {orders.filter(o => o.status === "pending_manual").length > 0 && activeTab !== "pending_manual" && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                  {orders.filter(o => o.status === "pending_manual").length}
-                </span>
-              )}
-            </button>
+            {/* Pending Manual tab removed — manual flow disabled */}
             <button
               onClick={() => {
                 setActiveTab("users");
@@ -1442,6 +1429,12 @@ const Admin = () => {
             >
               <Image className="w-4 h-4" />
               Banners
+            </button>
+            <button onClick={() => setActiveTab("coinpackages")} className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${activeTab === "coinpackages" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
+              <Coins className="w-4 h-4" /> Coin Packages
+            </button>
+            <button onClick={() => setActiveTab("redeem")} className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${activeTab === "redeem" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
+              <Gift className="w-4 h-4" /> Redeem Codes
             </button>
           </div>
 
@@ -1709,101 +1702,7 @@ const Admin = () => {
             </div>
           )}
 
-          {/* Pending Manual Tab */}
-          {activeTab === "pending_manual" && (
-            <div className="space-y-4">
-              <div className="bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl p-4 mb-4">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-orange-500" />
-                  <span className="font-display font-bold text-foreground">Manual Processing Required</span>
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  These orders failed automatic delivery and need to be processed manually. Complete the recharge and mark as completed.
-                </p>
-              </div>
-
-              {orders.filter(o => o.status === "pending_manual").length === 0 ? (
-                <div className="bg-card border border-border rounded-2xl text-center py-12">
-                  <Check className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                  <p className="font-display text-lg text-foreground mb-2">All Caught Up!</p>
-                  <p className="font-body text-muted-foreground">No orders require manual processing</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {orders.filter(o => o.status === "pending_manual").map((order) => {
-                    const { date, time } = formatDateTime(order.created_at);
-                    return (
-                      <div key={order.id} className="bg-card border-2 border-orange-500/30 rounded-xl p-4 space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-display font-bold text-foreground">{order.product_name}</p>
-                            <p className="font-body text-sm text-muted-foreground">{order.amount}</p>
-                          </div>
-                          <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30">
-                            <AlertTriangle className="w-3 h-3 mr-1" />
-                            Manual Required
-                          </Badge>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 text-sm bg-secondary/50 rounded-lg p-3">
-                          <div>
-                            <p className="text-muted-foreground">Player ID</p>
-                            <p className="font-mono font-bold text-foreground">{order.user_game_id}</p>
-                          </div>
-                          {order.zone_id && !order.zone_id.startsWith("SMM#") && (
-                            <div>
-                              <p className="text-muted-foreground">Zone/Server ID</p>
-                              <p className="font-mono font-bold text-foreground">{order.zone_id}</p>
-                            </div>
-                          )}
-                          <div>
-                            <p className="text-muted-foreground">Price</p>
-                            <p className="font-display font-bold text-primary">₹{order.price}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">User</p>
-                            <p className="font-body text-foreground">{order.profiles?.display_name || "Unknown"}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-2 border-t border-border">
-                          <p className="font-body text-xs text-muted-foreground">{date} • {time}</p>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="text-blue-400 border-blue-500/30 hover:bg-blue-500/20"
-                              onClick={() => updateOrderStatus(order.id, "processing")}
-                            >
-                              <Clock className="w-4 h-4 mr-1" />
-                              Processing
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="default" 
-                              className="bg-green-600 hover:bg-green-700"
-                              onClick={() => updateOrderStatus(order.id, "completed")}
-                            >
-                              <Check className="w-4 h-4 mr-1" />
-                              Mark Completed
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="destructive"
-                              onClick={() => updateOrderStatus(order.id, "cancelled")}
-                            >
-                              <X className="w-4 h-4 mr-1" />
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Pending Manual tab removed */}
 
           {/* Users Tab */}
           {activeTab === "users" && (
@@ -2830,9 +2729,9 @@ const Admin = () => {
           )}
 
           {/* Banners Tab */}
-          {activeTab === "banners" && (
-            <BannerManagement />
-          )}
+          {activeTab === "banners" && <BannerManagement />}
+          {activeTab === "coinpackages" && <CoinPackageManagement />}
+          {activeTab === "redeem" && <RedeemCodeManagement />}
         </div>
       </main>
 

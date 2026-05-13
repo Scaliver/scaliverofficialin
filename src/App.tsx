@@ -15,6 +15,7 @@ import Wallet from "./pages/Wallet";
 import AddCoin from "./pages/AddCoin";
 import Orders from "./pages/Orders";
 import History from "./pages/History";
+import Redeem from "./pages/Redeem";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const AnimatedRoutes = () => {
         <Route path="/add-coin" element={<PageTransition><AddCoin /></PageTransition>} />
         <Route path="/orders" element={<PageTransition><Orders /></PageTransition>} />
         <Route path="/history" element={<PageTransition><History /></PageTransition>} />
+        <Route path="/redeem" element={<PageTransition><Redeem /></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
     </AnimatePresence>
