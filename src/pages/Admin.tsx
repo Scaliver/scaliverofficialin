@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search, ShieldCheck, ShieldAlert, Mail, Phone, Lock, FileText, Megaphone, Power, CreditCard, ShoppingBag, Globe, AlertTriangle, Settings, Image } from "lucide-react";
+import { ArrowLeft, Package, Users, Shield, Check, X, Clock, RefreshCw, Eye, BellRing, Wallet, Coins, History, ArrowUp, ArrowDown, Search, ShieldCheck, ShieldAlert, Mail, Phone, Lock, FileText, Megaphone, Power, CreditCard, ShoppingBag, Globe, AlertTriangle, Settings, Image, Gift } from "lucide-react";
 import { ProductManagement } from "@/components/admin/ProductManagement";
 import { ApiManagement } from "@/components/admin/ApiManagement";
 import BannerManagement from "@/components/admin/BannerManagement";
