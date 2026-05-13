@@ -101,6 +101,36 @@ export type Database = {
         }
         Relationships: []
       }
+      coin_packages: {
+        Row: {
+          amount: number
+          bonus: number
+          created_at: string
+          id: string
+          is_active: boolean
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          bonus?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          bonus?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       coin_transactions: {
         Row: {
           amount: number
@@ -350,6 +380,69 @@ export type Database = {
           display_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      redeem_code_redemptions: {
+        Row: {
+          code_id: string
+          coins_credited: number
+          id: string
+          redeemed_at: string
+          user_id: string
+        }
+        Insert: {
+          code_id: string
+          coins_credited: number
+          id?: string
+          redeemed_at?: string
+          user_id: string
+        }
+        Update: {
+          code_id?: string
+          coins_credited?: number
+          id?: string
+          redeemed_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      redeem_codes: {
+        Row: {
+          code: string
+          coins: number
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_uses: number
+          updated_at: string
+          used_count: number
+        }
+        Insert: {
+          code: string
+          coins: number
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+          updated_at?: string
+          used_count?: number
+        }
+        Update: {
+          code?: string
+          coins?: number
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+          updated_at?: string
+          used_count?: number
         }
         Relationships: []
       }
@@ -644,6 +737,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      redeem_code: { Args: { _code: string }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "user" | "reseller"

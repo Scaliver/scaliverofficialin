@@ -1,55 +1,101 @@
-## Plan
+## Goal
 
-### 1. Remove manual recharge (product side)
-- `ProductDetail.tsx`: delete the Recharge Mode selector block (lines ~776-816), remove `rechargeMode` state, `isManualRechargeEnabled` fetch, and the `if (rechargeMode === 'manual')` branch in the wallet purchase flow. All wallet purchases go through automatic Aluu/GameTopUp fulfillment.
-- `SiteSettings.tsx`: remove the "Manual Recharge Mode" toggle UI (keep the DB key untouched — harmless).
-- Keep the `pending_manual` order status as a *fallback* only when an automated provider call fails (existing behavior in chuimei callback already does this).
+Eliminate every manual payment path, make UPI gateway purchases automatically fulfill via Aluu.in, replace the hard-coded coin bonuses with an admin-editable table, and add a Redeem Code system (admin generates codes, users redeem them, history visible to both).
 
-### 2. Rename "Pay Online" → "Pay UPI"
-- `ProductDetail.tsx` line 1147: change button label `Pay Online` → `Pay UPI`. Update icon/toast copy ("Payment Initiated" stays).
-- The existing "Pay with UPI QR" (manual UTR) button stays renamed to **"Pay UPI (Manual QR)"** to avoid confusion, OR is removed if you want only the gateway flow. (Default in plan: keep both, rename QR variant.)
-- `AddCoin.tsx` line 419 & 439: also rename "Pay Online" → "Pay UPI" for consistency.
+---
 
-### 3. Instant 24/7 product purchase via Pay UPI → Aluu auto-order
-Already wired end-to-end; this step just verifies/locks it in:
-- On click: insert `upi_payment_requests` with `request_type='product_order'`, `tier_id`, `provider_id`, `provider_product_id`, `player_id`, `zone_id`, `redirect_path`. ✅ already done.
-- `chuimei-payment` GET callback + `verify_payment` action calls `handlePaymentCallback` → `fulfillProductOrder` → invokes `aluu-order` `create_order` automatically. ✅ already done.
-- Add `redirect_path` default to `/orders` (instead of category page) so user lands on order history right after payment.
-- Add a polling effect on `/orders` (and existing one on `/`) that calls `verify_payment` for any `?payment_order=...` URL param and shows a success toast.
+## 1. Remove manual flows
 
-### 4. Order + history row creation after gateway payment
-- `fulfillProductOrder` already inserts an `orders` row (status `processing` on success, `pending_manual` on failure). ✅
-- Also insert a `coin_transactions` row of type `debit` referencing the order so it shows up in the user's wallet history. (New: currently only wallet-based purchases create that row via `process_order_payment`.)
+**Product page (`src/pages/ProductDetail.tsx`)**
+- Delete the "Pay with UPI QR" button and the entire `showUpiPayment` block (`handleUPIPayment`, `handleSubmitUPIPayment`, UTR input, QR image).
+- Keep only **Pay with Coins** + **Pay UPI** (gateway) buttons.
 
-### 5. Auto-sort pricing tiers (small → high) by amount
-- `ProductManagement.tsx`: add an **"Auto-Sort Tiers"** button next to each product's tier list.
-- Logic: read all `pricing_tiers` for that product, parse the leading integer from `amount` (e.g. "5 Diamonds" → 5, "10000 Diamonds" → 10000), sort ascending, then `update` `sort_order = index` for each tier.
-- Tier list rendering already orders by `sort_order`, so it will reflect immediately.
-- Optional: also run this automatically on tier insert/edit (already partially wired — confirm and unify).
+**Add Coin (`src/pages/AddCoin.tsx`)**
+- Remove the "UPI QR" payment-method tile, `handleSubmitPayment` (UTR submit), UTR input, QR image, `paymentMethod` toggle.
+- Always go straight to gateway flow (`handleChuimeiPayment`).
 
-### 6. Webhook + payment-detection hardening for Pay UPI
-- Add a dedicated POST webhook action `chuimei_webhook` (no JWT) at `/functions/v1/chuimei-payment` (already supported via `case 'callback'`). Provide a stable webhook URL the user can paste into the Chuimei-pe dashboard:
-  ```
-  https://rhfpvuwefqfdqxscnquf.supabase.co/functions/v1/chuimei-payment
-  ```
-  This same endpoint handles GET redirect *and* POST webhook.
-- Improve verify logic:
-  - Accept more status synonyms (`paid`, `complete`, `Success`, numeric `1`).
-  - Always run `verify_payment` against Chuimei `/check-order-status` even if callback says success (source of truth).
-  - Idempotency guard via `existingReq.status === 'completed'` is already present. ✅
-- Frontend:
-  - On redirect back, poll `verify_payment` every 3s up to 60s on `/orders` and `/` for `?payment_order=...`. On `completed` → toast + refresh orders list.
-- Failure path: if Aluu call fails, mark order `pending_manual` and notify admin via WhatsApp (already implemented in `fulfillProductOrder` partial; will add WhatsApp ping using existing `send-payment-notification` style helper).
+**Admin (`src/pages/Admin.tsx`)**
+- Remove the "Pending Manual" tab + its filtered orders panel.
+- Drop `pending_manual` from the status `<Select>` filter.
 
-### Out of scope
+**SiteSettings (`src/components/admin/SiteSettings.tsx`)**
+- (already mostly clean) leave as-is; reseller controls stay.
+
+---
+
+## 2. Auto-fulfill UPI gateway product orders via Aluu
+
+The webhook + `verify_payment` already calls `fulfillProductOrder`, which inserts the order and invokes `aluu-order`. Two fixes:
+
+- **Rename "manual fallback" path:** when Aluu/GameTopUp call fails inside `fulfillProductOrder`, mark the order `failed` instead of `pending_manual` (since manual is removed). Refund the user by inserting a credit `coin_transactions` row only if a debit was recorded — but for gateway flow no wallet debit exists, so just mark failed and log.
+- **Trigger fulfillment immediately on `create_order`** in `chuimei-payment`: today fulfillment only runs on webhook/verify_payment. After we return the gateway URL we still rely on the webhook — keep that, but also start a short `verify_payment` poll on the client-side `Orders.tsx` (already in place). No structural change needed beyond the failed-instead-of-pending_manual update.
+
+---
+
+## 3. Editable Coin Bonuses
+
+**New table `coin_packages`**
+```
+id uuid pk, amount numeric not null, bonus numeric not null default 0,
+sort_order int default 0, is_active bool default true, timestamps
+```
+RLS: anyone can view active rows; only admins insert/update/delete. Seed with the current 7 packages.
+
+**AddCoin.tsx**: fetch active packages from DB instead of `coinPackages` constant. Drop the `getBonus()` ladder for custom amounts — custom amount gets **no** bonus (bonus only applies to fixed packages).
+
+**Admin.tsx**: new tab **"Coin Packages"** with a simple list — amount, bonus, active toggle, edit/delete + add-row.
+
+---
+
+## 4. Redeem Code system
+
+**Tables**
+```
+redeem_codes:
+  id uuid pk, code text unique not null, coins numeric not null,
+  max_uses int default 1, used_count int default 0,
+  expires_at timestamptz null, is_active bool default true,
+  created_by uuid, created_at, updated_at
+
+redeem_code_redemptions:
+  id uuid pk, code_id uuid not null, user_id uuid not null,
+  coins_credited numeric not null, redeemed_at timestamptz default now(),
+  unique(code_id, user_id)
+```
+
+RLS:
+- `redeem_codes`: admins full CRUD; users can SELECT only `is_active=true` rows (needed for client-side existence check) — actually safer: no client SELECT; redemption goes through a SECURITY DEFINER function `redeem_code(_code text)` that returns coins credited.
+- `redeem_code_redemptions`: users can SELECT their own; admins SELECT all; inserts only via the function.
+
+**Function `public.redeem_code(_code text)`** (SECURITY DEFINER):
+- look up active, non-expired code with `used_count < max_uses`
+- ensure `(code_id, auth.uid())` not yet redeemed
+- credit wallet, insert `coin_transactions` (type credit, description `Redeemed code XXX`), insert `redeem_code_redemptions`, increment `used_count`
+- return `{ success, coins, message }`
+
+**UI**
+- New page `src/pages/Redeem.tsx`: input code → call RPC → toast result; show user's redemption history below.
+- `src/components/QuickActions.tsx`: replace **History** with **Redeem** (Gift icon, route `/redeem`); History stays accessible from wallet page.
+  *(Or add as a 5th tile — keeping 4 columns. Choose: replace History since History page already lives under wallet/orders.)*
+- `src/App.tsx`: add `/redeem` route.
+- Admin tab **"Redeem Codes"**: generate single or bulk codes (count + coin amount + max uses + expiry), list all codes with usage stats, deactivate/delete, and a redemptions table showing who redeemed what.
+
+---
+
+## Files touched
+
+- `supabase/migrations/<new>.sql` — coin_packages, redeem_codes, redeem_code_redemptions, `redeem_code` function, seed
+- `supabase/functions/chuimei-payment/index.ts` — pending_manual → failed
+- `src/pages/AddCoin.tsx` — drop manual UPI + load packages from DB
+- `src/pages/ProductDetail.tsx` — drop UPI QR button + handlers
+- `src/pages/Admin.tsx` — remove Pending Manual tab; add Coin Packages tab; add Redeem Codes tab
+- `src/components/QuickActions.tsx` — Redeem tile
+- `src/pages/Redeem.tsx` (new)
+- `src/App.tsx` — register `/redeem`
+- `src/components/admin/CoinPackageManagement.tsx` (new)
+- `src/components/admin/RedeemCodeManagement.tsx` (new)
+
+## Out of scope
 - Reseller pricing changes
-- New payment providers
 - Refactor of Aluu webhook signature verification
-
-### Technical files touched
-- `src/pages/ProductDetail.tsx` — remove manual mode UI/logic, rename button, default redirect to `/orders`
-- `src/pages/AddCoin.tsx` — rename label
-- `src/pages/Index.tsx` / `src/pages/Orders.tsx` — payment_order polling
-- `src/components/admin/ProductManagement.tsx` — Auto-Sort Tiers button
-- `src/components/admin/SiteSettings.tsx` — remove manual recharge toggle
-- `supabase/functions/chuimei-payment/index.ts` — broader status parsing, debit transaction insert on product_order success, webhook hardening
+- Refunding wallet on gateway failure (no wallet was debited)
