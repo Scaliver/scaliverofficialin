@@ -15,6 +15,7 @@ import Wallet from "./pages/Wallet";
 import AddCoin from "./pages/AddCoin";
 import Orders from "./pages/Orders";
 import History from "./pages/History";
+import Redeem from "./pages/Redeem";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
