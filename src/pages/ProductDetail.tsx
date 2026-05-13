@@ -103,9 +103,8 @@ const ProductDetail = () => {
   const [zoneId, setZoneId] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
-  const [showUpiPayment, setShowUpiPayment] = useState(false);
-  const [utrNumber, setUtrNumber] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [receiptData2, setReceiptData2] = useState<null>(null); // placeholder removed
+
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   // Manual recharge removed; always automatic.
