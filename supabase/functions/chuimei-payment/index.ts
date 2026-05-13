@@ -484,9 +484,9 @@ async function fulfillProductOrder(supabase: any, req: any) {
       }).eq('id', orderData.id);
     } catch (err) {
       console.error('SMM fulfillment failed:', err);
-      await supabase.from('orders').update({ status: 'pending_manual' }).eq('id', orderData.id);
+      await supabase.from('orders').update({ status: 'failed' }).eq('id', orderData.id);
     }
   } else {
-    await supabase.from('orders').update({ status: 'pending_manual' }).eq('id', orderData.id);
+    await supabase.from('orders').update({ status: 'failed' }).eq('id', orderData.id);
   }
 }
