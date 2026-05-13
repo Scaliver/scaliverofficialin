@@ -470,7 +470,7 @@ async function fulfillProductOrder(supabase: any, req: any) {
       }
     } catch (err) {
       console.error('Provider fulfillment failed:', err);
-      await supabase.from('orders').update({ status: 'pending_manual' }).eq('id', orderData.id);
+      await supabase.from('orders').update({ status: 'failed' }).eq('id', orderData.id);
     }
   } else if (req.is_social_media && req.smm_service_id && req.smm_quantity) {
     try {
