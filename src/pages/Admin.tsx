@@ -2727,9 +2727,9 @@ const Admin = () => {
           )}
 
           {/* Banners Tab */}
-          {activeTab === "banners" && (
-            <BannerManagement />
-          )}
+          {activeTab === "banners" && <BannerManagement />}
+          {activeTab === "coinpackages" && <CoinPackageManagement />}
+          {activeTab === "redeem" && <RedeemCodeManagement />}
         </div>
       </main>
 
