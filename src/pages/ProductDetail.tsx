@@ -914,54 +914,7 @@ const ProductDetail = () => {
                 </div>
               )}
 
-              {/* UPI Payment Section */}
-              {showUpiPayment && selectedTier && (
-                <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-                  <h3 className="font-display text-lg font-bold text-foreground flex items-center gap-2">
-                    <CreditCard className="w-5 h-5 text-primary" />
-                    UPI Payment
-                  </h3>
-                  
-                  <div className="flex flex-col items-center gap-4">
-                    <img 
-                      src={upiQrImage} 
-                      alt="UPI QR Code" 
-                      className="w-48 h-48 rounded-xl border border-border"
-                    />
-                    
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground mb-2">Or pay to UPI ID:</p>
-                      <div className="flex items-center gap-2 bg-secondary rounded-lg px-4 py-2">
-                        <span className="font-mono text-foreground">{UPI_ID}</span>
-                        <button onClick={copyUpiId} className="text-primary hover:text-accent">
-                          {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="w-full space-y-2">
-                      <Label htmlFor="utr" className="font-body text-foreground">
-                        Enter UTR Number after payment
-                      </Label>
-                      <Input
-                        id="utr"
-                        placeholder="Enter 12-digit UTR number"
-                        value={utrNumber}
-                        onChange={(e) => setUtrNumber(e.target.value)}
-                        className="bg-secondary border-border"
-                      />
-                    </div>
-
-                    <Button 
-                      onClick={handleSubmitUPIPayment}
-                      className="w-full"
-                      disabled={!utrNumber.trim()}
-                    >
-                      Submit Order
-                    </Button>
-                  </div>
-                </div>
-              )}
+              {/* UPI QR manual flow removed — only gateway payments */}
 
               {/* Payment Buttons */}
               {!showUpiPayment && (
