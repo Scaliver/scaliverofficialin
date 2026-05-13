@@ -1,11 +1,11 @@
 import { useNavigate } from "react-router-dom";
-import { Wallet, ShoppingCart, Clock, PlusCircle } from "lucide-react";
+import { Wallet, ShoppingCart, Gift, PlusCircle } from "lucide-react";
 
 const actions = [
   { icon: PlusCircle, label: "Add Coin", path: "/add-coin" },
   { icon: Wallet, label: "Wallet", path: "/wallet" },
+  { icon: Gift, label: "Redeem", path: "/redeem" },
   { icon: ShoppingCart, label: "Orders", path: "/orders" },
-  { icon: Clock, label: "History", path: "/history" },
 ];
 
 const QuickActions = () => {
