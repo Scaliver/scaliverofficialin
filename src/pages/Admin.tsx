@@ -5,6 +5,8 @@ import { ProductManagement } from "@/components/admin/ProductManagement";
 import { ApiManagement } from "@/components/admin/ApiManagement";
 import BannerManagement from "@/components/admin/BannerManagement";
 import SiteSettings from "@/components/admin/SiteSettings";
+import CoinPackageManagement from "@/components/admin/CoinPackageManagement";
+import RedeemCodeManagement from "@/components/admin/RedeemCodeManagement";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
