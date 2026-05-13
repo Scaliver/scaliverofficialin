@@ -829,7 +829,7 @@ const ProductDetail = () => {
               {/* UPI QR manual flow removed — only gateway payments */}
 
               {/* Payment Buttons */}
-              {!showUpiPayment && (
+              {(
                 <div className="space-y-3">
                   {user ? (
                     <>
