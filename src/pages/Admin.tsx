@@ -316,38 +316,6 @@ const Admin = () => {
         )
         .subscribe();
 
-      const upiChannel = supabase
-        .channel('admin-upi-realtime')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'upi_payment_requests'
-          },
-          () => {
-            if (!initialLoadRef.current) {
-              setNewUpiCount(prev => prev + 1);
-              toast({
-                title: "🔔 New UPI Payment!",
-                description: "A new UPI payment request has been received.",
-                duration: 5000,
-              });
-            }
-                }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'upi_payment_requests'
-          },
-          () => {
-                }
-        )
-        .subscribe();
-
       // Mark initial load complete after first fetch
       setTimeout(() => {
         initialLoadRef.current = false;
