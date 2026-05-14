@@ -117,7 +117,7 @@ const AddCoin = () => {
         body: {
           action: "create_order", amount, order_id: paymentRecord.id,
           customer_mobile: "0000000000",
-          redirect_url: window.location.origin + "/add-coin",
+          redirect_url: window.location.origin,
           remark1: `Coin recharge - ${getTotalCoins()} coins`,
           remark2: user.email,
         },
