@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 const CHUIMEI_API_URL = 'https://chuimei-pe.in/api/create-order';
+const ALUU_BASE_URL = 'https://aluu.in/api/v.1';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -387,47 +388,114 @@ async function handlePaymentCallback(supabase: any, orderId: string, status: str
   console.log(`Auto-credited ${totalCoins} coins to user ${existingReq.user_id}`);
 }
 
+async function fetchAluuProviderStatus(partnerOrderId: string) {
+  const apiKey = Deno.env.get('ALUU_API_KEY');
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch(`${ALUU_BASE_URL}/${encodeURIComponent(partnerOrderId)}`, {
+      headers: {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const rawText = await response.text();
+    let parsed: any = {};
+    try { parsed = JSON.parse(rawText); } catch { parsed = { raw: rawText }; }
+    const payload = parsed?.data || parsed;
+    const status = payload?.status ? String(payload.status).toLowerCase() : null;
+
+    return {
+      ok: response.ok,
+      status,
+      providerReference: payload?.provider_order_id || payload?.reference || parsed?.reference || null,
+      raw: parsed,
+    };
+  } catch (error) {
+    console.error('fetchAluuProviderStatus failed:', error);
+    return null;
+  }
+}
+
+async function upsertWebhookAuditLog(supabase: any, paymentRequestId: string, stage: string, payload: Record<string, unknown>) {
+  try {
+    const serialized = JSON.stringify({ stage, payload });
+    await supabase.from('audit_logs').insert({
+      admin_id: '00000000-0000-0000-0000-000000000000',
+      action: `chuimei_${stage}`,
+      resource_type: 'upi_payment_requests',
+      resource_id: paymentRequestId,
+      details: { payload: serialized },
+    });
+  } catch (error) {
+    console.error('audit log insert failed:', error);
+  }
+}
+
 async function fulfillProductOrder(supabase: any, req: any) {
   console.log(`Fulfilling product order for payment ${req.id}`);
 
-  const { data: existingOrder } = await supabase
-    .from('orders').select('id').eq('payment_request_id', req.id).maybeSingle();
-  if (existingOrder) {
-    console.log(`Order already created for payment ${req.id}`);
+  let orderData: any = null;
+  const { data: existingOrder, error: existingOrderError } = await supabase
+    .from('orders')
+    .select('id, status, smm_order_id, payment_request_id')
+    .eq('payment_request_id', req.id)
+    .maybeSingle();
+
+  if (existingOrderError) {
+    console.error('Failed to check existing order:', existingOrderError);
     return;
   }
 
-  const { data: orderData, error: orderError } = await supabase
-    .from('orders').insert({
-      user_id: req.user_id,
-      product_id: req.product_id,
-      product_name: req.product_name,
-      amount: req.product_pack,
-      price: req.amount,
-      user_game_id: req.player_id,
-      zone_id: req.zone_id,
-      contact_number: req.user_email || '',
-      status: 'pending',
-      payment_request_id: req.id,
-    }).select().single();
+  if (existingOrder?.id) {
+    orderData = existingOrder;
+    console.log(`Order already exists for payment ${req.id}: ${existingOrder.id}`);
+  } else {
+    const { data: insertedOrder, error: orderError } = await supabase
+      .from('orders').insert({
+        user_id: req.user_id,
+        product_id: req.product_id,
+        product_name: req.product_name,
+        amount: req.product_pack,
+        price: req.amount,
+        user_game_id: req.player_id,
+        zone_id: req.zone_id,
+        contact_number: req.user_email || '',
+        status: 'pending',
+        payment_request_id: req.id,
+      }).select().single();
 
-  if (orderError) {
-    console.error('Failed to create order:', orderError);
+    if (orderError) {
+      console.error('Failed to create order:', orderError);
+      return;
+    }
+
+    orderData = insertedOrder;
+
+    try {
+      await supabase.from('coin_transactions').insert({
+        user_id: req.user_id,
+        amount: Number(req.amount),
+        type: 'debit',
+        description: `Purchase: ${req.product_name || 'Product'} (UPI gateway)`,
+        reference_id: orderData.id,
+      });
+    } catch (e) {
+      console.error('coin_transactions insert failed:', e);
+    }
+  }
+
+  if (orderData.smm_order_id && ['processing', 'completed'].includes(orderData.status || '')) {
+    console.log(`Order ${orderData.id} already sent to provider, skipping duplicate fulfillment.`);
     return;
   }
 
-  // Record a debit transaction so the purchase appears in user's wallet history.
-  try {
-    await supabase.from('coin_transactions').insert({
-      user_id: req.user_id,
-      amount: Number(req.amount),
-      type: 'debit',
-      description: `Purchase: ${req.product_name || 'Product'} (UPI gateway)`,
-      reference_id: orderData.id,
-    });
-  } catch (e) {
-    console.error('coin_transactions insert failed:', e);
-  }
+  const finalizeFailure = async (reason: string, details: Record<string, unknown> = {}) => {
+    console.error('Provider fulfillment failed:', reason, details);
+    await supabase.from('orders').update({ status: 'failed' }).eq('id', orderData.id);
+    await upsertWebhookAuditLog(supabase, req.id, 'order_failed', { orderId: orderData.id, reason, ...details });
+  };
 
   if (req.provider_id && req.provider_product_id) {
     try {
@@ -436,22 +504,53 @@ async function fulfillProductOrder(supabase: any, req: any) {
       const apiType = apiData?.api_type || 'aluu';
 
       if (apiType === 'aluu') {
-        const [game, denom] = String(req.provider_product_id).split(':');
+        const [gamecode, denom] = String(req.provider_product_id).split(':');
+        if (!gamecode || !denom) {
+          await finalizeFailure('Invalid Aluu provider mapping', { provider_product_id: req.provider_product_id });
+          return;
+        }
+
         const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/aluu-webhook`;
         const { data: aluuData, error: aluuError } = await supabase.functions.invoke('aluu-order', {
           body: {
-            action: 'create_order', game, denom,
-            userid: req.player_id, serverid: req.zone_id || undefined,
-            partner_orderid: orderData.id, partner_webhook_url: webhookUrl,
+            action: 'create_order',
+            product_id: req.product_id,
+            gamecode,
+            denom,
+            userid: req.player_id,
+            user_id: req.player_id,
+            serverid: req.zone_id || undefined,
+            server: req.zone_id || undefined,
+            server_region: req.zone_id || undefined,
+            charname: req.player_name || req.player_id,
+            partner_orderid: orderData.id,
+            partner_webhook_url: webhookUrl,
           },
         });
+
         if (aluuError || !aluuData?.success) {
-          throw new Error(aluuData?.error || aluuData?.message || aluuError?.message || 'Aluu order failed');
+          await finalizeFailure(aluuData?.error || aluuData?.message || aluuError?.message || 'Aluu order failed', { response: aluuData || null });
+          return;
         }
+
+        await upsertWebhookAuditLog(supabase, req.id, 'aluu_create_order', { orderId: orderData.id, response: aluuData });
+
+        const immediateStatus = await fetchAluuProviderStatus(orderData.id);
+        const normalizedStatus = (immediateStatus?.status || '').toLowerCase();
+        const nextStatus = ['successful', 'success', 'completed', 'delivered'].includes(normalizedStatus)
+          ? 'completed'
+          : ['failed', 'cancelled', 'canceled', 'refunded'].includes(normalizedStatus)
+            ? 'failed'
+            : 'processing';
+
         await supabase.from('orders').update({
-          status: 'processing',
-          smm_order_id: aluuData?.data?.reference || null,
+          status: nextStatus,
+          smm_order_id: immediateStatus?.providerReference || aluuData?.data?.provider_order_id || aluuData?.data?.reference || null,
         }).eq('id', orderData.id);
+
+        if (nextStatus === 'failed') {
+          await upsertWebhookAuditLog(supabase, req.id, 'aluu_status_failed', { orderId: orderData.id, response: immediateStatus?.raw || aluuData });
+        }
       } else if (apiType === 'gametopup') {
         const { data: gtData, error: gtErr } = await supabase.functions.invoke('gametopup-order', {
           body: {
@@ -461,7 +560,8 @@ async function fulfillProductOrder(supabase: any, req: any) {
           },
         });
         if (gtErr || gtData?.error || !gtData?.success) {
-          throw new Error(gtData?.message || gtData?.error || gtErr?.message || 'GameTopUp order failed');
+          await finalizeFailure(gtData?.message || gtData?.error || gtErr?.message || 'GameTopUp order failed', { response: gtData || null });
+          return;
         }
         await supabase.from('orders').update({
           status: 'processing',
@@ -469,24 +569,25 @@ async function fulfillProductOrder(supabase: any, req: any) {
         }).eq('id', orderData.id);
       }
     } catch (err) {
-      console.error('Provider fulfillment failed:', err);
-      await supabase.from('orders').update({ status: 'failed' }).eq('id', orderData.id);
+      await finalizeFailure(err instanceof Error ? err.message : String(err));
     }
   } else if (req.is_social_media && req.smm_service_id && req.smm_quantity) {
     try {
       const { data: smmData, error: smmErr } = await supabase.functions.invoke('smm-order', {
         body: { action: 'order', service: req.smm_service_id, link: req.player_id, quantity: req.smm_quantity },
       });
-      if (smmErr || smmData?.error) throw new Error(smmData?.error || smmErr?.message || 'SMM order failed');
+      if (smmErr || smmData?.error) {
+        await finalizeFailure(smmData?.error || smmErr?.message || 'SMM order failed', { response: smmData || null });
+        return;
+      }
       await supabase.from('orders').update({
         status: 'processing',
         smm_order_id: smmData.order ? String(smmData.order) : null,
       }).eq('id', orderData.id);
     } catch (err) {
-      console.error('SMM fulfillment failed:', err);
-      await supabase.from('orders').update({ status: 'failed' }).eq('id', orderData.id);
+      await finalizeFailure(err instanceof Error ? err.message : String(err));
     }
   } else {
-    await supabase.from('orders').update({ status: 'failed' }).eq('id', orderData.id);
+    await finalizeFailure('No valid provider mapping found');
   }
 }
