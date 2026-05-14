@@ -9,7 +9,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Package, Clock, CheckCircle, XCircle, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Package, Clock, CheckCircle, XCircle, Loader2, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Order {
@@ -182,13 +182,6 @@ const Orders = () => {
             Processing
           </Badge>
         );
-      case "pending_manual":
-        return (
-          <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30">
-            <AlertTriangle className="w-3 h-3 mr-1" />
-            Manual Processing
-          </Badge>
-        );
       case "cancelled":
       case "failed":
         return (
@@ -211,7 +204,6 @@ const Orders = () => {
     switch (status) {
       case "completed": return 100;
       case "processing": return 66;
-      case "pending_manual": return 50;
       case "pending": return 33;
       default: return 0;
     }

@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { ArrowLeft, Check, AlertCircle, Wallet, Loader2, CreditCard, Copy, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Check, AlertCircle, Wallet, Loader2, CreditCard, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,6 @@ import TransactionReceipt from "@/components/TransactionReceipt";
 import InstagramCategorySelector, { InstagramCategory } from "@/components/InstagramCategorySelector";
 import FacebookCategorySelector, { FacebookCategory } from "@/components/FacebookCategorySelector";
 import TikTokCategorySelector, { TikTokCategory } from "@/components/TikTokCategorySelector";
-import upiQrImage from "@/assets/upi-qr.jpeg";
 
 const UPI_ID = "7637851804@pthdfc";
 const WHATSAPP_NUMBER = "917637851804";
@@ -419,16 +418,11 @@ const ProductDetail = () => {
           }
         } catch (providerError) {
           console.error("Provider API Error:", providerError);
-          await supabase.from("orders").update({ status: "pending_manual" }).eq("id", orderData.id);
-          sendWhatsAppNotification({
-            orderId: orderData.id, productName: product.name, amount: selectedTier.amount,
-            price: selectedTier.price, playerId: userId, zoneId: zoneId || undefined,
-            playerName: playerInfo?.nickname, paymentMethod: "Wallet Balance",
-            status: "Pending Manual", isManual: true,
-          });
+          await supabase.from("orders").update({ status: "failed" }).eq("id", orderData.id);
           toast({
-            title: "Manual Processing Required",
-            description: "Auto-delivery failed. Your order has been sent to admin via WhatsApp for manual processing.",
+            title: "Order Failed",
+            description: providerError instanceof Error ? providerError.message : "Auto-delivery failed. Please try again.",
+            variant: "destructive",
           });
         }
       }
@@ -478,31 +472,15 @@ const ProductDetail = () => {
           console.log("SMM Order placed:", smmData);
         } catch (smmApiError) {
           console.error("SMM API Error:", smmApiError);
-          
-          // Update order status to pending_manual
           await supabase
             .from("orders")
-            .update({ status: "pending_manual" })
+            .update({ status: "failed" })
             .eq("id", orderData.id);
-          
-          // Send WhatsApp notification for manual processing
-          sendWhatsAppNotification({
-            orderId: orderData.id,
-            productName: product.name,
-            amount: selectedTier.amount,
-            price: selectedTier.price,
-            playerId: userId,
-            zoneId: zoneId || undefined,
-            playerName: playerInfo?.nickname,
-            paymentMethod: "Wallet Balance",
-            status: "Pending Manual",
-            isManual: true,
-          });
-          
+
           toast({
-            title: "Manual Processing Required",
-            description: "Auto-delivery failed. Your order has been sent to admin via WhatsApp for manual processing.",
-            variant: "default",
+            title: "Order Failed",
+            description: smmApiError instanceof Error ? smmApiError.message : "Auto-delivery failed. Please try again.",
+            variant: "destructive",
           });
         }
       }
