@@ -55,7 +55,7 @@ serve(async (req) => {
         await handlePaymentCallback(supabase, callbackOrderId, resolvedStatus || '');
       }
 
-      // Determine target path: product orders return to product page, recharges to /wallet
+      // Determine target path: successful recharges go to wallet and successful purchases go to orders.
       const isSuccess = resolvedStatus === 'success' || resolvedStatus === 'SUCCESS' || resolvedStatus === 'true';
       let targetPath = isSuccess ? '/wallet' : '/add-coin';
       if (callbackOrderId) {
@@ -65,7 +65,9 @@ serve(async (req) => {
           .eq('id', callbackOrderId)
           .maybeSingle();
         if (pr?.request_type === 'product_order') {
-          targetPath = pr.redirect_path || '/orders';
+          targetPath = isSuccess ? (pr.redirect_path || '/orders') : (pr.redirect_path || '/orders');
+        } else if (!isSuccess) {
+          targetPath = pr?.redirect_path || '/add-coin';
         }
       }
       const baseRedirect = params.redirect_url || 'https://scaliverofficialin.lovable.app';
