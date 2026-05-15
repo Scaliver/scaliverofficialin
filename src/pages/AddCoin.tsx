@@ -25,6 +25,7 @@ const AddCoin = () => {
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isUpiPaymentEnabled, setIsUpiPaymentEnabled] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -38,6 +39,19 @@ const AddCoin = () => {
         .eq("is_active", true)
         .order("sort_order");
       setPackages((data as CoinPackage[]) || []);
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "upi_payment_enabled")
+        .maybeSingle();
+
+      const value = data?.value as { enabled?: boolean } | null;
+      setIsUpiPaymentEnabled(value?.enabled !== false);
     })();
   }, []);
 
@@ -205,7 +219,7 @@ const AddCoin = () => {
           </Card>
         )}
 
-        {getAmount() >= 1 && (
+        {getAmount() >= 1 && isUpiPaymentEnabled && (
           <Button
             onClick={handlePay}
             disabled={isProcessing}
@@ -217,7 +231,7 @@ const AddCoin = () => {
         )}
 
         <p className="text-center text-xs text-muted-foreground mt-3">
-          Coins are credited automatically after payment confirmation.
+          {isUpiPaymentEnabled ? "Coins are credited automatically after payment confirmation." : "UPI payments are temporarily unavailable."}
         </p>
       </main>
       <Footer />
