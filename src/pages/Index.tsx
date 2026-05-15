@@ -22,6 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Loader2, Search, X } from "lucide-react";
+import { Helmet } from "react-helmet-async";
 
 interface SiteAlert {
   id: string;
@@ -155,6 +156,34 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>Scaliver Official | Mobile Legends, PUBG UC & Game Top Up</title>
+        <meta
+          name="description"
+          content="Buy Mobile Legends diamonds, PUBG UC, Free Fire topups, and game recharge packs with instant UPI payment detection, automatic order processing, and fast delivery."
+        />
+        <link rel="canonical" href="https://scaliverofficial.in/" />
+        <meta property="og:title" content="Scaliver Official | Instant Game Top Up India" />
+        <meta
+          property="og:description"
+          content="Automatic UPI verification, instant tier ordering, and fast Mobile Legends, PUBG UC, and Free Fire topups in India."
+        />
+        <meta property="og:url" content="https://scaliverofficial.in/" />
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: "Scaliver Official",
+            url: "https://scaliverofficial.in/",
+            potentialAction: {
+              "@type": "SearchAction",
+              target: "https://scaliverofficial.in/?search={search_term_string}",
+              "query-input": "required name=search_term_string",
+            },
+          })}
+        </script>
+      </Helmet>
+
       {/* Alert Dialog */}
       <AlertDialog open={showAlert && !!siteAlert} onOpenChange={setShowAlert}>
         <AlertDialogContent>
