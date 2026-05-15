@@ -17,6 +17,7 @@ import TransactionReceipt from "@/components/TransactionReceipt";
 import InstagramCategorySelector, { InstagramCategory } from "@/components/InstagramCategorySelector";
 import FacebookCategorySelector, { FacebookCategory } from "@/components/FacebookCategorySelector";
 import TikTokCategorySelector, { TikTokCategory } from "@/components/TikTokCategorySelector";
+import { Helmet } from "react-helmet-async";
 
 const UPI_ID = "7637851804@pthdfc";
 const WHATSAPP_NUMBER = "917637851804";
@@ -603,6 +604,40 @@ const ProductDetail = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <Helmet>
+        <title>{product.name} | Instant Game Top Up | Scaliver Official</title>
+        <meta
+          name="description"
+          content={`${product.name} top up with secure UPI payment, automatic payment detection, and instant order processing on Scaliver Official.`}
+        />
+        <link rel="canonical" href={`https://scaliverofficial.in/product/${product.slug}`} />
+        <meta property="og:title" content={`${product.name} | Scaliver Official`} />
+        <meta
+          property="og:description"
+          content={`Buy ${product.name} with fast UPI payment verification and automatic order delivery.`}
+        />
+        <meta property="og:url" content={`https://scaliverofficial.in/product/${product.slug}`} />
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Product",
+            name: product.name,
+            description: product.description || `${product.name} instant gaming top up`,
+            category: product.category,
+            brand: { "@type": "Brand", name: "Scaliver Official" },
+            offers: selectedTier
+              ? {
+                  "@type": "Offer",
+                  priceCurrency: "INR",
+                  price: selectedTier.price,
+                  availability: "https://schema.org/InStock",
+                  url: `https://scaliverofficial.in/product/${product.slug}`,
+                }
+              : undefined,
+          })}
+        </script>
+      </Helmet>
+
       <Header />
       
       <main className="flex-1 py-8">
