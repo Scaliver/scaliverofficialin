@@ -15,7 +15,6 @@ interface UserRow {
 }
 
 const SiteSettings = () => {
-  const [isManualRechargeEnabled, setIsManualRechargeEnabled] = useState(true);
   const [isUpiPaymentEnabled, setIsUpiPaymentEnabled] = useState(true);
   const [resellerPercent, setResellerPercent] = useState<number>(0);
   const [savingPercent, setSavingPercent] = useState(false);
@@ -35,10 +34,7 @@ const SiteSettings = () => {
     try {
       const { data: manual } = await supabase
         .from("site_settings").select("*").eq("key", "manual_recharge_enabled").maybeSingle();
-      if (manual) {
-        const v = manual.value as { enabled: boolean };
-        setIsManualRechargeEnabled(v.enabled);
-      }
+      void manual;
       const { data: upiSetting } = await supabase
         .from("site_settings").select("*").eq("key", "upi_payment_enabled").maybeSingle();
       if (upiSetting) {
@@ -71,20 +67,6 @@ const SiteSettings = () => {
         is_reseller: resellerSet.has(p.id),
       })));
     } finally { setUsersLoading(false); }
-  };
-
-  const handleToggleManualRecharge = async () => {
-    setIsSaving(true);
-    try {
-      const newValue = !isManualRechargeEnabled;
-      const { error } = await supabase
-        .from("site_settings").update({ value: { enabled: newValue } }).eq("key", "manual_recharge_enabled");
-      if (error) throw error;
-      setIsManualRechargeEnabled(newValue);
-      toast({ title: "Success", description: `Manual recharge ${newValue ? "enabled" : "disabled"}` });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to update settings", variant: "destructive" });
-    } finally { setIsSaving(false); }
   };
 
   const handleToggleUpiPayment = async () => {
