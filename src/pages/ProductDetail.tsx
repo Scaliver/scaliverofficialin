@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { ArrowLeft, Check, AlertCircle, Wallet, Loader2, CreditCard, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -83,6 +83,7 @@ interface PricingTier {
 const ProductDetail = () => {
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
   const { balance, wallet } = useWallet();
@@ -120,6 +121,7 @@ const ProductDetail = () => {
   // Track which API type to use for this product
   const [productApiType, setProductApiType] = useState<'aluu' | 'gametopup' | null>(null);
   const [productApiId, setProductApiId] = useState<string | null>(null);
+  const [isUpiPaymentEnabled, setIsUpiPaymentEnabled] = useState(true);
 
   // Get the active product based on category selection for Instagram, Facebook, or TikTok
   const product = useMemo((): LegacyProduct | undefined => {
