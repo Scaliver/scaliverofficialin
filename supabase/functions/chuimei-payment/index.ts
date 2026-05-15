@@ -561,14 +561,10 @@ async function fulfillProductOrder(supabase: any, req: any) {
         const { data: aluuData, error: aluuError } = await supabase.functions.invoke('aluu-order', {
           body: {
             action: 'create_order',
-            product_id: req.product_id,
-            gamecode,
+            game: gamecode,
             denom,
             userid: req.player_id,
-            user_id: req.player_id,
             serverid: req.zone_id || undefined,
-            server: req.zone_id || undefined,
-            server_region: req.zone_id || undefined,
             charname: req.player_name || req.player_id,
             partner_orderid: orderData.id,
             partner_webhook_url: webhookUrl,
