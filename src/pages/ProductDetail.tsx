@@ -851,7 +851,7 @@ const ProductDetail = () => {
                                 is_social_media: !!product.isSocialMedia,
                                 player_id: userId,
                                 zone_id: zoneId || null,
-                                redirect_path: `/orders`,
+                                redirect_path: `${window.location.origin}/orders`,
                                 utr_number: `CHUIMEI-${Date.now()}`,
                                 status: "pending",
                               })

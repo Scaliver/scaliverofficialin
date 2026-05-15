@@ -58,23 +58,30 @@ serve(async (req) => {
       // Determine target path: successful recharges go to wallet and successful purchases go to orders.
       const isSuccess = resolvedStatus === 'success' || resolvedStatus === 'SUCCESS' || resolvedStatus === 'true';
       let targetPath = isSuccess ? '/wallet' : '/add-coin';
+      let absoluteRedirect: string | null = null;
       if (callbackOrderId) {
         const { data: pr } = await supabase
           .from('upi_payment_requests')
           .select('request_type, redirect_path')
           .eq('id', callbackOrderId)
           .maybeSingle();
-        if (pr?.request_type === 'product_order') {
-          targetPath = isSuccess ? (pr.redirect_path || '/orders') : (pr.redirect_path || '/orders');
+        const rp = pr?.redirect_path || '';
+        if (rp && /^https?:\/\//i.test(rp)) {
+          absoluteRedirect = rp;
+        } else if (pr?.request_type === 'product_order') {
+          targetPath = rp || '/orders';
         } else if (!isSuccess) {
-          targetPath = pr?.redirect_path || '/add-coin';
+          targetPath = rp || '/add-coin';
         }
       }
-      const baseRedirect = params.redirect_url || 'https://scaliverofficialin.lovable.app';
-      const redirectTo = baseRedirect.replace(/\/$/, '') + targetPath;
+      const baseRedirect = params.redirect_url || 'https://scaliverofficial.in';
+      const redirectTo = absoluteRedirect
+        ? absoluteRedirect
+        : baseRedirect.replace(/\/$/, '') + targetPath;
+      const sep = redirectTo.includes('?') ? '&' : '?';
       return new Response(null, {
         status: 302,
-        headers: { 'Location': redirectTo + `?payment_order=${callbackOrderId || ''}&status=${resolvedStatus || 'unknown'}` },
+        headers: { 'Location': redirectTo + sep + `payment_order=${callbackOrderId || ''}&status=${resolvedStatus || 'unknown'}` },
       });
     }
 
