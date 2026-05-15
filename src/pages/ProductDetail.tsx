@@ -312,6 +312,24 @@ const ProductDetail = () => {
     );
   }
 
+  if (location.pathname === "/product-detect") {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        <main className="flex-1 container mx-auto px-4 py-10 flex items-center justify-center">
+          <div className="w-full max-w-md border border-border bg-card rounded-lg p-8 text-center space-y-4">
+            <Loader2 className="w-10 h-10 mx-auto animate-spin text-primary" />
+            <h1 className="font-display text-2xl font-bold text-foreground">Detecting your UPI payment</h1>
+            <p className="text-sm text-muted-foreground">
+              Please wait while we verify payment, create your Aluu order, and show it in your website order history.
+            </p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   if (!product) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
