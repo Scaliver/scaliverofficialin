@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { ArrowLeft, Check, AlertCircle, Wallet, Loader2, CreditCard, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,8 +17,8 @@ import TransactionReceipt from "@/components/TransactionReceipt";
 import InstagramCategorySelector, { InstagramCategory } from "@/components/InstagramCategorySelector";
 import FacebookCategorySelector, { FacebookCategory } from "@/components/FacebookCategorySelector";
 import TikTokCategorySelector, { TikTokCategory } from "@/components/TikTokCategorySelector";
+import { Helmet } from "react-helmet-async";
 
-const UPI_ID = "7637851804@pthdfc";
 const WHATSAPP_NUMBER = "917637851804";
 
 // Send WhatsApp notification with order details
@@ -83,6 +83,7 @@ interface PricingTier {
 const ProductDetail = () => {
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
   const { balance, wallet } = useWallet();
@@ -120,6 +121,7 @@ const ProductDetail = () => {
   // Track which API type to use for this product
   const [productApiType, setProductApiType] = useState<'aluu' | 'gametopup' | null>(null);
   const [productApiId, setProductApiId] = useState<string | null>(null);
+  const [isUpiPaymentEnabled, setIsUpiPaymentEnabled] = useState(true);
 
   // Get the active product based on category selection for Instagram, Facebook, or TikTok
   const product = useMemo((): LegacyProduct | undefined => {
@@ -175,6 +177,62 @@ const ProductDetail = () => {
     
     fetchApiType();
   }, [product?.pricingTiers]);
+
+  useEffect(() => {
+    const fetchUpiSetting = async () => {
+      const { data } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "upi_payment_enabled")
+        .maybeSingle();
+
+      const value = data?.value as { enabled?: boolean } | null;
+      setIsUpiPaymentEnabled(value?.enabled !== false);
+    };
+
+    fetchUpiSetting();
+  }, []);
+
+  useEffect(() => {
+    const paymentOrder = new URLSearchParams(location.search).get("payment_order");
+    if (!paymentOrder || location.pathname !== "/product-detect") return;
+
+    let cancelled = false;
+    let attempts = 0;
+
+    const verify = async () => {
+      attempts += 1;
+      try {
+        const { data } = await supabase.functions.invoke("chuimei-payment", {
+          body: { action: "verify_payment", order_id: paymentOrder },
+        });
+
+        if (cancelled) return;
+
+        if (data?.status === "completed" || data?.status === "processing") {
+          toast({ title: "Payment detected ✅", description: "Your tier order is now being processed." });
+          navigate(`/orders?highlight=${data?.order_id || paymentOrder}`, { replace: true });
+          return;
+        }
+
+        if (data?.status === "failed") {
+          toast({ title: "Payment Failed", description: "We could not verify your payment.", variant: "destructive" });
+          navigate(`/product/${productId}`, { replace: true });
+          return;
+        }
+      } catch (error) {
+        console.error("Tier payment detection failed:", error);
+      }
+
+      if (!cancelled && attempts < 24) setTimeout(verify, 5000);
+    };
+
+    verify();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname, location.search, navigate, productId, toast]);
 
   // Player verification function - supports Digital Top-Up and Game Top-Up APIs
   const verifyPlayer = useCallback(async (playerId: string, zone: string, productSlug?: string) => {
@@ -250,6 +308,24 @@ const ProductDetail = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (location.pathname === "/product-detect") {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        <main className="flex-1 container mx-auto px-4 py-10 flex items-center justify-center">
+          <div className="w-full max-w-md border border-border bg-card rounded-lg p-8 text-center space-y-4">
+            <Loader2 className="w-10 h-10 mx-auto animate-spin text-primary" />
+            <h1 className="font-display text-2xl font-bold text-foreground">Detecting your UPI payment</h1>
+            <p className="text-sm text-muted-foreground">
+              Please wait while we verify payment, create your Aluu order, and show it in your website order history.
+            </p>
+          </div>
+        </main>
+        <Footer />
       </div>
     );
   }
@@ -527,6 +603,40 @@ const ProductDetail = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <Helmet>
+        <title>{product.name} | Instant Game Top Up | Scaliver Official</title>
+        <meta
+          name="description"
+          content={`${product.name} top up with secure UPI payment, automatic payment detection, and instant order processing on Scaliver Official.`}
+        />
+        <link rel="canonical" href={`https://scaliverofficial.in/product/${product.slug}`} />
+        <meta property="og:title" content={`${product.name} | Scaliver Official`} />
+        <meta
+          property="og:description"
+          content={`Buy ${product.name} with fast UPI payment verification and automatic order delivery.`}
+        />
+        <meta property="og:url" content={`https://scaliverofficial.in/product/${product.slug}`} />
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Product",
+            name: product.name,
+            description: product.description || `${product.name} instant gaming top up`,
+            category: product.category,
+            brand: { "@type": "Brand", name: "Scaliver Official" },
+            offers: selectedTier
+              ? {
+                  "@type": "Offer",
+                  priceCurrency: "INR",
+                  price: selectedTier.price,
+                  availability: "https://schema.org/InStock",
+                  url: `https://scaliverofficial.in/product/${product.slug}`,
+                }
+              : undefined,
+          })}
+        </script>
+      </Helmet>
+
       <Header />
       
       <main className="flex-1 py-8">
@@ -826,76 +936,78 @@ const ProductDetail = () => {
                       </Button>
                       
                       {/* Online Payment via Chuimei-pe */}
-                      <Button
-                        variant="outline"
-                        className="w-full border-primary/50 hover:bg-primary/10"
-                        onClick={async () => {
-                          if (!validateForm() || !selectedTier) return;
-                          setIsProcessing(true);
-                          try {
-                            const { data: paymentRecord, error: insertError } = await supabase
-                              .from("upi_payment_requests")
-                              .insert({
-                                user_id: user.id,
-                                user_email: user.email,
-                                request_type: "product_order",
-                                amount: selectedTier.price,
-                                product_id: product.id,
-                                product_name: product.name,
-                                product_pack: selectedTier.amount,
-                                tier_id: selectedTier.id,
-                                provider_id: selectedTier.providerId || null,
-                                provider_product_id: selectedTier.providerProductId || null,
-                                smm_service_id: selectedTier.smmServiceId || null,
-                                smm_quantity: selectedTier.quantity || null,
-                                is_social_media: !!product.isSocialMedia,
-                                player_id: userId,
-                                zone_id: zoneId || null,
-                                redirect_path: `${window.location.origin}/orders`,
-                                utr_number: `CHUIMEI-${Date.now()}`,
-                                status: "pending",
-                              })
-                              .select()
-                              .single();
-                            if (insertError) throw insertError;
+                      {isUpiPaymentEnabled && (
+                        <Button
+                          variant="outline"
+                          className="w-full border-primary/50 hover:bg-primary/10"
+                          onClick={async () => {
+                            if (!validateForm() || !selectedTier) return;
+                            setIsProcessing(true);
+                            try {
+                              const { data: paymentRecord, error: insertError } = await supabase
+                                .from("upi_payment_requests")
+                                .insert({
+                                  user_id: user.id,
+                                  user_email: user.email,
+                                  request_type: "product_order",
+                                  amount: selectedTier.price,
+                                  product_id: product.id,
+                                  product_name: product.name,
+                                  product_pack: selectedTier.amount,
+                                  tier_id: selectedTier.id,
+                                  provider_id: selectedTier.providerId || null,
+                                  provider_product_id: selectedTier.providerProductId || null,
+                                  smm_service_id: selectedTier.smmServiceId || null,
+                                  smm_quantity: selectedTier.quantity || null,
+                                  is_social_media: !!product.isSocialMedia,
+                                  player_id: userId,
+                                  zone_id: zoneId || null,
+                                  redirect_path: `${window.location.origin}/product-detect?product=${product.slug}`,
+                                  utr_number: `CHUIMEI-${Date.now()}`,
+                                  status: "pending",
+                                })
+                                .select()
+                                .single();
+                              if (insertError) throw insertError;
 
-                            const { data, error } = await supabase.functions.invoke('chuimei-payment', {
-                              body: {
-                                action: 'create_order',
-                                amount: selectedTier.price,
-                                order_id: paymentRecord.id,
-                                customer_mobile: '0000000000',
-                                redirect_url: window.location.origin,
-                                remark1: `${product.name} - ${selectedTier.amount}`,
-                                remark2: `Player: ${userId}${zoneId ? ` Zone: ${zoneId}` : ''}`,
-                              }
-                            });
-                            if (error) throw error;
-                            if (data?.success && data?.payment_url) {
-                              window.open(data.payment_url, '_blank');
-                              toast({
-                                title: "Payment Initiated",
-                                description: "Complete payment in the opened window.",
+                              const { data, error } = await supabase.functions.invoke('chuimei-payment', {
+                                body: {
+                                  action: 'create_order',
+                                  amount: selectedTier.price,
+                                  order_id: paymentRecord.id,
+                                  customer_mobile: '0000000000',
+                                  redirect_url: window.location.origin,
+                                  remark1: `${product.name} - ${selectedTier.amount}`,
+                                  remark2: `Player: ${userId}${zoneId ? ` Zone: ${zoneId}` : ''}`,
+                                }
                               });
-                            } else {
-                              throw new Error(data?.error || 'Payment failed');
+                              if (error) throw error;
+                              if (data?.success && data?.payment_url) {
+                                window.open(data.payment_url, '_blank');
+                                toast({
+                                  title: "Payment Initiated",
+                                  description: "Complete payment in the opened window.",
+                                });
+                              } else {
+                                throw new Error(data?.error || 'Payment failed');
+                              }
+                            } catch (err) {
+                              console.error("Online payment error:", err);
+                              toast({
+                                title: "Payment Error",
+                                description: err instanceof Error ? err.message : "Failed to initiate payment.",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setIsProcessing(false);
                             }
-                          } catch (err) {
-                            console.error("Online payment error:", err);
-                            toast({
-                              title: "Payment Error",
-                              description: err instanceof Error ? err.message : "Failed to initiate payment.",
-                              variant: "destructive",
-                            });
-                          } finally {
-                            setIsProcessing(false);
-                          }
-                        }}
-                        disabled={!selectedTier || isProcessing}
-                      >
-                        <CreditCard className="w-4 h-4 mr-2" />
-                        Pay UPI
-                      </Button>
+                          }}
+                          disabled={!selectedTier || isProcessing}
+                        >
+                          <CreditCard className="w-4 h-4 mr-2" />
+                          Pay UPI
+                        </Button>
+                      )}
                       
                     </>
                   ) : (

@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Package, Clock, CheckCircle, XCircle, Loader2, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Helmet } from "react-helmet-async";
 
 interface Order {
   id: string;
@@ -215,6 +216,12 @@ const Orders = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>My Orders | Scaliver Official</title>
+        <meta name="description" content="Track your Mobile Legends, PUBG UC, and gaming topup orders with live payment verification and status updates." />
+        <link rel="canonical" href="https://scaliverofficial.in/orders" />
+      </Helmet>
+
       <Header />
       
       <main className="container mx-auto px-4 py-6 pb-24 md:pb-8">

@@ -226,7 +226,7 @@ serve(async (req) => {
 
         const { data: paymentReq } = await supabase
           .from('upi_payment_requests')
-          .select('status, total_coins, amount')
+          .select('status, total_coins, amount, request_type')
           .eq('id', checkOrderId)
           .single();
 
@@ -235,6 +235,7 @@ serve(async (req) => {
           status: paymentReq?.status || 'pending',
           total_coins: paymentReq?.total_coins,
           amount: paymentReq?.amount,
+          request_type: paymentReq?.request_type,
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -259,7 +260,36 @@ serve(async (req) => {
           .eq('id', verifyOrderId)
           .maybeSingle();
         if (existing?.status === 'completed') {
-          return new Response(JSON.stringify({ success: true, status: 'completed' }), {
+          const { data: linkedOrder } = await supabase
+            .from('orders')
+            .select('id, status')
+            .eq('payment_request_id', verifyOrderId)
+            .maybeSingle();
+
+          if (!linkedOrder && existing?.status === 'completed') {
+            const { data: requestRecord } = await supabase
+              .from('upi_payment_requests')
+              .select('*')
+              .eq('id', verifyOrderId)
+              .maybeSingle();
+
+            if (requestRecord?.request_type === 'product_order') {
+              await fulfillProductOrder(supabase, requestRecord);
+            }
+          }
+
+          const { data: refreshedOrder } = await supabase
+            .from('orders')
+            .select('id, status')
+            .eq('payment_request_id', verifyOrderId)
+            .maybeSingle();
+
+          return new Response(JSON.stringify({
+            success: true,
+            status: refreshedOrder ? (refreshedOrder.status === 'pending' ? 'processing' : refreshedOrder.status) : 'completed',
+            has_order: !!refreshedOrder,
+            order_id: refreshedOrder?.id || null,
+          }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
@@ -309,12 +339,20 @@ serve(async (req) => {
           .eq('id', verifyOrderId)
           .maybeSingle();
 
+        const { data: orderAfter } = await supabase
+          .from('orders')
+          .select('id, status')
+          .eq('payment_request_id', verifyOrderId)
+          .maybeSingle();
+
         return new Response(JSON.stringify({
           success: true,
-          status: after?.status || providerStatus,
+          status: orderAfter?.status || after?.status || providerStatus,
           total_coins: after?.total_coins,
           amount: after?.amount,
           request_type: after?.request_type,
+          has_order: !!orderAfter,
+          order_id: orderAfter?.id || null,
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -523,14 +561,10 @@ async function fulfillProductOrder(supabase: any, req: any) {
         const { data: aluuData, error: aluuError } = await supabase.functions.invoke('aluu-order', {
           body: {
             action: 'create_order',
-            product_id: req.product_id,
-            gamecode,
+            game: gamecode,
             denom,
             userid: req.player_id,
-            user_id: req.player_id,
             serverid: req.zone_id || undefined,
-            server: req.zone_id || undefined,
-            server_region: req.zone_id || undefined,
             charname: req.player_name || req.player_id,
             partner_orderid: orderData.id,
             partner_webhook_url: webhookUrl,

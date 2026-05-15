@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Loader2, Percent, Users, Search } from "lucide-react";
+import { Settings, Loader2, Percent, Users, Search, CreditCard } from "lucide-react";
 
 interface UserRow {
   id: string;
@@ -15,7 +15,7 @@ interface UserRow {
 }
 
 const SiteSettings = () => {
-  const [isManualRechargeEnabled, setIsManualRechargeEnabled] = useState(true);
+  const [isUpiPaymentEnabled, setIsUpiPaymentEnabled] = useState(true);
   const [resellerPercent, setResellerPercent] = useState<number>(0);
   const [savingPercent, setSavingPercent] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,9 +34,12 @@ const SiteSettings = () => {
     try {
       const { data: manual } = await supabase
         .from("site_settings").select("*").eq("key", "manual_recharge_enabled").maybeSingle();
-      if (manual) {
-        const v = manual.value as { enabled: boolean };
-        setIsManualRechargeEnabled(v.enabled);
+      void manual;
+      const { data: upiSetting } = await supabase
+        .from("site_settings").select("*").eq("key", "upi_payment_enabled").maybeSingle();
+      if (upiSetting) {
+        const v = upiSetting.value as { enabled?: boolean };
+        setIsUpiPaymentEnabled(v.enabled !== false);
       }
       const { data: pct } = await supabase
         .from("site_settings").select("*").eq("key", "reseller_discount_percent").maybeSingle();
@@ -66,17 +69,33 @@ const SiteSettings = () => {
     } finally { setUsersLoading(false); }
   };
 
-  const handleToggleManualRecharge = async () => {
+  const handleToggleUpiPayment = async () => {
     setIsSaving(true);
     try {
-      const newValue = !isManualRechargeEnabled;
-      const { error } = await supabase
-        .from("site_settings").update({ value: { enabled: newValue } }).eq("key", "manual_recharge_enabled");
-      if (error) throw error;
-      setIsManualRechargeEnabled(newValue);
-      toast({ title: "Success", description: `Manual recharge ${newValue ? "enabled" : "disabled"}` });
+      const newValue = !isUpiPaymentEnabled;
+      const { data: existingSetting } = await supabase
+        .from("site_settings")
+        .select("id")
+        .eq("key", "upi_payment_enabled")
+        .maybeSingle();
+
+      if (existingSetting?.id) {
+        const { error } = await supabase
+          .from("site_settings")
+          .update({ value: { enabled: newValue } })
+          .eq("key", "upi_payment_enabled");
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("site_settings")
+          .insert({ key: "upi_payment_enabled", value: { enabled: newValue } });
+        if (error) throw error;
+      }
+
+      setIsUpiPaymentEnabled(newValue);
+      toast({ title: "Success", description: `UPI payments ${newValue ? "enabled" : "disabled"}` });
     } catch (error) {
-      toast({ title: "Error", description: "Failed to update settings", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to update UPI payment setting", variant: "destructive" });
     } finally { setIsSaving(false); }
   };
 
@@ -116,6 +135,17 @@ const SiteSettings = () => {
           <CardDescription>Manage site-wide settings and features</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="p-4 border rounded-lg space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <Label className="text-base font-medium flex items-center gap-2"><CreditCard className="w-4 h-4" /> UPI Payments</Label>
+                <p className="text-sm text-muted-foreground">
+                  Enable or disable the Pay UPI button for product and wallet payments.
+                </p>
+              </div>
+              <Switch checked={isUpiPaymentEnabled} onCheckedChange={handleToggleUpiPayment} disabled={isSaving} />
+            </div>
+          </div>
 
           <div className="p-4 border rounded-lg space-y-3">
             <Label className="text-base font-medium flex items-center gap-2"><Percent className="w-4 h-4" /> Reseller Discount</Label>
