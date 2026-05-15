@@ -19,7 +19,6 @@ import FacebookCategorySelector, { FacebookCategory } from "@/components/Faceboo
 import TikTokCategorySelector, { TikTokCategory } from "@/components/TikTokCategorySelector";
 import { Helmet } from "react-helmet-async";
 
-const UPI_ID = "7637851804@pthdfc";
 const WHATSAPP_NUMBER = "917637851804";
 
 // Send WhatsApp notification with order details
