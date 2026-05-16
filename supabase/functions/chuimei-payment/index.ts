@@ -55,7 +55,8 @@ serve(async (req) => {
         await handlePaymentCallback(supabase, callbackOrderId, resolvedStatus || '');
       }
 
-      // Determine target path: successful recharges go to wallet and successful purchases go to orders.
+      // Determine target path: wallet recharges → /wallet (success) or /add-coin (fail).
+      // Product orders → always /orders (success or fail) so user sees history.
       const isSuccess = resolvedStatus === 'success' || resolvedStatus === 'SUCCESS' || resolvedStatus === 'true';
       let targetPath = isSuccess ? '/wallet' : '/add-coin';
       let absoluteRedirect: string | null = null;

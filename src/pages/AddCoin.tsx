@@ -47,7 +47,7 @@ const AddCoin = () => {
       const { data } = await supabase
         .from("site_settings")
         .select("value")
-        .eq("key", "upi_payment_enabled")
+        .eq("key", "upi_wallet_enabled")
         .maybeSingle();
 
       const value = data?.value as { enabled?: boolean } | null;
@@ -123,6 +123,7 @@ const AddCoin = () => {
           user_id: user.id, user_email: user.email,
           request_type: "coin_recharge",
           amount, total_coins: getTotalCoins(), bonus_coins: getBonus(),
+          redirect_path: `${window.location.origin}/wallet`,
           utr_number: `CHUIMEI-${Date.now()}`, status: "pending",
         }).select().single();
       if (insertError) throw insertError;
