@@ -123,6 +123,7 @@ const AddCoin = () => {
           user_id: user.id, user_email: user.email,
           request_type: "coin_recharge",
           amount, total_coins: getTotalCoins(), bonus_coins: getBonus(),
+          redirect_path: `${window.location.origin}/wallet`,
           utr_number: `CHUIMEI-${Date.now()}`, status: "pending",
         }).select().single();
       if (insertError) throw insertError;
