@@ -183,7 +183,7 @@ const ProductDetail = () => {
       const { data } = await supabase
         .from("site_settings")
         .select("value")
-        .eq("key", "upi_payment_enabled")
+        .eq("key", "upi_product_enabled")
         .maybeSingle();
 
       const value = data?.value as { enabled?: boolean } | null;
@@ -192,47 +192,6 @@ const ProductDetail = () => {
 
     fetchUpiSetting();
   }, []);
-
-  useEffect(() => {
-    const paymentOrder = new URLSearchParams(location.search).get("payment_order");
-    if (!paymentOrder || location.pathname !== "/product-detect") return;
-
-    let cancelled = false;
-    let attempts = 0;
-
-    const verify = async () => {
-      attempts += 1;
-      try {
-        const { data } = await supabase.functions.invoke("chuimei-payment", {
-          body: { action: "verify_payment", order_id: paymentOrder },
-        });
-
-        if (cancelled) return;
-
-        if (data?.status === "completed" || data?.status === "processing") {
-          toast({ title: "Payment detected ✅", description: "Your tier order is now being processed." });
-          navigate(`/orders?highlight=${data?.order_id || paymentOrder}`, { replace: true });
-          return;
-        }
-
-        if (data?.status === "failed") {
-          toast({ title: "Payment Failed", description: "We could not verify your payment.", variant: "destructive" });
-          navigate(`/product/${productId}`, { replace: true });
-          return;
-        }
-      } catch (error) {
-        console.error("Tier payment detection failed:", error);
-      }
-
-      if (!cancelled && attempts < 24) setTimeout(verify, 5000);
-    };
-
-    verify();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [location.pathname, location.search, navigate, productId, toast]);
 
   // Player verification function - supports Digital Top-Up and Game Top-Up APIs
   const verifyPlayer = useCallback(async (playerId: string, zone: string, productSlug?: string) => {

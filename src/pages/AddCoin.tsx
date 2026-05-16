@@ -47,7 +47,7 @@ const AddCoin = () => {
       const { data } = await supabase
         .from("site_settings")
         .select("value")
-        .eq("key", "upi_payment_enabled")
+        .eq("key", "upi_wallet_enabled")
         .maybeSingle();
 
       const value = data?.value as { enabled?: boolean } | null;
