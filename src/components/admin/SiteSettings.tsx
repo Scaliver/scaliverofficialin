@@ -156,12 +156,24 @@ const SiteSettings = () => {
           <div className="p-4 border rounded-lg space-y-3">
             <div className="flex items-center justify-between gap-4">
               <div className="space-y-1">
-                <Label className="text-base font-medium flex items-center gap-2"><CreditCard className="w-4 h-4" /> UPI Payments</Label>
+                <Label className="text-base font-medium flex items-center gap-2"><CreditCard className="w-4 h-4" /> Wallet UPI Payment</Label>
                 <p className="text-sm text-muted-foreground">
-                  Enable or disable the Pay UPI button for product and wallet payments.
+                  Enable or disable the Pay UPI button on the Add Coin / wallet recharge page.
                 </p>
               </div>
-              <Switch checked={isUpiPaymentEnabled} onCheckedChange={handleToggleUpiPayment} disabled={isSaving} />
+              <Switch checked={isWalletUpiEnabled} onCheckedChange={handleToggleWalletUpi} disabled={savingWallet} />
+            </div>
+          </div>
+
+          <div className="p-4 border rounded-lg space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <Label className="text-base font-medium flex items-center gap-2"><CreditCard className="w-4 h-4" /> Tier / Product UPI Payment</Label>
+                <p className="text-sm text-muted-foreground">
+                  Enable or disable the Pay UPI button on product / tier purchase pages.
+                </p>
+              </div>
+              <Switch checked={isProductUpiEnabled} onCheckedChange={handleToggleProductUpi} disabled={savingProduct} />
             </div>
           </div>
 
