@@ -15,11 +15,13 @@ interface UserRow {
 }
 
 const SiteSettings = () => {
-  const [isUpiPaymentEnabled, setIsUpiPaymentEnabled] = useState(true);
+  const [isWalletUpiEnabled, setIsWalletUpiEnabled] = useState(true);
+  const [isProductUpiEnabled, setIsProductUpiEnabled] = useState(true);
   const [resellerPercent, setResellerPercent] = useState<number>(0);
   const [savingPercent, setSavingPercent] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [savingWallet, setSavingWallet] = useState(false);
+  const [savingProduct, setSavingProduct] = useState(false);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -30,17 +32,25 @@ const SiteSettings = () => {
     fetchUsers();
   }, []);
 
+  const readBool = (row: any, fallback = true) => {
+    const v = row?.value as { enabled?: boolean } | undefined;
+    return v?.enabled !== false ? (v?.enabled === undefined ? fallback : !!v.enabled) : false;
+  };
+
   const fetchSettings = async () => {
     try {
-      const { data: manual } = await supabase
-        .from("site_settings").select("*").eq("key", "manual_recharge_enabled").maybeSingle();
-      void manual;
-      const { data: upiSetting } = await supabase
+      const { data: legacy } = await supabase
         .from("site_settings").select("*").eq("key", "upi_payment_enabled").maybeSingle();
-      if (upiSetting) {
-        const v = upiSetting.value as { enabled?: boolean };
-        setIsUpiPaymentEnabled(v.enabled !== false);
-      }
+      const legacyEnabled = legacy ? readBool(legacy, true) : true;
+
+      const { data: walletRow } = await supabase
+        .from("site_settings").select("*").eq("key", "upi_wallet_enabled").maybeSingle();
+      setIsWalletUpiEnabled(walletRow ? readBool(walletRow, true) : legacyEnabled);
+
+      const { data: productRow } = await supabase
+        .from("site_settings").select("*").eq("key", "upi_product_enabled").maybeSingle();
+      setIsProductUpiEnabled(productRow ? readBool(productRow, true) : legacyEnabled);
+
       const { data: pct } = await supabase
         .from("site_settings").select("*").eq("key", "reseller_discount_percent").maybeSingle();
       if (pct) {
@@ -69,34 +79,42 @@ const SiteSettings = () => {
     } finally { setUsersLoading(false); }
   };
 
-  const handleToggleUpiPayment = async () => {
-    setIsSaving(true);
+  const toggleSetting = async (key: string, newValue: boolean) => {
+    const { data: existing } = await supabase
+      .from("site_settings").select("id").eq("key", key).maybeSingle();
+    if (existing?.id) {
+      const { error } = await supabase
+        .from("site_settings").update({ value: { enabled: newValue } }).eq("key", key);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from("site_settings").insert({ key, value: { enabled: newValue } });
+      if (error) throw error;
+    }
+  };
+
+  const handleToggleWalletUpi = async () => {
+    setSavingWallet(true);
     try {
-      const newValue = !isUpiPaymentEnabled;
-      const { data: existingSetting } = await supabase
-        .from("site_settings")
-        .select("id")
-        .eq("key", "upi_payment_enabled")
-        .maybeSingle();
+      const newValue = !isWalletUpiEnabled;
+      await toggleSetting("upi_wallet_enabled", newValue);
+      setIsWalletUpiEnabled(newValue);
+      toast({ title: "Saved", description: `Wallet UPI ${newValue ? "enabled" : "disabled"}` });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed", variant: "destructive" });
+    } finally { setSavingWallet(false); }
+  };
 
-      if (existingSetting?.id) {
-        const { error } = await supabase
-          .from("site_settings")
-          .update({ value: { enabled: newValue } })
-          .eq("key", "upi_payment_enabled");
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("site_settings")
-          .insert({ key: "upi_payment_enabled", value: { enabled: newValue } });
-        if (error) throw error;
-      }
-
-      setIsUpiPaymentEnabled(newValue);
-      toast({ title: "Success", description: `UPI payments ${newValue ? "enabled" : "disabled"}` });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to update UPI payment setting", variant: "destructive" });
-    } finally { setIsSaving(false); }
+  const handleToggleProductUpi = async () => {
+    setSavingProduct(true);
+    try {
+      const newValue = !isProductUpiEnabled;
+      await toggleSetting("upi_product_enabled", newValue);
+      setIsProductUpiEnabled(newValue);
+      toast({ title: "Saved", description: `Tier/Product UPI ${newValue ? "enabled" : "disabled"}` });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed", variant: "destructive" });
+    } finally { setSavingProduct(false); }
   };
 
   const saveResellerPercent = async () => {
