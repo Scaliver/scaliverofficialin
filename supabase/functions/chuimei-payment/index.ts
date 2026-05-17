@@ -55,30 +55,36 @@ serve(async (req) => {
         await handlePaymentCallback(supabase, callbackOrderId, resolvedStatus || '');
       }
 
-      // Determine target path: wallet recharges → /wallet (success) or /add-coin (fail).
-      // Product orders → always /orders (success or fail) so user sees history.
+      // Resolve where to send the user after payment.
+      // 1) If the payment_request row has an absolute redirect_path (e.g.
+      //    /payment-detect on the user's origin), use it verbatim.
+      // 2) Otherwise pick a sensible default based on request_type.
       const isSuccess = resolvedStatus === 'success' || resolvedStatus === 'SUCCESS' || resolvedStatus === 'true';
-      let targetPath = isSuccess ? '/wallet' : '/add-coin';
+      let requestType: string | null = null;
       let absoluteRedirect: string | null = null;
+      let fallbackPath = '/payment-detect';
       if (callbackOrderId) {
         const { data: pr } = await supabase
           .from('upi_payment_requests')
           .select('request_type, redirect_path')
           .eq('id', callbackOrderId)
           .maybeSingle();
+        requestType = pr?.request_type || null;
         const rp = pr?.redirect_path || '';
         if (rp && /^https?:\/\//i.test(rp)) {
           absoluteRedirect = rp;
-        } else if (pr?.request_type === 'product_order') {
-          targetPath = rp || '/orders';
-        } else if (!isSuccess) {
-          targetPath = rp || '/add-coin';
+        } else if (rp) {
+          fallbackPath = rp;
+        } else if (requestType === 'product_order') {
+          fallbackPath = isSuccess ? '/orders' : '/orders';
+        } else if (requestType === 'coin_recharge') {
+          fallbackPath = isSuccess ? '/wallet' : '/add-coin';
         }
       }
       const baseRedirect = params.redirect_url || 'https://scaliverofficial.in';
       const redirectTo = absoluteRedirect
         ? absoluteRedirect
-        : baseRedirect.replace(/\/$/, '') + targetPath;
+        : baseRedirect.replace(/\/$/, '') + fallbackPath;
       const sep = redirectTo.includes('?') ? '&' : '?';
       return new Response(null, {
         status: 302,
