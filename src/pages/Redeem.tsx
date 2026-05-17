@@ -68,6 +68,14 @@ const Redeem = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>Redeem Code | Scaliver Official</title>
+        <meta name="description" content="Redeem promo and gift codes on Scaliver Official to earn free wallet coins for game top-ups." />
+        <link rel="canonical" href="https://scaliverofficial.in/redeem" />
+        <meta property="og:title" content="Redeem Code | Scaliver Official" />
+        <meta property="og:description" content="Redeem gift codes for wallet coins." />
+        <meta property="og:url" content="https://scaliverofficial.in/redeem" />
+      </Helmet>
       <Header />
       <main className="container mx-auto px-4 py-6 pb-24 md:pb-8 max-w-2xl">
         <Button variant="ghost" onClick={() => navigate("/")} className="mb-4 text-muted-foreground hover:text-foreground">
