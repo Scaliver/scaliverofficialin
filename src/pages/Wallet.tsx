@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Wallet as WalletIcon, Coins, TrendingUp, TrendingDown } from "lucide-react";
 import { useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 
 const Wallet = () => {
   const navigate = useNavigate();
