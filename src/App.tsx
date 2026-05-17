@@ -17,6 +17,7 @@ import Orders from "./pages/Orders";
 import History from "./pages/History";
 import Redeem from "./pages/Redeem";
 import NotFound from "./pages/NotFound";
+import PaymentDetect from "./pages/PaymentDetect";
 
 const queryClient = new QueryClient();
 
