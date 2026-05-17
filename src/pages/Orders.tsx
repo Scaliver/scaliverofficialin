@@ -218,8 +218,12 @@ const Orders = () => {
     <div className="min-h-screen bg-background">
       <Helmet>
         <title>My Orders | Scaliver Official</title>
-        <meta name="description" content="Track your Mobile Legends, PUBG UC, and gaming topup orders with live payment verification and status updates." />
+        <meta name="description" content="Track Mobile Legends, PUBG UC, and gaming top-up orders with live payment verification and delivery status." />
         <link rel="canonical" href="https://scaliverofficial.in/orders" />
+        <meta name="robots" content="noindex" />
+        <meta property="og:title" content="My Orders | Scaliver Official" />
+        <meta property="og:description" content="Live order tracking and payment verification." />
+        <meta property="og:url" content="https://scaliverofficial.in/orders" />
       </Helmet>
 
       <Header />

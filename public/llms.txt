@@ -1,0 +1,20 @@
+# Scaliver Official
+
+> India's instant game top-up platform for Mobile Legends, PUBG UC, BGMI UC, and Free Fire with automatic UPI payment verification.
+
+Scaliver Official lets gamers buy in-game currency (diamonds, UC, etc.) via UPI. Payments are auto-verified through the Chuimei gateway, and orders are fulfilled instantly via the Aluu.in provider API. A wallet/coin system (1 coin = ₹1) is also available.
+
+## Pages
+
+- [Home](/): Browse Mobile Legends, mobile games, and social media top-up products.
+- [Wallet](/wallet): Check coin balance and transactions.
+- [Add Coins](/add-coin): Recharge wallet via UPI.
+- [Orders](/orders): View order history and live status.
+- [Redeem](/redeem): Apply gift / promo codes.
+- [Sign in](/auth): Login or register (email or phone OTP).
+- [Profile](/profile): Manage account details.
+
+## Optional
+
+- Sitemap: /sitemap.xml
+- Robots: /robots.txt

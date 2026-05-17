@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Wallet as WalletIcon, Coins, TrendingUp, TrendingDown } from "lucide-react";
 import { useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 
 const Wallet = () => {
   const navigate = useNavigate();
@@ -37,6 +38,14 @@ const Wallet = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>My Wallet | Scaliver Official</title>
+        <meta name="description" content="Check your Scaliver Official coin balance, top-up history, and wallet transactions." />
+        <link rel="canonical" href="https://scaliverofficial.in/wallet" />
+        <meta name="robots" content="noindex" />
+        <meta property="og:title" content="My Wallet | Scaliver Official" />
+        <meta property="og:description" content="View your wallet balance and transactions." />
+      </Helmet>
       <Header />
       
       <main className="container mx-auto px-4 py-6 pb-24 md:pb-8">

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, History as HistoryIcon, TrendingUp, TrendingDown, Package } from "lucide-react";
+import { Helmet } from "react-helmet-async";
 
 interface Order {
   id: string;
@@ -72,6 +73,14 @@ const History = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>Transaction History | Scaliver Official</title>
+        <meta name="description" content="Browse your wallet credits, debits, and order transaction history on Scaliver Official." />
+        <link rel="canonical" href="https://scaliverofficial.in/history" />
+        <meta name="robots" content="noindex" />
+        <meta property="og:title" content="Transaction History | Scaliver Official" />
+        <meta property="og:description" content="View your wallet and order history." />
+      </Helmet>
       <Header />
       
       <main className="container mx-auto px-4 py-6 pb-24 md:pb-8">
