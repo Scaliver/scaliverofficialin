@@ -56,47 +56,8 @@ const AddCoin = () => {
     })();
   }, []);
 
-  // Payment-callback redirect → verify with gateway, then redirect to wallet
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const paymentOrder = params.get("payment_order");
-    if (!paymentOrder) return;
-    window.history.replaceState({}, "", "/add-coin");
-    (async () => {
-      try {
-        const { data } = await supabase.functions.invoke("chuimei-payment", {
-          body: { action: "verify_payment", order_id: paymentOrder },
-        });
-        if (data?.status === "completed") {
-          toast({ title: "Payment Successful! ✅", description: `${data.total_coins ?? ""} coins added.`.trim() });
-          setTimeout(() => navigate("/wallet"), 1200);
-          return;
-        }
-      } catch {}
-      pollPaymentStatus(paymentOrder);
-    })();
-  }, []);
-
-  const pollPaymentStatus = async (orderId: string) => {
-    let attempts = 0;
-    const interval = setInterval(async () => {
-      attempts++;
-      try {
-        const { data } = await supabase.functions.invoke("chuimei-payment", {
-          body: { action: "verify_payment", order_id: orderId },
-        });
-        if (data?.status === "completed") {
-          clearInterval(interval);
-          toast({ title: "Payment Successful! ✅", description: `${data.total_coins} coins added.` });
-          setTimeout(() => navigate("/wallet"), 1500);
-        } else if (data?.status === "failed") {
-          clearInterval(interval);
-          toast({ title: "Payment Failed", variant: "destructive", description: "Please try again." });
-        }
-      } catch {}
-      if (attempts >= 60) clearInterval(interval);
-    }, 5000);
-  };
+  // Payment-callback redirects now land on /payment-detect, which handles
+  // verification + routing. No local poller needed here.
 
   if (authLoading) return <LoadingSpinner fullScreen size="lg" />;
 
