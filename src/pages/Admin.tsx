@@ -7,6 +7,7 @@ import BannerManagement from "@/components/admin/BannerManagement";
 import SiteSettings from "@/components/admin/SiteSettings";
 import CoinPackageManagement from "@/components/admin/CoinPackageManagement";
 import RedeemCodeManagement from "@/components/admin/RedeemCodeManagement";
+import Leaderboard from "@/components/admin/Leaderboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
