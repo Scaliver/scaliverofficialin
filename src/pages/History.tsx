@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, History as HistoryIcon, TrendingUp, TrendingDown, Package } from "lucide-react";
+import { Helmet } from "react-helmet-async";
 
 interface Order {
   id: string;
