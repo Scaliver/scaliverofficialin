@@ -66,40 +66,13 @@ const Orders = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // After Pay UPI redirect, verify the payment with the gateway and refresh orders.
+  // If a stale payment_order param lands on /orders, hand off to /payment-detect.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const paymentOrder = params.get("payment_order");
-    if (!paymentOrder) return;
-    params.delete("payment_order");
-    params.delete("status");
-    const newSearch = params.toString();
-    window.history.replaceState({}, "", `/orders${newSearch ? `?${newSearch}` : ""}`);
-
-    let attempts = 0;
-    const tick = async () => {
-      attempts++;
-      try {
-        const { data } = await supabase.functions.invoke("chuimei-payment", {
-          body: { action: "verify_payment", order_id: paymentOrder },
-        });
-        if (data?.status === "completed") {
-          toast({
-            title: "Payment Successful ✅",
-            description: "Your order has been placed and is being processed.",
-          });
-          fetchOrders();
-          return;
-        }
-        if (data?.status === "failed") {
-          toast({ title: "Payment Failed", description: "Payment was not completed.", variant: "destructive" });
-          return;
-        }
-      } catch {}
-      if (attempts < 24) setTimeout(tick, 5000);
-    };
-    tick();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (params.has("payment_order")) {
+      const paymentId = params.get("payment_order");
+      window.location.replace(`/payment-detect?id=${paymentId || ""}`);
+    }
   }, []);
 
   const { toast } = useToast();
