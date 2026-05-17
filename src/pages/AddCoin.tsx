@@ -156,6 +156,14 @@ const AddCoin = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>Add Wallet Coins | Scaliver Official</title>
+        <meta name="description" content="Recharge your Scaliver Official wallet via UPI with instant auto-verified coin credit (1 coin = ₹1)." />
+        <link rel="canonical" href="https://scaliverofficial.in/add-coin" />
+        <meta property="og:title" content="Add Coins | Scaliver Official" />
+        <meta property="og:description" content="Top up your wallet instantly via UPI." />
+        <meta property="og:url" content="https://scaliverofficial.in/add-coin" />
+      </Helmet>
       <Header />
       <main className="container mx-auto px-4 py-6 pb-24 md:pb-8">
         <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4 text-muted-foreground hover:text-foreground">
