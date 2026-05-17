@@ -37,6 +37,7 @@ const AnimatedRoutes = () => {
         <Route path="/orders" element={<PageTransition><Orders /></PageTransition>} />
         <Route path="/history" element={<PageTransition><History /></PageTransition>} />
         <Route path="/redeem" element={<PageTransition><Redeem /></PageTransition>} />
+        <Route path="/payment-detect" element={<PageTransition><PaymentDetect /></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
     </AnimatePresence>
