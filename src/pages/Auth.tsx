@@ -999,6 +999,14 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <Helmet>
+        <title>Sign In or Register | Scaliver Official</title>
+        <meta name="description" content="Sign in or create your Scaliver Official account to top up Mobile Legends, PUBG UC, BGMI, and Free Fire instantly." />
+        <link rel="canonical" href="https://scaliverofficial.in/auth" />
+        <meta property="og:title" content="Sign In | Scaliver Official" />
+        <meta property="og:description" content="Login or register to start instant game top-ups with UPI." />
+        <meta property="og:url" content="https://scaliverofficial.in/auth" />
+      </Helmet>
       <header className="border-b border-border/50 bg-background/95 backdrop-blur">
         <div className="container flex h-16 items-center">
           <Button 
