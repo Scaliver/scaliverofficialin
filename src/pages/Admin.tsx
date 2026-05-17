@@ -2271,6 +2271,7 @@ const Admin = () => {
           {activeTab === "banners" && <BannerManagement />}
           {activeTab === "coinpackages" && <CoinPackageManagement />}
           {activeTab === "redeem" && <RedeemCodeManagement />}
+          {activeTab === "leaderboard" && <Leaderboard />}
         </div>
       </main>
 
