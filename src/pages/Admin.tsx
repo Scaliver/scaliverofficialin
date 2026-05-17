@@ -7,6 +7,7 @@ import BannerManagement from "@/components/admin/BannerManagement";
 import SiteSettings from "@/components/admin/SiteSettings";
 import CoinPackageManagement from "@/components/admin/CoinPackageManagement";
 import RedeemCodeManagement from "@/components/admin/RedeemCodeManagement";
+import Leaderboard from "@/components/admin/Leaderboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -112,7 +113,7 @@ const Admin = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history" | "security" | "audit" | "alerts" | "products" | "smm" | "apis" | "settings" | "banners" | "coinpackages" | "redeem">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history" | "security" | "audit" | "alerts" | "products" | "smm" | "apis" | "settings" | "banners" | "coinpackages" | "redeem" | "leaderboard">("orders");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userOrdersDialogOpen, setUserOrdersDialogOpen] = useState(false);
@@ -1157,6 +1158,9 @@ const Admin = () => {
             </button>
             <button onClick={() => setActiveTab("redeem")} className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${activeTab === "redeem" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
               <Gift className="w-4 h-4" /> Redeem Codes
+            </button>
+            <button onClick={() => setActiveTab("leaderboard")} className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${activeTab === "leaderboard" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
+              <Package className="w-4 h-4" /> Leaderboard
             </button>
           </div>
 
@@ -2267,6 +2271,7 @@ const Admin = () => {
           {activeTab === "banners" && <BannerManagement />}
           {activeTab === "coinpackages" && <CoinPackageManagement />}
           {activeTab === "redeem" && <RedeemCodeManagement />}
+          {activeTab === "leaderboard" && <Leaderboard />}
         </div>
       </main>
 

@@ -102,6 +102,7 @@ const ProductDetail = () => {
   const [userId, setUserId] = useState("");
   const [zoneId, setZoneId] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isUpiProcessing, setIsUpiProcessing] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData2, setReceiptData2] = useState<null>(null); // placeholder removed
 
@@ -901,7 +902,7 @@ const ProductDetail = () => {
                           className="w-full border-primary/50 hover:bg-primary/10"
                           onClick={async () => {
                             if (!validateForm() || !selectedTier) return;
-                            setIsProcessing(true);
+                            setIsUpiProcessing(true);
                             try {
                               const { data: paymentRecord, error: insertError } = await supabase
                                 .from("upi_payment_requests")
@@ -921,7 +922,7 @@ const ProductDetail = () => {
                                   is_social_media: !!product.isSocialMedia,
                                   player_id: userId,
                                   zone_id: zoneId || null,
-                                  redirect_path: `${window.location.origin}/orders`,
+                                  redirect_path: `${window.location.origin}/payment-detect?id=__ID__`,
                                   utr_number: `CHUIMEI-${Date.now()}`,
                                   status: "pending",
                                 })
@@ -929,24 +930,30 @@ const ProductDetail = () => {
                                 .single();
                               if (insertError) throw insertError;
 
+                              // Patch redirect_path with the real id so gateway returns
+                              // user to /payment-detect?id=<paymentId>
+                              const detectUrl = `${window.location.origin}/payment-detect?id=${paymentRecord.id}`;
+                              await supabase
+                                .from("upi_payment_requests")
+                                .update({ redirect_path: detectUrl })
+                                .eq("id", paymentRecord.id);
+
                               const { data, error } = await supabase.functions.invoke('chuimei-payment', {
                                 body: {
                                   action: 'create_order',
                                   amount: selectedTier.price,
                                   order_id: paymentRecord.id,
                                   customer_mobile: '0000000000',
-                                  redirect_url: window.location.origin,
+                                  redirect_url: detectUrl,
                                   remark1: `${product.name} - ${selectedTier.amount}`,
                                   remark2: `Player: ${userId}${zoneId ? ` Zone: ${zoneId}` : ''}`,
                                 }
                               });
                               if (error) throw error;
                               if (data?.success && data?.payment_url) {
-                                window.open(data.payment_url, '_blank');
-                                toast({
-                                  title: "Payment Initiated",
-                                  description: "Complete payment in the opened window.",
-                                });
+                                // Send the user straight to the gateway in the
+                                // same tab, then to /payment-detect on return.
+                                window.location.href = data.payment_url;
                               } else {
                                 throw new Error(data?.error || 'Payment failed');
                               }
@@ -957,14 +964,17 @@ const ProductDetail = () => {
                                 description: err instanceof Error ? err.message : "Failed to initiate payment.",
                                 variant: "destructive",
                               });
-                            } finally {
-                              setIsProcessing(false);
+                              setIsUpiProcessing(false);
                             }
                           }}
-                          disabled={!selectedTier || isProcessing}
+                          disabled={!selectedTier || isUpiProcessing}
                         >
-                          <CreditCard className="w-4 h-4 mr-2" />
-                          Pay UPI
+                          {isUpiProcessing ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <CreditCard className="w-4 h-4 mr-2" />
+                          )}
+                          {isUpiProcessing ? "Opening UPI…" : "Pay UPI"}
                         </Button>
                       )}
                       
