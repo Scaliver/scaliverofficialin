@@ -85,16 +85,22 @@ const AddCoin = () => {
           user_id: user.id, user_email: user.email,
           request_type: "coin_recharge",
           amount, total_coins: getTotalCoins(), bonus_coins: getBonus(),
-          redirect_path: `${window.location.origin}/wallet`,
+          redirect_path: `${window.location.origin}/payment-detect`,
           utr_number: `CHUIMEI-${Date.now()}`, status: "pending",
         }).select().single();
       if (insertError) throw insertError;
+
+      const detectUrl = `${window.location.origin}/payment-detect?id=${paymentRecord.id}`;
+      await supabase
+        .from("upi_payment_requests")
+        .update({ redirect_path: detectUrl })
+        .eq("id", paymentRecord.id);
 
       const { data, error } = await supabase.functions.invoke("chuimei-payment", {
         body: {
           action: "create_order", amount, order_id: paymentRecord.id,
           customer_mobile: "0000000000",
-          redirect_url: window.location.origin,
+          redirect_url: detectUrl,
           remark1: `Coin recharge - ${getTotalCoins()} coins`,
           remark2: user.email,
         },
@@ -102,15 +108,13 @@ const AddCoin = () => {
       if (error) throw error;
 
       if (data?.success && data?.payment_url) {
-        window.open(data.payment_url, "_blank");
-        toast({ title: "Payment Initiated", description: "Coins credit automatically after payment." });
-        pollPaymentStatus(paymentRecord.id);
+        // Same-tab redirect; user comes back to /payment-detect automatically.
+        window.location.href = data.payment_url;
       } else {
         throw new Error(data?.error || "Failed to create payment order");
       }
     } catch (e) {
       toast({ title: "Payment Error", variant: "destructive", description: e instanceof Error ? e.message : "Try again." });
-    } finally {
       setIsProcessing(false);
     }
   };
