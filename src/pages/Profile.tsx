@@ -139,6 +139,14 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <Helmet>
+        <title>My Profile | Scaliver Official</title>
+        <meta name="description" content="Manage your Scaliver Official profile, contact details, and account preferences." />
+        <link rel="canonical" href="https://scaliverofficial.in/profile" />
+        <meta name="robots" content="noindex" />
+        <meta property="og:title" content="My Profile | Scaliver Official" />
+        <meta property="og:description" content="Manage your Scaliver Official account." />
+      </Helmet>
       <Header />
       
       <main className="flex-1 py-8">
