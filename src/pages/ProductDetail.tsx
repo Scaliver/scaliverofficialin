@@ -102,6 +102,7 @@ const ProductDetail = () => {
   const [userId, setUserId] = useState("");
   const [zoneId, setZoneId] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isUpiProcessing, setIsUpiProcessing] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData2, setReceiptData2] = useState<null>(null); // placeholder removed
 
