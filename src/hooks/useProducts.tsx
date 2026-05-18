@@ -30,6 +30,9 @@ export interface Product {
   sort_order: number;
   requires_player_id?: boolean;
   requires_server_id?: boolean;
+  requires_char_name?: boolean;
+  server_mode?: string;
+  server_options?: unknown;
   created_at: string;
   updated_at: string;
   pricing_tiers?: PricingTier[];
@@ -48,6 +51,9 @@ export interface ProductFormData {
   sort_order: number;
   requires_player_id?: boolean;
   requires_server_id?: boolean;
+  requires_char_name?: boolean;
+  server_mode?: string;
+  server_options?: unknown;
 }
 
 export interface PricingTierFormData {
@@ -77,6 +83,9 @@ export interface LegacyProduct {
   tiktokSubCategory?: string;
   requiresPlayerId?: boolean;
   requiresServerId?: boolean;
+  requiresCharName?: boolean;
+  serverMode?: 'select' | 'manual' | 'none';
+  serverOptions?: Array<{ value: string; label: string }>;
   pricingTiers: {
     id: string;
     amount: string;
@@ -105,6 +114,9 @@ const toLegacyProduct = (product: Product): LegacyProduct => ({
   tiktokSubCategory: product.sub_category && product.category === 'Social Media' && product.name.toLowerCase().includes('tiktok') ? product.sub_category : undefined,
   requiresPlayerId: product.requires_player_id !== false,
   requiresServerId: product.requires_server_id === true,
+  requiresCharName: product.requires_char_name === true,
+  serverMode: ((product.server_mode || (product.requires_server_id ? 'manual' : 'none')) as 'select' | 'manual' | 'none'),
+  serverOptions: Array.isArray(product.server_options) ? (product.server_options as Array<{ value: string; label: string }>) : [],
   pricingTiers: (product.pricing_tiers || []).map(tier => ({
     id: tier.id,
     amount: tier.amount,

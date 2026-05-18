@@ -16,6 +16,7 @@ import AddCoin from "./pages/AddCoin";
 import Orders from "./pages/Orders";
 import History from "./pages/History";
 import Redeem from "./pages/Redeem";
+import LeaderboardPage from "./pages/Leaderboard";
 import NotFound from "./pages/NotFound";
 import PaymentDetect from "./pages/PaymentDetect";
 
@@ -37,6 +38,7 @@ const AnimatedRoutes = () => {
         <Route path="/orders" element={<PageTransition><Orders /></PageTransition>} />
         <Route path="/history" element={<PageTransition><History /></PageTransition>} />
         <Route path="/redeem" element={<PageTransition><Redeem /></PageTransition>} />
+        <Route path="/leaderboard" element={<PageTransition><LeaderboardPage /></PageTransition>} />
         <Route path="/payment-detect" element={<PageTransition><PaymentDetect /></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>

@@ -314,8 +314,11 @@ export type Database = {
           instructions: string[] | null
           is_social_media: boolean
           name: string
+          requires_char_name: boolean
           requires_player_id: boolean
           requires_server_id: boolean
+          server_mode: string
+          server_options: Json
           slug: string
           sort_order: number
           sub_category: string | null
@@ -332,8 +335,11 @@ export type Database = {
           instructions?: string[] | null
           is_social_media?: boolean
           name: string
+          requires_char_name?: boolean
           requires_player_id?: boolean
           requires_server_id?: boolean
+          server_mode?: string
+          server_options?: Json
           slug: string
           sort_order?: number
           sub_category?: string | null
@@ -350,8 +356,11 @@ export type Database = {
           instructions?: string[] | null
           is_social_media?: boolean
           name?: string
+          requires_char_name?: boolean
           requires_player_id?: boolean
           requires_server_id?: boolean
+          server_mode?: string
+          server_options?: Json
           slug?: string
           sort_order?: number
           sub_category?: string | null
