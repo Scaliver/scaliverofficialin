@@ -101,6 +101,7 @@ const ProductDetail = () => {
   const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
   const [userId, setUserId] = useState("");
   const [zoneId, setZoneId] = useState("");
+  const [charName, setCharName] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isUpiProcessing, setIsUpiProcessing] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
