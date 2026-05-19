@@ -445,6 +445,7 @@ const ProductDetail = () => {
               body: {
                 action: 'create_order', game, denom, userid: userId,
                 serverid: zoneId || undefined,
+                charname: charName || playerInfo?.nickname || undefined,
                 partner_orderid: orderData.id,
                 partner_webhook_url: webhookUrl,
               }
