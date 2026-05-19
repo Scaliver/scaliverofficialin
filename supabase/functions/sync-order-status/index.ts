@@ -142,9 +142,10 @@ serve(async (req) => {
 
         await supabase.from('orders').update(update).eq('id', order.id);
 
-        // Auto refund on failure
-        if (newStatus === 'failed' && order.user_id && order.price) {
-          // Avoid duplicate refunds
+        // Auto refund on failure — ONLY for wallet-paid orders.
+        // UPI-paid orders (with payment_request_id) were never debited from
+        // the wallet, so refunding would create phantom coins.
+        if (newStatus === 'failed' && order.user_id && order.price && !order.payment_request_id) {
           const { data: existing } = await supabase
             .from('coin_transactions')
             .select('id')
@@ -175,7 +176,7 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({
-      success: true, totalOrders: results.length, updatedCount, results,
+      success: true, totalOrders: results.length, updatedCount, verifiedUpiCount,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), {
