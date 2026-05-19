@@ -722,8 +722,8 @@ const ProductDetail = () => {
                   </div>
                 ) : (
                   <>
-                    {(product.requiresPlayerId !== false || product.requiresServerId) && (
-                      <div className={`grid gap-4 ${product.requiresServerId && product.requiresPlayerId !== false ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                    {(product.requiresPlayerId !== false || product.requiresServerId || product.serverMode === 'select' || product.serverMode === 'manual') && (
+                      <div className={`grid gap-4 ${(product.requiresServerId || product.serverMode === 'select' || product.serverMode === 'manual') && product.requiresPlayerId !== false ? 'grid-cols-2' : 'grid-cols-1'}`}>
                         {product.requiresPlayerId !== false && (
                           <div className="space-y-2">
                             <Label htmlFor="userId" className="font-body text-foreground">
@@ -738,10 +738,27 @@ const ProductDetail = () => {
                             />
                           </div>
                         )}
-                        {product.requiresServerId && (
+                        {(product.serverMode === 'select' && product.serverOptions && product.serverOptions.length > 0) ? (
                           <div className="space-y-2">
                             <Label htmlFor="zoneId" className="font-body text-foreground">
-                              Server / Zone ID
+                              Server *
+                            </Label>
+                            <select
+                              id="zoneId"
+                              value={zoneId}
+                              onChange={(e) => setZoneId(e.target.value)}
+                              className="w-full h-10 px-3 rounded-md bg-secondary border border-border text-foreground"
+                            >
+                              <option value="">Select server…</option>
+                              {product.serverOptions.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : (product.requiresServerId || product.serverMode === 'manual') ? (
+                          <div className="space-y-2">
+                            <Label htmlFor="zoneId" className="font-body text-foreground">
+                              Server / Zone ID *
                             </Label>
                             <Input
                               id="zoneId"
@@ -751,7 +768,22 @@ const ProductDetail = () => {
                               className="bg-secondary border-border"
                             />
                           </div>
-                        )}
+                        ) : null}
+                      </div>
+                    )}
+
+                    {product.requiresCharName && (
+                      <div className="space-y-2">
+                        <Label htmlFor="charName" className="font-body text-foreground">
+                          In-game Username *
+                        </Label>
+                        <Input
+                          id="charName"
+                          placeholder="Enter your in-game username"
+                          value={charName}
+                          onChange={(e) => setCharName(e.target.value)}
+                          className="bg-secondary border-border"
+                        />
                       </div>
                     )}
                     
