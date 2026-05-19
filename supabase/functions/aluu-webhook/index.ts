@@ -71,7 +71,7 @@ serve(async (req) => {
 
   const { data: order, error: fetchErr } = await supabase
     .from("orders")
-    .select("id, user_id, price, product_name, status")
+    .select("id, user_id, price, product_name, status, payment_request_id")
     .eq("id", partnerOrderId)
     .maybeSingle();
 
