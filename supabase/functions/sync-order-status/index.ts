@@ -71,9 +71,34 @@ serve(async (req) => {
     let specificOrderId: string | null = null;
     try { const body = await req.json(); specificOrderId = body?.orderId || null; } catch { /* noop */ }
 
+    // STEP 1: auto-verify any pending UPI payment requests via Chuimei.
+    // This makes the full payment → order flow automatic even if the user
+    // never returns to /payment-detect.
+    let verifiedUpiCount = 0;
+    if (!specificOrderId) {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: pendingPayments } = await supabase
+        .from('upi_payment_requests')
+        .select('id')
+        .eq('status', 'pending')
+        .gte('created_at', since)
+        .limit(50);
+
+      for (const p of pendingPayments || []) {
+        try {
+          await supabase.functions.invoke('chuimei-payment', {
+            body: { action: 'verify_payment', order_id: p.id },
+          });
+          verifiedUpiCount++;
+        } catch (e) {
+          console.error('verify_payment invoke failed', p.id, e);
+        }
+      }
+    }
+
     let query = supabase
       .from('orders')
-      .select('id, smm_order_id, status, user_id, price, product_name')
+      .select('id, smm_order_id, status, user_id, price, product_name, payment_request_id')
       .in('status', ['pending', 'processing']);
     if (specificOrderId) query = query.eq('id', specificOrderId);
 
