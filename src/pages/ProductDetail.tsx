@@ -331,7 +331,18 @@ const ProductDetail = () => {
       return false;
     }
 
-    // Player verification is optional - no longer required for MLBB products
+    // Server requirement (when product needs server selection/entry)
+    const serverRequired = !product?.isSocialMedia && (product?.serverMode === 'select' || product?.serverMode === 'manual' || product?.requiresServerId);
+    if (serverRequired && !zoneId.trim()) {
+      toast({ title: "Server required", description: "Please select / enter your Server (Zone) ID.", variant: "destructive" });
+      return false;
+    }
+
+    // Character name requirement
+    if (product?.requiresCharName && !charName.trim()) {
+      toast({ title: "Username required", description: "Please enter your in-game username.", variant: "destructive" });
+      return false;
+    }
 
     return true;
   };
