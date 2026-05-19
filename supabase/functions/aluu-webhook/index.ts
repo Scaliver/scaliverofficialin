@@ -92,8 +92,10 @@ serve(async (req) => {
     smm_order_id: providerOrderId || null,
   }).eq("id", order.id);
 
-  // Auto refund on failure
-  if (newStatus === "failed" && order.user_id && order.price) {
+  // Auto refund on failure — ONLY for wallet-paid orders. UPI-paid orders
+  // (those with a payment_request_id) were not debited from the wallet, so
+  // refunding would create phantom coins.
+  if (newStatus === "failed" && order.user_id && order.price && !order.payment_request_id) {
     const { data: wallet } = await supabase
       .from("wallets").select("balance").eq("user_id", order.user_id).maybeSingle();
     const current = Number(wallet?.balance || 0);
