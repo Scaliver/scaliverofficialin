@@ -526,18 +526,10 @@ async function fulfillProductOrder(supabase: any, req: any) {
     }
 
     orderData = insertedOrder;
-
-    try {
-      await supabase.from('coin_transactions').insert({
-        user_id: req.user_id,
-        amount: Number(req.amount),
-        type: 'debit',
-        description: `Purchase: ${req.product_name || 'Product'} (UPI gateway)`,
-        reference_id: orderData.id,
-      });
-    } catch (e) {
-      console.error('coin_transactions insert failed:', e);
-    }
+    // NOTE: do NOT insert a coin_transactions debit here — UPI gateway
+    // payments are NOT routed through the wallet. The order itself is the
+    // record of the purchase. Adding a debit would falsely reduce coin
+    // history balance.
   }
 
   if (orderData.smm_order_id && ['processing', 'completed'].includes(orderData.status || '')) {
