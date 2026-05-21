@@ -14,6 +14,86 @@ export type Database = {
   }
   public: {
     Tables: {
+      auction_bids: {
+        Row: {
+          amount: number
+          auction_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          auction_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          auction_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auction_bids_auction_id_fkey"
+            columns: ["auction_id"]
+            isOneToOne: false
+            referencedRelation: "auctions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auctions: {
+        Row: {
+          bid_increment: number
+          created_at: string
+          created_by: string | null
+          current_bid: number
+          current_bidder_id: string | null
+          description: string | null
+          ends_at: string
+          id: string
+          image_url: string | null
+          starting_price: number
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          bid_increment?: number
+          created_at?: string
+          created_by?: string | null
+          current_bid?: number
+          current_bidder_id?: string | null
+          description?: string | null
+          ends_at: string
+          id?: string
+          image_url?: string | null
+          starting_price?: number
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          bid_increment?: number
+          created_at?: string
+          created_by?: string | null
+          current_bid?: number
+          current_bidder_id?: string | null
+          description?: string | null
+          ends_at?: string
+          id?: string
+          image_url?: string | null
+          starting_price?: number
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -157,6 +237,27 @@ export type Database = {
           id?: string
           reference_id?: string | null
           type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      leaderboard_overrides: {
+        Row: {
+          hidden: boolean
+          manual_rank: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          hidden?: boolean
+          manual_rank?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          hidden?: boolean
+          manual_rank?: number | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
