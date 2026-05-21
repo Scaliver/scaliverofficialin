@@ -16,18 +16,19 @@ const Header = () => {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
+      <div className="container flex h-12 sm:h-16 items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
           <div className="relative">
-            <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center glow-blue">
-              <span className="font-display font-bold text-lg text-primary-foreground">S</span>
+            <div className="h-7 w-7 sm:h-10 sm:w-10 rounded-md sm:rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center glow-blue">
+              <span className="font-display font-bold text-sm sm:text-lg text-primary-foreground">S</span>
             </div>
           </div>
-          <span className="font-display font-bold text-xl tracking-wider text-gradient">
+          <span className="font-display font-bold text-sm sm:text-xl tracking-wider text-gradient">
             Scaliver Official
           </span>
         </div>
+
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-8">
@@ -40,6 +41,13 @@ const Header = () => {
           <a href="/#contact" className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors">
             Contact Us
           </a>
+          <button
+            onClick={() => navigate("/redeem")}
+            className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors"
+          >
+            Redeem
+          </button>
+
           {isAdmin && (
             <Button 
               variant="gaming"
@@ -108,6 +116,13 @@ const Header = () => {
             <a href="/#contact" className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors">
               Contact Us
             </a>
+            <button
+              onClick={() => { navigate("/redeem"); setMobileMenuOpen(false); }}
+              className="font-body text-lg font-medium text-muted-foreground hover:text-primary transition-colors text-left"
+            >
+              Redeem
+            </button>
+
             {user && (
               <button 
                 onClick={() => { navigate("/profile"); setMobileMenuOpen(false); }}
