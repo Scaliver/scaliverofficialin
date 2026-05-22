@@ -419,6 +419,15 @@ async function handlePaymentCallback(supabase: any, orderId: string, status: str
     return;
   }
 
+  if (existingReq.request_type === 'auction_win' && existingReq.auction_id) {
+    await supabase
+      .from('auctions')
+      .update({ paid: true, status: 'ended', updated_at: new Date().toISOString() })
+      .eq('id', existingReq.auction_id);
+    console.log(`Marked auction ${existingReq.auction_id} as paid`);
+    return;
+  }
+
   const totalCoins = Number(existingReq.total_coins || existingReq.amount);
   const { data: wallet } = await supabase
     .from('wallets').select('balance').eq('user_id', existingReq.user_id).single();
