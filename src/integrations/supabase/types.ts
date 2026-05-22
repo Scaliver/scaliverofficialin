@@ -57,6 +57,7 @@ export type Database = {
           ends_at: string
           id: string
           image_url: string | null
+          paid: boolean
           starting_price: number
           status: string
           title: string
@@ -72,6 +73,7 @@ export type Database = {
           ends_at: string
           id?: string
           image_url?: string | null
+          paid?: boolean
           starting_price?: number
           status?: string
           title: string
@@ -87,6 +89,7 @@ export type Database = {
           ends_at?: string
           id?: string
           image_url?: string | null
+          paid?: boolean
           starting_price?: number
           status?: string
           title?: string
@@ -676,6 +679,7 @@ export type Database = {
       upi_payment_requests: {
         Row: {
           amount: number
+          auction_id: string | null
           bonus_coins: number | null
           created_at: string
           id: string
@@ -701,6 +705,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          auction_id?: string | null
           bonus_coins?: number | null
           created_at?: string
           id?: string
@@ -726,6 +731,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          auction_id?: string | null
           bonus_coins?: number | null
           created_at?: string
           id?: string

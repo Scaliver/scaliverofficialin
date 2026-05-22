@@ -23,6 +23,7 @@ interface Auction {
   bid_increment: number;
   ends_at: string;
   status: string;
+  paid?: boolean;
 }
 interface Bid { id: string; user_id: string; amount: number; created_at: string; display_name?: string | null; }
 
@@ -35,6 +36,7 @@ const AuctionDetail = () => {
   const [bids, setBids] = useState<Bid[]>([]);
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [paying, setPaying] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => { const i = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(i); }, []);
@@ -98,6 +100,52 @@ const AuctionDetail = () => {
     toast({ title: "Bid placed!", description: `You bid ₹${amt}` });
   };
 
+  const isWinner = !!user && auction.current_bidder_id === user.id;
+  const winnerCanPay = ended && isWinner && !auction.paid && (auction.current_bid || 0) > 0;
+
+  const handlePay = async () => {
+    if (!user?.email || !auction) return;
+    setPaying(true);
+    try {
+      const amt = Number(auction.current_bid);
+      const { data: pr, error: insErr } = await supabase
+        .from("upi_payment_requests").insert({
+          user_id: user.id, user_email: user.email,
+          request_type: "auction_win",
+          auction_id: auction.id,
+          amount: amt,
+          product_name: `Auction: ${auction.title}`,
+          utr_number: `AUC-${Date.now()}`,
+          status: "pending",
+          redirect_path: `${window.location.origin}/payment-detect`,
+        }).select().single();
+      if (insErr) throw insErr;
+
+      const detectUrl = `${window.location.origin}/payment-detect?id=${pr.id}`;
+      await supabase.from("upi_payment_requests").update({ redirect_path: detectUrl }).eq("id", pr.id);
+
+      const { data, error } = await supabase.functions.invoke("chuimei-payment", {
+        body: {
+          action: "create_order", amount: amt, order_id: pr.id,
+          customer_mobile: "0000000000",
+          redirect_url: detectUrl,
+          remark1: `Auction win - ${auction.title}`,
+          remark2: user.email,
+        },
+      });
+      if (error) throw error;
+      if (data?.success && data?.payment_url) {
+        window.location.href = data.payment_url;
+      } else {
+        throw new Error(data?.error || "Failed to create payment");
+      }
+    } catch (e) {
+      toast({ title: "Payment failed", description: e instanceof Error ? e.message : "Try again", variant: "destructive" });
+      setPaying(false);
+    }
+  };
+
+
   return (
     <div className="min-h-screen bg-background">
       <Helmet><title>{auction.title} | Auction</title></Helmet>
@@ -127,6 +175,28 @@ const AuctionDetail = () => {
                 <p className="font-bold font-mono text-xl">{remaining}</p>
               </div>
             </div>
+
+            {ended && auction.paid && isWinner && (
+              <div className="p-3 rounded-lg bg-green-600/10 border border-green-600/40 text-sm font-semibold text-green-400">
+                ✅ Payment received. We will contact you to deliver the item.
+              </div>
+            )}
+
+            {winnerCanPay && (
+              <div className="pt-2 space-y-2">
+                <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
+                  <p className="text-xs text-muted-foreground">🏆 You won this auction!</p>
+                  <p className="text-sm font-semibold">Pay ₹{Number(auction.current_bid).toFixed(0)} to claim your item.</p>
+                </div>
+                <Button onClick={handlePay} disabled={paying} variant="gaming" className="w-full">
+                  {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pay ₹${Number(auction.current_bid).toFixed(0)} via UPI`}
+                </Button>
+              </div>
+            )}
+
+            {ended && !isWinner && (auction.current_bid || 0) > 0 && (
+              <div className="text-xs text-muted-foreground italic">Auction ended. Only the winning bidder can pay.</div>
+            )}
 
             {!ended && (
               <div className="pt-2 space-y-2">
