@@ -23,6 +23,7 @@ interface Auction {
   bid_increment: number;
   ends_at: string;
   status: string;
+  paid?: boolean;
 }
 interface Bid { id: string; user_id: string; amount: number; created_at: string; display_name?: string | null; }
 
@@ -35,6 +36,7 @@ const AuctionDetail = () => {
   const [bids, setBids] = useState<Bid[]>([]);
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [paying, setPaying] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => { const i = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(i); }, []);
@@ -88,6 +90,60 @@ const AuctionDetail = () => {
 
   const handleBid = async () => {
     if (!user) { navigate("/auth"); return; }
+    const amt = Number(amount);
+    if (!amt || amt < minBid) { toast({ title: "Bid too low", description: `Minimum bid is ₹${minBid}`, variant: "destructive" }); return; }
+    setSubmitting(true);
+    const { error } = await supabase.from("auction_bids").insert({ auction_id: auction.id, user_id: user.id, amount: amt });
+    setSubmitting(false);
+    if (error) { toast({ title: "Bid failed", description: error.message, variant: "destructive" }); return; }
+    setAmount("");
+    toast({ title: "Bid placed!", description: `You bid ₹${amt}` });
+  };
+
+  const isWinner = !!user && auction.current_bidder_id === user.id;
+  const winnerCanPay = ended && isWinner && !auction.paid && (auction.current_bid || 0) > 0;
+
+  const handlePay = async () => {
+    if (!user?.email || !auction) return;
+    setPaying(true);
+    try {
+      const amt = Number(auction.current_bid);
+      const { data: pr, error: insErr } = await supabase
+        .from("upi_payment_requests").insert({
+          user_id: user.id, user_email: user.email,
+          request_type: "auction_win",
+          auction_id: auction.id,
+          amount: amt,
+          product_name: `Auction: ${auction.title}`,
+          utr_number: `AUC-${Date.now()}`,
+          status: "pending",
+          redirect_path: `${window.location.origin}/payment-detect`,
+        }).select().single();
+      if (insErr) throw insErr;
+
+      const detectUrl = `${window.location.origin}/payment-detect?id=${pr.id}`;
+      await supabase.from("upi_payment_requests").update({ redirect_path: detectUrl }).eq("id", pr.id);
+
+      const { data, error } = await supabase.functions.invoke("chuimei-payment", {
+        body: {
+          action: "create_order", amount: amt, order_id: pr.id,
+          customer_mobile: "0000000000",
+          redirect_url: detectUrl,
+          remark1: `Auction win - ${auction.title}`,
+          remark2: user.email,
+        },
+      });
+      if (error) throw error;
+      if (data?.success && data?.payment_url) {
+        window.location.href = data.payment_url;
+      } else {
+        throw new Error(data?.error || "Failed to create payment");
+      }
+    } catch (e) {
+      toast({ title: "Payment failed", description: e instanceof Error ? e.message : "Try again", variant: "destructive" });
+      setPaying(false);
+    }
+  };
     const amt = Number(amount);
     if (!amt || amt < minBid) { toast({ title: "Bid too low", description: `Minimum bid is ₹${minBid}`, variant: "destructive" }); return; }
     setSubmitting(true);
