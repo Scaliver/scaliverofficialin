@@ -144,15 +144,7 @@ const AuctionDetail = () => {
       setPaying(false);
     }
   };
-    const amt = Number(amount);
-    if (!amt || amt < minBid) { toast({ title: "Bid too low", description: `Minimum bid is ₹${minBid}`, variant: "destructive" }); return; }
-    setSubmitting(true);
-    const { error } = await supabase.from("auction_bids").insert({ auction_id: auction.id, user_id: user.id, amount: amt });
-    setSubmitting(false);
-    if (error) { toast({ title: "Bid failed", description: error.message, variant: "destructive" }); return; }
-    setAmount("");
-    toast({ title: "Bid placed!", description: `You bid ₹${amt}` });
-  };
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -183,6 +175,28 @@ const AuctionDetail = () => {
                 <p className="font-bold font-mono text-xl">{remaining}</p>
               </div>
             </div>
+
+            {ended && auction.paid && isWinner && (
+              <div className="p-3 rounded-lg bg-green-600/10 border border-green-600/40 text-sm font-semibold text-green-400">
+                ✅ Payment received. We will contact you to deliver the item.
+              </div>
+            )}
+
+            {winnerCanPay && (
+              <div className="pt-2 space-y-2">
+                <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
+                  <p className="text-xs text-muted-foreground">🏆 You won this auction!</p>
+                  <p className="text-sm font-semibold">Pay ₹{Number(auction.current_bid).toFixed(0)} to claim your item.</p>
+                </div>
+                <Button onClick={handlePay} disabled={paying} variant="gaming" className="w-full">
+                  {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pay ₹${Number(auction.current_bid).toFixed(0)} via UPI`}
+                </Button>
+              </div>
+            )}
+
+            {ended && !isWinner && (auction.current_bid || 0) > 0 && (
+              <div className="text-xs text-muted-foreground italic">Auction ended. Only the winning bidder can pay.</div>
+            )}
 
             {!ended && (
               <div className="pt-2 space-y-2">
