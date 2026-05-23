@@ -21,6 +21,7 @@ import Auction from "./pages/Auction";
 import AuctionDetail from "./pages/AuctionDetail";
 import NotFound from "./pages/NotFound";
 import PaymentDetect from "./pages/PaymentDetect";
+import SeoLanding, { LANDING_SLUGS } from "./pages/SeoLanding";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,9 @@ const AnimatedRoutes = () => {
         <Route path="/auction" element={<PageTransition><Auction /></PageTransition>} />
         <Route path="/auction/:id" element={<PageTransition><AuctionDetail /></PageTransition>} />
         <Route path="/payment-detect" element={<PageTransition><PaymentDetect /></PageTransition>} />
+        {LANDING_SLUGS.map((s) => (
+          <Route key={s} path={`/${s}`} element={<PageTransition><SeoLanding /></PageTransition>} />
+        ))}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
     </AnimatePresence>

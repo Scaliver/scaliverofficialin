@@ -624,10 +624,10 @@ const ProductDetail = () => {
             Back to Products
           </Button>
 
-          <div className="grid lg:grid-cols-2 gap-8">
+          <div className="grid lg:grid-cols-2 gap-6 md:gap-8">
             {/* Product Image & Info */}
-            <div className="space-y-6">
-              <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="space-y-4 md:space-y-6">
+              <div className="relative overflow-hidden rounded-xl md:rounded-2xl border border-border bg-card mx-auto max-w-[260px] sm:max-w-[320px] md:max-w-none">
                 <img 
                   src={product.image} 
                   alt={product.name}
@@ -638,17 +638,17 @@ const ProductDetail = () => {
 
               {/* Instructions */}
               {product.instructions && product.instructions.length > 0 && (
-                <div className="bg-card border border-border rounded-xl p-6">
-                  <h3 className="font-display text-lg font-bold text-foreground mb-4">
+                <div className="bg-card border border-border rounded-lg md:rounded-xl p-3 md:p-6">
+                  <h3 className="font-display text-sm md:text-lg font-bold text-foreground mb-2 md:mb-4">
                     How to Order
                   </h3>
-                  <ol className="space-y-3">
+                  <ol className="space-y-1.5 md:space-y-3">
                     {product.instructions.map((instruction, index) => (
-                      <li key={index} className="flex items-start gap-3">
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-display text-sm font-bold">
+                      <li key={index} className="flex items-start gap-2 md:gap-3">
+                        <span className="flex-shrink-0 w-5 h-5 md:w-6 md:h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-display text-[10px] md:text-sm font-bold">
                           {index + 1}
                         </span>
-                        <span className="font-body text-muted-foreground">{instruction}</span>
+                        <span className="font-body text-xs md:text-base text-muted-foreground leading-snug">{instruction}</span>
                       </li>
                     ))}
                   </ol>
