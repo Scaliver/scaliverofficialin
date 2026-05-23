@@ -21,6 +21,7 @@ import Auction from "./pages/Auction";
 import AuctionDetail from "./pages/AuctionDetail";
 import NotFound from "./pages/NotFound";
 import PaymentDetect from "./pages/PaymentDetect";
+import SeoLanding, { LANDING_SLUGS } from "./pages/SeoLanding";
 
 const queryClient = new QueryClient();
 
