@@ -155,12 +155,14 @@ const HeroBanner = () => {
       {/* Navigation Arrows */}
       <button
         onClick={prevSlide}
+        aria-label="Previous banner"
         className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/30 backdrop-blur-sm border border-border/50 text-foreground hover:bg-background/50 transition-all"
       >
         <ChevronLeft className="w-6 h-6" />
       </button>
       <button
         onClick={nextSlide}
+        aria-label="Next banner"
         className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/30 backdrop-blur-sm border border-border/50 text-foreground hover:bg-background/50 transition-all"
       >
         <ChevronRight className="w-6 h-6" />
@@ -172,6 +174,7 @@ const HeroBanner = () => {
           <button
             key={index}
             onClick={() => setCurrentSlide(index)}
+            aria-label={`Go to slide ${index + 1}`}
             className={`h-2 rounded-full transition-all duration-300 ${
               index === currentSlide ? "w-8 bg-primary" : "w-2 bg-foreground/30"
             }`}
