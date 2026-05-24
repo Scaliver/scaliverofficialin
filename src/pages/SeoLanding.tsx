@@ -184,6 +184,44 @@ const SeoLanding = () => {
             ],
           })}
         </script>
+        {products.length > 0 && (
+          <script type="application/ld+json">
+            {JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "ItemList",
+              name: cfg.h1,
+              itemListElement: products.slice(0, 20).map((p: any, idx: number) => {
+                const prices = (p.pricingTiers || []).map((t: any) => Number(t.price)).filter((n: number) => n > 0);
+                const low = prices.length ? Math.min(...prices) : undefined;
+                const high = prices.length ? Math.max(...prices) : undefined;
+                const img = typeof p.image === "string" && p.image.startsWith("http") ? p.image : `${SITE}${p.image || ""}`;
+                return {
+                  "@type": "ListItem",
+                  position: idx + 1,
+                  item: {
+                    "@type": "Product",
+                    name: p.name,
+                    image: img,
+                    description: p.description || `${p.name} instant top up in India`,
+                    brand: { "@type": "Brand", name: "Scaliver Official" },
+                    url: `${SITE}/product/${p.slug || p.id}`,
+                    offers: low !== undefined ? {
+                      "@type": "AggregateOffer",
+                      priceCurrency: "INR",
+                      lowPrice: low,
+                      highPrice: high,
+                      offerCount: prices.length,
+                      availability: p.inStock === false
+                        ? "https://schema.org/OutOfStock"
+                        : "https://schema.org/InStock",
+                      url: `${SITE}/product/${p.slug || p.id}`,
+                    } : undefined,
+                  },
+                };
+              }),
+            })}
+          </script>
+        )}
       </Helmet>
 
       <Header />
