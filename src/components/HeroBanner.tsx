@@ -110,6 +110,11 @@ const HeroBanner = () => {
                 <img 
                   src={banner.image} 
                   alt={banner.title}
+                  width={1600}
+                  height={400}
+                  loading={index === 0 ? "eager" : "lazy"}
+                  fetchPriority={index === 0 ? "high" : "auto"}
+                  decoding="async"
                   className="absolute inset-0 w-full h-full object-contain bg-black"
                 />
               )}
