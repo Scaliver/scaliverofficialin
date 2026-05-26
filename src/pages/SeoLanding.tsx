@@ -74,7 +74,7 @@ const LANDINGS: LandingConfig[] = [
   },
   {
     slug: "cheap-mlbb-recharge",
-    title: "Cheap MLBB Recharge | Lowest ML Top Up Price",",
+    title: "Cheap MLBB Recharge | Lowest ML Top Up Price",
     description: "Cheap MLBB recharge with lowest price diamonds, weekly pass and twilight pass. Compare and save up to 20%.",
     h1: "Cheap MLBB Recharge - Save Big",
     intro: "Save big on every Mobile Legends top up. Wallet bonuses and seasonal offers stack on top of our base discount.",
