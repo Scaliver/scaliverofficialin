@@ -40,6 +40,15 @@ const Wallet = () => {
     <div className="min-h-screen bg-background">
       <Helmet>
         <title>My Wallet | Scaliver Official</title>
+        <meta name="description" content="View your Scaliver coin balance, transactions, and add coins for instant game top ups." />
+        <link rel="canonical" href="https://scaliverofficial.in/wallet" />
+        <meta name="robots" content="noindex, follow" />
+        <meta property="og:title" content="My Wallet | Scaliver Official" />
+        <meta property="og:description" content="Manage your Scaliver coin balance and transactions." />
+        <meta property="og:url" content="https://scaliverofficial.in/wallet" />
+      </Helmet>
+      <Helmet>
+        <title>My Wallet | Scaliver Official</title>
         <meta name="description" content="Check your Scaliver Official coin balance, top-up history, and wallet transactions." />
         <link rel="canonical" href="https://scaliverofficial.in/wallet" />
         <meta name="robots" content="noindex" />

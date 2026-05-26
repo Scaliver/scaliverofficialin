@@ -15,4 +15,6 @@
   <url><loc>https://scaliverofficial.in/auction</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
   <url><loc>https://scaliverofficial.in/auth</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
   <url><loc>https://scaliverofficial.in/redeem</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://scaliverofficial.in/orders</loc><changefreq>weekly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://scaliverofficial.in/history</loc><changefreq>weekly</changefreq><priority>0.3</priority></url>
 </urlset>
