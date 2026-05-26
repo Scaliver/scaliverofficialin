@@ -1021,7 +1021,10 @@ const ProductDetail = () => {
       {/* Transaction Receipt */}
       <TransactionReceipt
         open={receiptOpen}
-        onOpenChange={setReceiptOpen}
+        onOpenChange={(open) => {
+          setReceiptOpen(open);
+          if (!open) navigate("/orders");
+        }}
         receipt={receiptData}
       />
 
