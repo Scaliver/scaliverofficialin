@@ -19,10 +19,8 @@ import FacebookCategorySelector, { FacebookCategory } from "@/components/Faceboo
 import TikTokCategorySelector, { TikTokCategory } from "@/components/TikTokCategorySelector";
 import { Helmet } from "react-helmet-async";
 
-const WHATSAPP_NUMBER = "917637851804";
-
-// Send WhatsApp notification with order details
-const sendWhatsAppNotification = (orderDetails: {
+// WhatsApp auto-notifications removed per user request — now a no-op.
+const sendWhatsAppNotification = (_orderDetails: {
   orderId: string;
   productName: string;
   amount: string;
@@ -34,27 +32,7 @@ const sendWhatsAppNotification = (orderDetails: {
   status: string;
   isManual?: boolean;
 }) => {
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-  
-  const message = encodeURIComponent(
-    `${orderDetails.isManual ? '⚠️ *MANUAL ORDER REQUIRED*' : '🎮 *NEW ORDER - Scaliver Official*'}\n\n` +
-    `📋 Order ID: ${orderDetails.orderId.slice(0, 8)}...\n` +
-    `📦 Product: ${orderDetails.productName}\n` +
-    `💎 Pack: ${orderDetails.amount}\n` +
-    `💰 Price: ₹${orderDetails.price}\n` +
-    `🆔 Player ID: ${orderDetails.playerId}\n` +
-    `${orderDetails.zoneId ? `🌐 Server/Zone: ${orderDetails.zoneId}\n` : ''}` +
-    `${orderDetails.playerName ? `👤 Username: ${orderDetails.playerName}\n` : ''}` +
-    `💳 Payment: ${orderDetails.paymentMethod}\n` +
-    `📊 Status: ${orderDetails.status}\n` +
-    `📅 Date: ${dateStr}\n` +
-    `⏰ Time: ${timeStr}\n` +
-    `${orderDetails.isManual ? '\n❗ Auto-delivery failed. Please process manually.' : ''}`
-  );
-  
-  window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank");
+  /* intentionally empty */
 };
 
 interface ReceiptData {
