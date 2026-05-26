@@ -148,6 +148,15 @@ const AuctionDetail = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>{auction ? `${auction.title} | Live Auction` : "Live Auction"} | Scaliver</title>
+        <meta name="description" content={auction ? `Bid live on ${auction.title}. Current bid ₹${auction.current_bid || auction.starting_price}. Ends soon.` : "Live gaming item auction on Scaliver Official."} />
+        <link rel="canonical" href={`https://scaliverofficial.in/auction/${id || ""}`} />
+        <meta property="og:title" content={auction ? `${auction.title} | Live Auction` : "Live Auction"} />
+        <meta property="og:description" content={auction?.description || "Bid live on rare gaming items."} />
+        <meta property="og:url" content={`https://scaliverofficial.in/auction/${id || ""}`} />
+        {auction?.image_url && <meta property="og:image" content={auction.image_url} />}
+      </Helmet>
       <Helmet><title>{auction.title} | Auction</title></Helmet>
       <Header />
       <main className="container mx-auto px-3 py-4 pb-24 max-w-3xl">
