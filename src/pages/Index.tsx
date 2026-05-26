@@ -128,31 +128,18 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
-        <title>Scaliver Official | Mobile Legends, PUBG UC & Game Top Up</title>
+        <title>Scaliver Official | MLBB, PUBG UC & Game Top Up India</title>
         <meta
           name="description"
-          content="Buy Mobile Legends diamonds, PUBG UC, Free Fire topups, and game recharge packs with instant UPI payment detection, automatic order processing, and fast delivery."
+          content="Buy MLBB diamonds, PUBG UC, Free Fire & BGMI topups with instant UPI verification and auto delivery."
         />
         <link rel="canonical" href="https://scaliverofficial.in/" />
         <meta property="og:title" content="Scaliver Official | Instant Game Top Up India" />
         <meta
           property="og:description"
-          content="Automatic UPI verification, instant tier ordering, and fast Mobile Legends, PUBG UC, and Free Fire topups in India."
+          content="Automatic UPI verification and fast Mobile Legends, PUBG UC and Free Fire topups in India."
         />
         <meta property="og:url" content="https://scaliverofficial.in/" />
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "WebSite",
-            name: "Scaliver Official",
-            url: "https://scaliverofficial.in/",
-            potentialAction: {
-              "@type": "SearchAction",
-              target: "https://scaliverofficial.in/?search={search_term_string}",
-              "query-input": "required name=search_term_string",
-            },
-          })}
-        </script>
       </Helmet>
 
       {/* Alert Dialog */}
