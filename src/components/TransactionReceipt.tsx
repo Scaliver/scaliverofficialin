@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Download, X, CheckCircle } from "lucide-react";
+import { Download, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,54 +32,15 @@ const TransactionReceipt = ({ open, onOpenChange, receipt }: TransactionReceiptP
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return {
-      date: date.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-      time: date.toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      }),
+      date: date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+      time: date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
     };
   };
 
   const { date, time } = formatDate(receipt.transactionDate);
 
   const handleDownload = () => {
-    if (!receiptRef.current) return;
-
-    // Create a printable version
-    const printContent = `
-      SCALIVER OFFICIAL - TRANSACTION RECEIPT
-      ========================================
-      
-      Order ID: ${receipt.orderId.slice(0, 8).toUpperCase()}
-      Date: ${date}
-      Time: ${time}
-      
-      PRODUCT DETAILS
-      ---------------
-      Product: ${receipt.productName}
-      Pack: ${receipt.amount}
-      
-      PLAYER DETAILS
-      --------------
-      Player ID: ${receipt.userId}
-      ${receipt.zoneId ? `Zone/Server: ${receipt.zoneId}` : ""}
-      Contact: ${receipt.contactNumber}
-      
-      PAYMENT
-      -------
-      Method: ${receipt.paymentMethod}
-      Amount Paid: ₹${receipt.price.toFixed(2)}
-      
-      ========================================
-      Thank you for your purchase!
-      For support, contact us on WhatsApp.
-    `;
-
+    const printContent = `SCALIVER OFFICIAL - RECEIPT\nOrder: ${receipt.orderId.slice(0, 8).toUpperCase()}\nDate: ${date} ${time}\nProduct: ${receipt.productName}\nPack: ${receipt.amount}\nPlayer: ${receipt.userId}${receipt.zoneId ? ` / ${receipt.zoneId}` : ""}\nAmount: ₹${receipt.price.toFixed(2)}\nMethod: ${receipt.paymentMethod}\n\nThank you!`;
     const blob = new Blob([printContent], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -93,91 +54,68 @@ const TransactionReceipt = ({ open, onOpenChange, receipt }: TransactionReceiptP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="font-display text-xl flex items-center gap-2">
-            <CheckCircle className="w-6 h-6 text-green-500" />
+      <DialogContent className="w-[calc(100%-1.5rem)] max-w-sm sm:max-w-md p-4 sm:p-6 rounded-xl">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="font-display text-base sm:text-xl flex items-center gap-2">
+            <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
             Payment Successful
           </DialogTitle>
         </DialogHeader>
 
-        <div ref={receiptRef} className="space-y-4 py-4">
-          {/* Receipt Header */}
-          <div className="text-center border-b border-border pb-4">
-            <h2 className="font-display text-lg font-bold text-foreground">SCALIVER OFFICIAL</h2>
-            <p className="font-body text-sm text-muted-foreground">Transaction Receipt</p>
+        <div ref={receiptRef} className="space-y-3 py-2 sm:py-4 text-xs sm:text-sm">
+          <div className="text-center border-b border-border pb-2 sm:pb-3">
+            <h2 className="font-display text-sm sm:text-lg font-bold text-foreground">SCALIVER OFFICIAL</h2>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">Transaction Receipt</p>
           </div>
 
-          {/* Order ID & Date */}
-          <div className="flex justify-between items-center bg-secondary/30 rounded-lg p-3">
+          <div className="flex justify-between items-center bg-secondary/30 rounded-lg p-2 sm:p-3">
             <div>
-              <p className="text-xs text-muted-foreground">Order ID</p>
-              <p className="font-mono font-bold text-foreground">{receipt.orderId.slice(0, 8).toUpperCase()}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Order ID</p>
+              <p className="font-mono font-bold text-foreground text-xs sm:text-sm">{receipt.orderId.slice(0, 8).toUpperCase()}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">Date & Time</p>
-              <p className="font-body text-sm text-foreground">{date}</p>
-              <p className="font-body text-xs text-muted-foreground">{time}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">{date}</p>
+              <p className="text-[10px] sm:text-xs text-foreground">{time}</p>
             </div>
           </div>
 
-          {/* Product Details */}
-          <div className="space-y-2">
-            <h3 className="font-display text-sm font-bold text-foreground">Product Details</h3>
-            <div className="bg-secondary/30 rounded-lg p-3 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground text-sm">Product</span>
-                <span className="font-body text-foreground text-sm">{receipt.productName}</span>
+          <div className="bg-secondary/30 rounded-lg p-2 sm:p-3 space-y-1.5">
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Product</span>
+              <span className="text-foreground text-right truncate">{receipt.productName}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Pack</span>
+              <span className="text-foreground text-right">{receipt.amount}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Player ID</span>
+              <span className="text-foreground text-right truncate">{receipt.userId}</span>
+            </div>
+            {receipt.zoneId && (
+              <div className="flex justify-between gap-2">
+                <span className="text-muted-foreground">Zone</span>
+                <span className="text-foreground text-right">{receipt.zoneId}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground text-sm">Pack</span>
-                <span className="font-body text-foreground text-sm">{receipt.amount}</span>
-              </div>
+            )}
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Method</span>
+              <span className="text-foreground text-right">{receipt.paymentMethod}</span>
             </div>
           </div>
 
-          {/* Player Details */}
-          <div className="space-y-2">
-            <h3 className="font-display text-sm font-bold text-foreground">Player Details</h3>
-            <div className="bg-secondary/30 rounded-lg p-3 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground text-sm">Player ID</span>
-                <span className="font-body text-foreground text-sm">{receipt.userId}</span>
-              </div>
-              {receipt.zoneId && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground text-sm">Zone/Server</span>
-                  <span className="font-body text-foreground text-sm">{receipt.zoneId}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground text-sm">Contact</span>
-                <span className="font-body text-foreground text-sm">{receipt.contactNumber}</span>
-              </div>
-            </div>
+          <div className="flex justify-between items-center bg-primary/10 rounded-lg p-2.5 sm:p-3">
+            <span className="font-display font-bold text-foreground text-sm">Amount Paid</span>
+            <span className="font-display text-lg sm:text-xl font-bold text-primary">₹{receipt.price.toFixed(2)}</span>
           </div>
 
-          {/* Payment Details */}
-          <div className="border-t border-border pt-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-muted-foreground">Payment Method</span>
-              <span className="font-body text-foreground">{receipt.paymentMethod}</span>
-            </div>
-            <div className="flex justify-between items-center bg-primary/10 rounded-lg p-3">
-              <span className="font-display font-bold text-foreground">Amount Paid</span>
-              <span className="font-display text-xl font-bold text-primary">₹{receipt.price.toFixed(2)}</span>
-            </div>
-          </div>
-
-          {/* Download Button */}
-          <Button onClick={handleDownload} className="w-full gap-2" variant="outline">
-            <Download className="w-4 h-4" />
+          <Button onClick={handleDownload} className="w-full gap-2 h-9 text-xs sm:text-sm" variant="outline" size="sm">
+            <Download className="w-3.5 h-3.5" />
             Download Receipt
           </Button>
 
-          {/* Footer */}
-          <p className="text-center text-xs text-muted-foreground">
-            Thank you for your purchase! Your order is being processed.
+          <p className="text-center text-[10px] sm:text-xs text-muted-foreground">
+            Redirecting to your orders…
           </p>
         </div>
       </DialogContent>
