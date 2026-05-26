@@ -31,7 +31,7 @@ const COMMON_FAQS = [
 const LANDINGS: LandingConfig[] = [
   {
     slug: "mlbb-topup",
-    title: "Buy MLBB Diamonds Cheap in India | Instant Mobile Legends Recharge",
+    title: "MLBB Diamonds Cheap India | Mobile Legends Top Up",
     description: "Buy Mobile Legends diamonds instantly at cheap prices. Fast delivery, secure UPI payment, trusted MLBB recharge website in India.",
     h1: "MLBB Diamond Recharge - Cheapest in India",
     intro: "Get the cheapest Mobile Legends Bang Bang diamonds, Weekly Diamond Pass, Twilight Pass and Starlight Member with instant delivery to any MLBB account.",
@@ -44,7 +44,7 @@ const LANDINGS: LandingConfig[] = [
   },
   {
     slug: "mlbb-recharge-india",
-    title: "MLBB Recharge India | Cheap Mobile Legends Diamond Top Up",
+    title: "MLBB Recharge India | Cheap ML Diamond Top Up",
     description: "MLBB recharge in India with instant diamond delivery. Pay via UPI, get Mobile Legends diamonds & weekly pass at lowest prices.",
     h1: "Mobile Legends Recharge India",
     intro: "India's trusted MLBB diamond recharge store. Instant top up with UPI, no login required for delivery.",
@@ -54,7 +54,7 @@ const LANDINGS: LandingConfig[] = [
   },
   {
     slug: "mlbb-recharge-store",
-    title: "MLBB Recharge Store | Best Mobile Legends Top Up Store Online",
+    title: "MLBB Recharge Store | Mobile Legends Top Up",
     description: "Official MLBB recharge store with instant diamond delivery. Compare packs, weekly pass, twilight pass and starlight.",
     h1: "MLBB Recharge Store",
     intro: "One-stop store for all Mobile Legends recharge needs - diamonds, weekly pass, starlight member.",
@@ -64,7 +64,7 @@ const LANDINGS: LandingConfig[] = [
   },
   {
     slug: "mlbb-recharge-website",
-    title: "Best MLBB Recharge Website | Mobile Legends Diamond Top Up Site",
+    title: "Best MLBB Recharge Website | ML Diamond Top Up",
     description: "Best MLBB recharge website in India. Fast, secure & cheap Mobile Legends diamond top up with auto delivery.",
     h1: "Best MLBB Recharge Website",
     intro: "Scaliver Official is the most trusted Mobile Legends recharge website with thousands of orders delivered.",
@@ -74,7 +74,7 @@ const LANDINGS: LandingConfig[] = [
   },
   {
     slug: "cheap-mlbb-recharge",
-    title: "Cheap MLBB Recharge | Lowest Price Mobile Legends Top Up",
+    title: "Cheap MLBB Recharge | Lowest ML Top Up Price",",
     description: "Cheap MLBB recharge with lowest price diamonds, weekly pass and twilight pass. Compare and save up to 20%.",
     h1: "Cheap MLBB Recharge - Save Big",
     intro: "Save big on every Mobile Legends top up. Wallet bonuses and seasonal offers stack on top of our base discount.",
