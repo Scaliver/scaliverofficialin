@@ -577,7 +577,7 @@ const ProductDetail = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Helmet>
-        <title>{product.name} | Instant Game Top Up | Scaliver Official</title>
+        <title>{`${product.name} Top Up | Scaliver Official`}</title>
         <meta
           name="description"
           content={`${product.name} top up with secure UPI payment, automatic payment detection, and instant order processing on Scaliver Official.`}
