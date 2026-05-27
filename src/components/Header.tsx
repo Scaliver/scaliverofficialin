@@ -26,9 +26,8 @@ const Header = () => {
             </div>
             <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-primary/0 via-primary/20 to-accent/30 mix-blend-overlay pointer-events-none animate-pulse" />
           </div>
-          <span className="font-display font-extrabold text-sm sm:text-xl tracking-wider flex items-baseline gap-1">
-            <span className="so-3d" aria-label="S and O">S&amp;O</span>
-            <span className="text-gradient logo-text-glow">caliver Official</span>
+          <span className="font-display font-extrabold text-sm sm:text-xl tracking-wider text-gradient logo-text-glow">
+            <span className="so-letter">S</span>caliver&nbsp;<span className="so-letter">O</span>fficial
           </span>
         </div>
 
