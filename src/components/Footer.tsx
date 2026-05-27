@@ -16,8 +16,8 @@ const Footer = () => {
                 Scaliver Official
               </span>
             </div>
-            <p className="font-body text-muted-foreground max-w-md mb-6">
-              Welcome to Scaliver Official! Discover in-game currencies for Mobile Legends, BGMI, PUBG, Genshin Impact, and more. Enjoy fast, reliable service and exceptional customer support.
+            <p className="font-body text-xs sm:text-sm leading-relaxed text-muted-foreground max-w-md mb-6">
+              Welcome to Scaliver Official — your one-stop shop for in-game currencies across Mobile Legends, BGMI, PUBG, Genshin Impact and more. Fast, reliable, 24/7 support.
             </p>
             
             {/* Contact */}
