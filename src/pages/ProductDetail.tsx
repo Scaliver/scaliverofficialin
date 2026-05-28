@@ -864,18 +864,57 @@ const ProductDetail = () => {
 
               {/* Order Summary */}
               {selectedTier && (
-                <div className="bg-card border border-border rounded-xl p-6">
-                  <h3 className="font-display text-lg font-bold text-foreground mb-4">
+                <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+                  <h3 className="font-display text-lg font-bold text-foreground">
                     Order Summary
                   </h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Package</span>
-                      <span className="text-foreground font-medium">{selectedTier.amount}</span>
+
+                  {/* Quantity Selector — only when product is stackable */}
+                  {product.isStackable && maxQty > 1 && (
+                    <div className="flex items-center justify-between bg-secondary/40 border border-border rounded-lg p-3 transition-all">
+                      <div>
+                        <p className="font-display text-sm font-bold text-foreground">Quantity</p>
+                        <p className="text-xs text-muted-foreground">Buy up to {maxQty} in one go</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button" size="icon" variant="outline"
+                          className="h-9 w-9 rounded-full"
+                          disabled={quantity <= 1}
+                          onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                        >−</Button>
+                        <div className="relative">
+                          <span className="font-display font-bold text-primary text-lg w-10 text-center inline-block transition-transform duration-200 hover:scale-110">
+                            {quantity}
+                          </span>
+                          <Badge className="absolute -top-2 -right-3 bg-accent text-accent-foreground text-[10px] px-1.5 py-0">x{quantity}</Badge>
+                        </div>
+                        <Button
+                          type="button" size="icon" variant="outline"
+                          className="h-9 w-9 rounded-full"
+                          disabled={quantity >= maxQty}
+                          onClick={() => setQuantity(q => Math.min(maxQty, q + 1))}
+                        >+</Button>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Price</span>
-                      <span className="text-primary font-bold">₹{selectedTier.price}</span>
+                  )}
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Package</span>
+                      <span className="text-foreground font-medium">
+                        {selectedTier.amount}{quantity > 1 ? ` × ${quantity}` : ""}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Unit price</span>
+                      <span className="text-foreground">₹{selectedTier.price}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-border">
+                      <span className="text-muted-foreground">Total</span>
+                      <span className="text-primary font-display font-bold text-xl transition-all">
+                        ₹{totalPrice}
+                      </span>
                     </div>
                   </div>
                 </div>
