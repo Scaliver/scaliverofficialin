@@ -938,7 +938,7 @@ const ProductDetail = () => {
                         ) : (
                           <Wallet className="w-4 h-4 mr-2" />
                         )}
-                        {canPayWithWallet ? "Pay with Coins" : "Insufficient Balance"}
+                        {canPayWithWallet ? `Pay ₹${totalPrice} with Coins` : "Insufficient Balance"}
                       </Button>
                       
                       {/* Online Payment via Chuimei-pe */}
