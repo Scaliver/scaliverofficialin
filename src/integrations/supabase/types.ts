@@ -417,6 +417,8 @@ export type Database = {
           in_stock: boolean
           instructions: string[] | null
           is_social_media: boolean
+          is_stackable: boolean
+          max_quantity: number
           name: string
           requires_char_name: boolean
           requires_player_id: boolean
@@ -438,6 +440,8 @@ export type Database = {
           in_stock?: boolean
           instructions?: string[] | null
           is_social_media?: boolean
+          is_stackable?: boolean
+          max_quantity?: number
           name: string
           requires_char_name?: boolean
           requires_player_id?: boolean
@@ -459,6 +463,8 @@ export type Database = {
           in_stock?: boolean
           instructions?: string[] | null
           is_social_media?: boolean
+          is_stackable?: boolean
+          max_quantity?: number
           name?: string
           requires_char_name?: boolean
           requires_player_id?: boolean

@@ -96,6 +96,8 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
     sort_order: 0,
     requires_player_id: true,
     requires_server_id: false,
+    is_stackable: false,
+    max_quantity: 5,
   });
   const [instructionsText, setInstructionsText] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -264,6 +266,8 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
         sort_order: product.sort_order,
         requires_player_id: (product as any).requires_player_id !== false,
         requires_server_id: (product as any).requires_server_id === true,
+        is_stackable: (product as any).is_stackable === true,
+        max_quantity: Number((product as any).max_quantity) > 0 ? Number((product as any).max_quantity) : 5,
       });
       setInstructionsText((product.instructions || []).join("\n"));
     } else {
@@ -281,6 +285,8 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
         sort_order: products.length,
         requires_player_id: true,
         requires_server_id: false,
+        is_stackable: false,
+        max_quantity: 5,
       });
       setInstructionsText("");
     }
@@ -811,6 +817,24 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
                     <Label>Requires Server ID</Label>
                   </div>
                 </>
+              )}
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={!!productForm.is_stackable}
+                  onCheckedChange={(checked) => setProductForm({ ...productForm, is_stackable: checked })}
+                />
+                <Label>Stackable (allow qty x2, x3 …)</Label>
+              </div>
+              {productForm.is_stackable && (
+                <div className="flex items-center gap-2">
+                  <Label className="whitespace-nowrap">Max qty</Label>
+                  <Input
+                    type="number" min={2} max={20}
+                    className="w-20 h-8"
+                    value={productForm.max_quantity ?? 5}
+                    onChange={(e) => setProductForm({ ...productForm, max_quantity: Math.max(2, Math.min(20, Number(e.target.value) || 5)) })}
+                  />
+                </div>
               )}
             </div>
 
