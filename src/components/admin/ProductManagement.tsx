@@ -818,6 +818,24 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
                   </div>
                 </>
               )}
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={!!productForm.is_stackable}
+                  onCheckedChange={(checked) => setProductForm({ ...productForm, is_stackable: checked })}
+                />
+                <Label>Stackable (allow qty x2, x3 …)</Label>
+              </div>
+              {productForm.is_stackable && (
+                <div className="flex items-center gap-2">
+                  <Label className="whitespace-nowrap">Max qty</Label>
+                  <Input
+                    type="number" min={2} max={20}
+                    className="w-20 h-8"
+                    value={productForm.max_quantity ?? 5}
+                    onChange={(e) => setProductForm({ ...productForm, max_quantity: Math.max(2, Math.min(20, Number(e.target.value) || 5)) })}
+                  />
+                </div>
+              )}
             </div>
 
             {productForm.is_social_media && (
