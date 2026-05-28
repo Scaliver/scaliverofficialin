@@ -122,10 +122,20 @@ const ProductDetail = () => {
     return p;
   }, [isInstagramMainProduct, isFacebookMainProduct, isTikTokMainProduct, selectedCategory, selectedFbCategory, selectedTikTokCategory, baseProduct, getProductBySubCategory, isReseller, getTierPrice]);
 
-  // Reset selected tier when category changes
+  // Reset selected tier & quantity when category changes
   useEffect(() => {
     setSelectedTier(null);
+    setQuantity(1);
   }, [selectedCategory, selectedFbCategory, selectedTikTokCategory]);
+
+  // Reset quantity when tier changes
+  useEffect(() => { setQuantity(1); }, [selectedTier?.id]);
+
+  // Clamp quantity to product max
+  const maxQty = product?.isStackable ? Math.max(1, product?.maxQuantity ?? 5) : 1;
+  useEffect(() => {
+    if (quantity > maxQty) setQuantity(maxQty);
+  }, [maxQty, quantity]);
 
   // Fetch API type for this product's first pricing tier provider
   useEffect(() => {
