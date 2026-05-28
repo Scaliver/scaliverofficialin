@@ -90,6 +90,8 @@ export interface LegacyProduct {
   requiresCharName?: boolean;
   serverMode?: 'select' | 'manual' | 'none';
   serverOptions?: Array<{ value: string; label: string }>;
+  isStackable?: boolean;
+  maxQuantity?: number;
   pricingTiers: {
     id: string;
     amount: string;
