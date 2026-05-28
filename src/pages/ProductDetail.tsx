@@ -349,189 +349,159 @@ const ProductDetail = () => {
     verifyPlayer(userId, zoneId, product?.slug);
   };
 
+  // Places a single API order (one row in `orders`). Returns true on success.
+  const placeSingleOrder = async (
+    tier: PricingTier,
+    label: string,
+  ): Promise<{ ok: boolean; orderId: string | null; error?: string }> => {
+    if (!user) return { ok: false, orderId: null, error: "Not signed in" };
+
+    // 1. Create order row
+    const { data: orderData, error: orderError } = await supabase
+      .from("orders")
+      .insert({
+        user_id: user.id,
+        product_id: product!.id,
+        product_name: label,
+        amount: tier.amount,
+        price: tier.price,
+        user_game_id: userId,
+        zone_id: zoneId || null,
+        contact_number: user.email || "",
+        status: "pending",
+      })
+      .select()
+      .single();
+    if (orderError || !orderData) {
+      return { ok: false, orderId: null, error: orderError?.message || "Order create failed" };
+    }
+
+    // 2. Atomic wallet debit
+    const { error: rpcError } = await supabase.rpc("process_order_payment", {
+      p_user_id: user.id,
+      p_amount: tier.price,
+      p_order_id: orderData.id,
+      p_description: `Purchase: ${label} - ${tier.amount}`,
+    });
+    if (rpcError) {
+      await supabase.from("orders").update({ status: "failed" }).eq("id", orderData.id);
+      return { ok: false, orderId: orderData.id, error: rpcError.message || "Payment failed" };
+    }
+
+    // 3. Provider fulfilment
+    try {
+      if (tier.providerId && tier.providerProductId) {
+        let apiType = 'aluu';
+        const { data: apiData } = await supabase
+          .from('smm_apis').select('api_type').eq('id', tier.providerId).single();
+        if (apiData?.api_type) apiType = apiData.api_type;
+
+        if (apiType === 'gametopup') {
+          const { data: g, error: gErr } = await supabase.functions.invoke('gametopup-order', {
+            body: {
+              action: 'order', apiId: tier.providerId,
+              playerId: userId, zoneId: zoneId,
+              productId: tier.providerProductId, currency: 'INR',
+            }
+          });
+          if (gErr) throw gErr;
+          if (g.error || !g.success) throw new Error(g.message || g.error || 'Game Top-Up order failed');
+          await supabase.from("orders").update({
+            status: "processing",
+            smm_order_id: g.order_id ? String(g.order_id) : null,
+          }).eq("id", orderData.id);
+        } else if (apiType === 'aluu') {
+          const [game, denom] = String(tier.providerProductId).split(":");
+          if (!game || !denom) throw new Error("Invalid Aluu product mapping");
+          const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aluu-webhook`;
+          const { data: a, error: aErr } = await supabase.functions.invoke('aluu-order', {
+            body: {
+              action: 'create_order', game, denom, userid: userId,
+              serverid: zoneId || undefined,
+              charname: charName || playerInfo?.nickname || undefined,
+              partner_orderid: orderData.id,
+              partner_webhook_url: webhookUrl,
+            }
+          });
+          if (aErr) throw aErr;
+          if (!a?.success) throw new Error(a?.error || a?.message || 'Aluu order failed');
+          await supabase.from("orders").update({
+            status: "processing",
+            smm_order_id: a?.data?.reference || null,
+          }).eq("id", orderData.id);
+        }
+      } else if (product!.isSocialMedia && tier.smmServiceId && tier.quantity) {
+        const { data: s, error: sErr } = await supabase.functions.invoke('smm-order', {
+          body: { action: 'order', service: tier.smmServiceId, link: userId, quantity: tier.quantity },
+        });
+        if (sErr) throw sErr;
+        if (s.error) throw new Error(s.error);
+        await supabase.from("orders").update({
+          status: "processing",
+          smm_order_id: s.order ? String(s.order) : null,
+        }).eq("id", orderData.id);
+      }
+    } catch (provErr) {
+      console.error("Provider error:", provErr);
+      await supabase.from("orders").update({ status: "failed" }).eq("id", orderData.id);
+      return {
+        ok: false,
+        orderId: orderData.id,
+        error: provErr instanceof Error ? provErr.message : "Auto-delivery failed",
+      };
+    }
+
+    return { ok: true, orderId: orderData.id };
+  };
+
   const handleWalletPayment = async () => {
     if (!validateForm() || !selectedTier || !user) return;
 
-    if (balance < selectedTier.price) {
+    const qty = Math.max(1, Math.min(maxQty, quantity));
+    const total = selectedTier.price * qty;
+
+    if (balance < total) {
       toast({
         title: "Insufficient Balance",
-        description: `You need ₹${selectedTier.price - balance} more. Please add coins to your wallet.`,
+        description: `You need ₹${total - balance} more. Please add coins to your wallet.`,
         variant: "destructive",
       });
       return;
     }
 
     setIsProcessing(true);
-
     try {
-      // Create order first
-      const { data: orderData, error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          user_id: user.id,
-          product_id: product.id,
-          product_name: product.name,
-          amount: selectedTier.amount,
-          price: selectedTier.price,
-          user_game_id: userId,
-          zone_id: zoneId || null,
-          contact_number: user.email || "",
-          status: "pending",
-        })
-        .select()
-        .single();
+      let successCount = 0;
+      let lastOrderId: string | null = null;
+      let lastError: string | null = null;
 
-      if (orderError) throw orderError;
-
-      // ATOMIC wallet deduction (prevents negative balance + double-spend)
-      const { error: rpcError } = await supabase.rpc("process_order_payment", {
-        p_user_id: user.id,
-        p_amount: selectedTier.price,
-        p_order_id: orderData.id,
-        p_description: `Purchase: ${product.name} - ${selectedTier.amount}`,
-      });
-      if (rpcError) {
-        // Rollback order
-        await supabase.from("orders").update({ status: "failed" }).eq("id", orderData.id);
-        throw new Error(rpcError.message || "Payment failed");
-      }
-
-      // Auto-fulfillment via configured provider (Aluu / GameTopUp)
-      if (selectedTier.providerId && selectedTier.providerProductId) {
-        try {
-          let apiType = 'aluu';
-          const { data: apiData } = await supabase
-            .from('smm_apis').select('api_type').eq('id', selectedTier.providerId).single();
-          if (apiData?.api_type) apiType = apiData.api_type;
-
-          if (apiType === 'gametopup') {
-            const { data: gametopupData, error: gametopupError } = await supabase.functions.invoke('gametopup-order', {
-              body: {
-                action: 'order', apiId: selectedTier.providerId,
-                playerId: userId, zoneId: zoneId,
-                productId: selectedTier.providerProductId, currency: 'INR',
-              }
-            });
-            if (gametopupError) throw gametopupError;
-            if (gametopupData.error || !gametopupData.success) {
-              await supabase.from("orders").update({ status: "failed" }).eq("id", orderData.id);
-              throw new Error(gametopupData.message || gametopupData.error || 'Game Top-Up order failed');
-            }
-            await supabase.from("orders").update({
-              status: "processing",
-              smm_order_id: gametopupData.order_id ? String(gametopupData.order_id) : null
-            }).eq("id", orderData.id);
-            sendWhatsAppNotification({
-              orderId: orderData.id, productName: product.name, amount: selectedTier.amount,
-              price: selectedTier.price, playerId: userId, zoneId: zoneId || undefined,
-              playerName: playerInfo?.nickname, paymentMethod: "Wallet Balance", status: "Auto Processing",
-            });
-          } else if (apiType === 'aluu') {
-            const [game, denom] = String(selectedTier.providerProductId).split(":");
-            if (!game || !denom) throw new Error("Invalid Aluu product mapping");
-            const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aluu-webhook`;
-            const { data: aluuData, error: aluuError } = await supabase.functions.invoke('aluu-order', {
-              body: {
-                action: 'create_order', game, denom, userid: userId,
-                serverid: zoneId || undefined,
-                charname: charName || playerInfo?.nickname || undefined,
-                partner_orderid: orderData.id,
-                partner_webhook_url: webhookUrl,
-              }
-            });
-            if (aluuError) throw aluuError;
-            if (!aluuData?.success) {
-              await supabase.from("orders").update({ status: "failed" }).eq("id", orderData.id);
-              throw new Error(aluuData?.error || aluuData?.message || 'Aluu order failed');
-            }
-            await supabase.from("orders").update({
-              status: "processing",
-              smm_order_id: aluuData?.data?.reference || null,
-            }).eq("id", orderData.id);
-            sendWhatsAppNotification({
-              orderId: orderData.id, productName: product.name, amount: selectedTier.amount,
-              price: selectedTier.price, playerId: userId, zoneId: zoneId || undefined,
-              playerName: playerInfo?.nickname, paymentMethod: "Wallet Balance", status: "Auto Processing",
-            });
-          }
-        } catch (providerError) {
-          console.error("Provider API Error:", providerError);
-          await supabase.from("orders").update({ status: "failed" }).eq("id", orderData.id);
-          toast({
-            title: "Order Failed",
-            description: providerError instanceof Error ? providerError.message : "Auto-delivery failed. Please try again.",
-            variant: "destructive",
-          });
-        }
-      }
-      // If this is a social media product with SMM service ID, place order via SMM API
-      else if (product.isSocialMedia && selectedTier.smmServiceId && selectedTier.quantity) {
-        try {
-          const { data: smmData, error: smmError } = await supabase.functions.invoke('smm-order', {
-            body: {
-              action: 'order',
-              service: selectedTier.smmServiceId,
-              link: userId,
-              quantity: selectedTier.quantity,
-            }
-          });
-
-          if (smmError) throw smmError;
-
-          if (smmData.error) {
-            await supabase
-              .from("orders")
-              .update({ status: "failed" })
-              .eq("id", orderData.id);
-            
-            throw new Error(smmData.error);
-          }
-
-          await supabase
-            .from("orders")
-            .update({ 
-              status: "processing",
-              smm_order_id: smmData.order ? String(smmData.order) : null 
-            })
-            .eq("id", orderData.id);
-
-          // Send WhatsApp notification for SMM order
-          sendWhatsAppNotification({
-            orderId: orderData.id,
-            productName: product.name,
-            amount: selectedTier.amount,
-            price: selectedTier.price,
-            playerId: userId,
-            zoneId: zoneId || undefined,
-            paymentMethod: "Wallet Balance",
-            status: "Auto Processing",
-          });
-
-          console.log("SMM Order placed:", smmData);
-        } catch (smmApiError) {
-          console.error("SMM API Error:", smmApiError);
-          await supabase
-            .from("orders")
-            .update({ status: "failed" })
-            .eq("id", orderData.id);
-
-          toast({
-            title: "Order Failed",
-            description: smmApiError instanceof Error ? smmApiError.message : "Auto-delivery failed. Please try again.",
-            variant: "destructive",
-          });
+      for (let i = 0; i < qty; i++) {
+        const label = qty > 1 ? `${product!.name} (${i + 1}/${qty})` : product!.name;
+        const res = await placeSingleOrder(selectedTier, label);
+        if (res.ok) {
+          successCount++;
+          lastOrderId = res.orderId;
+        } else {
+          lastError = res.error || lastError;
+          // Stop the loop on first failure to avoid charging more than delivered
+          break;
         }
       }
 
-      // Wallet was already debited atomically via process_order_payment RPC.
+      if (successCount === 0) {
+        toast({
+          title: "Order Failed",
+          description: lastError || "Failed to place order. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-
-      // Show receipt
       setReceiptData({
-        orderId: orderData.id,
-        productName: product.name,
+        orderId: lastOrderId || "",
+        productName: qty > 1 ? `${product!.name} x${successCount}` : product!.name,
         amount: selectedTier.amount,
-        price: selectedTier.price,
+        price: selectedTier.price * successCount,
         userId: userId,
         zoneId: zoneId || undefined,
         contactNumber: user.email || "",
@@ -542,9 +512,10 @@ const ProductDetail = () => {
 
       toast({
         title: "Order Placed Successfully!",
-        description: product.isSocialMedia 
-          ? "Your order is being processed. Delivery within 24-48 hours."
-          : "Your order has been placed. Check your orders page for updates.",
+        description:
+          successCount === qty
+            ? `${successCount} order${successCount > 1 ? "s" : ""} placed. Check your Orders page.`
+            : `${successCount} of ${qty} orders placed. Last error: ${lastError}`,
       });
     } catch (error) {
       console.error("Error placing order:", error);
@@ -557,6 +528,7 @@ const ProductDetail = () => {
       setIsProcessing(false);
     }
   };
+
 
   // UPI QR manual flow removed.
 
