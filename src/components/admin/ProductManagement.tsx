@@ -266,6 +266,8 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
         sort_order: product.sort_order,
         requires_player_id: (product as any).requires_player_id !== false,
         requires_server_id: (product as any).requires_server_id === true,
+        is_stackable: (product as any).is_stackable === true,
+        max_quantity: Number((product as any).max_quantity) > 0 ? Number((product as any).max_quantity) : 5,
       });
       setInstructionsText((product.instructions || []).join("\n"));
     } else {
@@ -283,6 +285,8 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
         sort_order: products.length,
         requires_player_id: true,
         requires_server_id: false,
+        is_stackable: false,
+        max_quantity: 5,
       });
       setInstructionsText("");
     }
