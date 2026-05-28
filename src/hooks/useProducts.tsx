@@ -33,6 +33,8 @@ export interface Product {
   requires_char_name?: boolean;
   server_mode?: string;
   server_options?: unknown;
+  is_stackable?: boolean;
+  max_quantity?: number;
   created_at: string;
   updated_at: string;
   pricing_tiers?: PricingTier[];
@@ -54,6 +56,8 @@ export interface ProductFormData {
   requires_char_name?: boolean;
   server_mode?: string;
   server_options?: unknown;
+  is_stackable?: boolean;
+  max_quantity?: number;
 }
 
 export interface PricingTierFormData {
