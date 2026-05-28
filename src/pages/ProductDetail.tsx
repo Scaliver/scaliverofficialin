@@ -77,6 +77,7 @@ const ProductDetail = () => {
   const [selectedFbCategory, setSelectedFbCategory] = useState<FacebookCategory>("profile-followers");
   const [selectedTikTokCategory, setSelectedTikTokCategory] = useState<TikTokCategory>("followers");
   const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
+  const [quantity, setQuantity] = useState<number>(1);
   const [userId, setUserId] = useState("");
   const [zoneId, setZoneId] = useState("");
   const [charName, setCharName] = useState("");
