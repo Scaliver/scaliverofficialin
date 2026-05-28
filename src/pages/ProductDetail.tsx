@@ -533,7 +533,8 @@ const ProductDetail = () => {
   // UPI QR manual flow removed.
 
 
-  const canPayWithWallet = user && wallet && selectedTier && balance >= selectedTier.price;
+  const totalPrice = selectedTier ? selectedTier.price * Math.max(1, Math.min(maxQty, quantity)) : 0;
+  const canPayWithWallet = !!(user && wallet && selectedTier && balance >= totalPrice);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
