@@ -123,6 +123,8 @@ const toLegacyProduct = (product: Product): LegacyProduct => ({
   requiresCharName: product.requires_char_name === true,
   serverMode: ((product.server_mode || (product.requires_server_id ? 'manual' : 'none')) as 'select' | 'manual' | 'none'),
   serverOptions: Array.isArray(product.server_options) ? (product.server_options as Array<{ value: string; label: string }>) : [],
+  isStackable: (product as any).is_stackable === true,
+  maxQuantity: Number((product as any).max_quantity) > 0 ? Number((product as any).max_quantity) : 5,
   pricingTiers: (product.pricing_tiers || []).map(tier => ({
     id: tier.id,
     amount: tier.amount,
