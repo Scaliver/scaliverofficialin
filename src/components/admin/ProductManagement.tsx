@@ -96,6 +96,8 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
     sort_order: 0,
     requires_player_id: true,
     requires_server_id: false,
+    is_stackable: false,
+    max_quantity: 5,
   });
   const [instructionsText, setInstructionsText] = useState("");
   const [isUploading, setIsUploading] = useState(false);
