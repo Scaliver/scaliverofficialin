@@ -1,20 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://scaliverofficial.in/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://scaliverofficial.in/mlbb-topup</loc><changefreq>weekly</changefreq><priority>0.95</priority></url>
-  <url><loc>https://scaliverofficial.in/mlbb-recharge-india</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://scaliverofficial.in/mlbb-recharge-store</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
-  <url><loc>https://scaliverofficial.in/mlbb-recharge-website</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
-  <url><loc>https://scaliverofficial.in/cheap-mlbb-recharge</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
   <url><loc>https://scaliverofficial.in/mlbb-diamond-recharge</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
   <url><loc>https://scaliverofficial.in/pubg-uc-topup</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
   <url><loc>https://scaliverofficial.in/freefire-topup</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
   <url><loc>https://scaliverofficial.in/hok-topup</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
   <url><loc>https://scaliverofficial.in/genshin-topup</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
-  <url><loc>https://scaliverofficial.in/leaderboard</loc><changefreq>daily</changefreq><priority>0.6</priority></url>
   <url><loc>https://scaliverofficial.in/auction</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
-  <url><loc>https://scaliverofficial.in/auth</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://scaliverofficial.in/leaderboard</loc><changefreq>daily</changefreq><priority>0.6</priority></url>
   <url><loc>https://scaliverofficial.in/redeem</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://scaliverofficial.in/add-coin</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://scaliverofficial.in/wallet</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
   <url><loc>https://scaliverofficial.in/orders</loc><changefreq>weekly</changefreq><priority>0.4</priority></url>
-  <url><loc>https://scaliverofficial.in/history</loc><changefreq>weekly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://scaliverofficial.in/profile</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://scaliverofficial.in/auth</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
 </urlset>
