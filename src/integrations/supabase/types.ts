@@ -164,6 +164,8 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          max_multiplier: number
+          multipliers_enabled: boolean
           name: string
           sort_order: number
           updated_at: string
@@ -171,6 +173,8 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          max_multiplier?: number
+          multipliers_enabled?: boolean
           name: string
           sort_order?: number
           updated_at?: string
@@ -178,6 +182,8 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          max_multiplier?: number
+          multipliers_enabled?: boolean
           name?: string
           sort_order?: number
           updated_at?: string
@@ -241,6 +247,84 @@ export type Database = {
           reference_id?: string | null
           type?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      crypto_orders: {
+        Row: {
+          amount: number
+          bonus_coins: number | null
+          created_at: string
+          credited: boolean
+          currency: string
+          expires_at: string | null
+          external_order_id: string | null
+          id: string
+          metadata: Json | null
+          network: string
+          order_reference: string
+          player_id: string | null
+          product_id: string | null
+          redirect_path: string | null
+          request_type: string
+          status: string
+          tier_id: string | null
+          total_coins: number | null
+          transaction_hash: string | null
+          updated_at: string
+          user_id: string
+          wallet_address: string | null
+          zone_id: string | null
+        }
+        Insert: {
+          amount: number
+          bonus_coins?: number | null
+          created_at?: string
+          credited?: boolean
+          currency?: string
+          expires_at?: string | null
+          external_order_id?: string | null
+          id?: string
+          metadata?: Json | null
+          network?: string
+          order_reference: string
+          player_id?: string | null
+          product_id?: string | null
+          redirect_path?: string | null
+          request_type?: string
+          status?: string
+          tier_id?: string | null
+          total_coins?: number | null
+          transaction_hash?: string | null
+          updated_at?: string
+          user_id: string
+          wallet_address?: string | null
+          zone_id?: string | null
+        }
+        Update: {
+          amount?: number
+          bonus_coins?: number | null
+          created_at?: string
+          credited?: boolean
+          currency?: string
+          expires_at?: string | null
+          external_order_id?: string | null
+          id?: string
+          metadata?: Json | null
+          network?: string
+          order_reference?: string
+          player_id?: string | null
+          product_id?: string | null
+          redirect_path?: string | null
+          request_type?: string
+          status?: string
+          tier_id?: string | null
+          total_coins?: number | null
+          transaction_hash?: string | null
+          updated_at?: string
+          user_id?: string
+          wallet_address?: string | null
+          zone_id?: string | null
         }
         Relationships: []
       }
