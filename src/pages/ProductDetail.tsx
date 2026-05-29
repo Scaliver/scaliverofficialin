@@ -539,38 +539,25 @@ const ProductDetail = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Helmet>
-        <title>{`Buy ${product.name} | Scaliver Official`}</title>
+        <title>{`${product.name} Top Up | Scaliver Official`}</title>
         <meta
           name="description"
-          content={`Instant delivery for ${product.name}. Safe payments, fast recharge and trusted gaming services.`}
+          content={`${product.name} top up with secure UPI payment, automatic payment detection, and instant order processing on Scaliver Official.`}
         />
         <link rel="canonical" href={`https://scaliverofficial.in/product/${product.slug}`} />
-        {/* Open Graph */}
-        <meta property="og:type" content="product" />
-        <meta property="og:title" content={`Buy ${product.name} | Scaliver Official`} />
+        <meta property="og:title" content={`${product.name} | Scaliver Official`} />
         <meta
           property="og:description"
-          content={`Instant delivery for ${product.name}. Safe payments, fast recharge and trusted gaming services.`}
+          content={`Buy ${product.name} with fast UPI payment verification and automatic order delivery.`}
         />
         <meta property="og:url" content={`https://scaliverofficial.in/product/${product.slug}`} />
-        {product.image && <meta property="og:image" content={product.image} />}
-        {/* Twitter */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={`Buy ${product.name} | Scaliver Official`} />
-        <meta
-          name="twitter:description"
-          content={`Instant delivery for ${product.name}. Safe payments, fast recharge and trusted gaming services.`}
-        />
-        {product.image && <meta name="twitter:image" content={product.image} />}
-        {/* Product JSON-LD */}
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "Product",
             name: product.name,
-            description: product.description || `Instant delivery for ${product.name}. Safe payments, fast recharge and trusted gaming services.`,
+            description: product.description || `${product.name} instant gaming top up`,
             category: product.category,
-            image: product.image ? [product.image] : undefined,
             brand: { "@type": "Brand", name: "Scaliver Official" },
             offers: selectedTier
               ? {
@@ -583,20 +570,7 @@ const ProductDetail = () => {
               : undefined,
           })}
         </script>
-        {/* Breadcrumb JSON-LD */}
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "BreadcrumbList",
-            itemListElement: [
-              { "@type": "ListItem", position: 1, name: "Home", item: "https://scaliverofficial.in/" },
-              { "@type": "ListItem", position: 2, name: product.category, item: `https://scaliverofficial.in/?category=${encodeURIComponent(product.category || "")}` },
-              { "@type": "ListItem", position: 3, name: product.name, item: `https://scaliverofficial.in/product/${product.slug}` },
-            ],
-          })}
-        </script>
       </Helmet>
-
 
       <Header />
       
