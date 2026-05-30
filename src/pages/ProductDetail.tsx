@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useProducts, LegacyProduct } from "@/hooks/useProducts";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
+import { useCryptoWallet, useUsdtRate } from "@/hooks/useCryptoWallet";
 import { useReseller } from "@/hooks/useReseller";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
@@ -65,6 +66,8 @@ const ProductDetail = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { balance, wallet } = useWallet();
+  const { balance: usdtBalance, refresh: refreshUsdt } = useCryptoWallet();
+  const usdtRate = useUsdtRate();
   const { isReseller, discountPercent, getTierPrice } = useReseller();
   const { getProductBySlug, getProductBySubCategory, isLoading } = useProducts();
   
@@ -1023,6 +1026,81 @@ const ProductDetail = () => {
                           {isUpiProcessing ? "Opening UPI…" : "Pay UPI"}
                         </Button>
                       )}
+
+                      {/* USDT Wallet Payment */}
+                      {selectedTier && usdtRate > 0 && (() => {
+                        const usdtNeeded = +(totalPrice / usdtRate).toFixed(4);
+                        const canPayUsdt = usdtBalance >= usdtNeeded;
+                        return (
+                          <Button
+                            variant="outline"
+                            className="w-full border-green-500/40 hover:bg-green-500/10 text-green-500"
+                            disabled={!canPayUsdt || isProcessing}
+                            onClick={async () => {
+                              if (!validateForm() || !user) return;
+                              setIsProcessing(true);
+                              try {
+                                const ref = `prod-${product!.id}-${Date.now()}`;
+                                const { data, error } = await supabase.functions.invoke("crypto-gateway", {
+                                  body: { action: "purchase", amount_usdt: usdtNeeded, reference: ref },
+                                });
+                                if (error) throw error;
+                                if (!data?.success) throw new Error(data?.error || "USDT debit failed");
+
+                                const qty = Math.max(1, Math.min(maxQty, quantity));
+                                let successCount = 0;
+                                let lastOrderId: string | null = null;
+                                for (let i = 0; i < qty; i++) {
+                                  // Use the existing wallet-payment helper but skip the INR debit
+                                  // by creating an order row + provider call directly is complex;
+                                  // instead temporarily credit INR wallet then call placeSingleOrder.
+                                  // Simpler: insert order row paid via USDT and provider-call manually.
+                                  const { data: o } = await supabase.from("orders").insert({
+                                    user_id: user.id,
+                                    product_id: product!.id,
+                                    product_name: qty > 1 ? `${product!.name} (${i + 1}/${qty})` : product!.name,
+                                    amount: selectedTier.amount,
+                                    price: selectedTier.price,
+                                    user_game_id: userId,
+                                    zone_id: zoneId || null,
+                                    contact_number: user.email || "",
+                                    status: "pending_manual",
+                                  }).select().single();
+                                  if (o) { successCount++; lastOrderId = o.id; }
+                                }
+
+                                refreshUsdt();
+                                setReceiptData({
+                                  orderId: lastOrderId || "",
+                                  productName: qty > 1 ? `${product!.name} x${successCount}` : product!.name,
+                                  amount: selectedTier.amount,
+                                  price: selectedTier.price * successCount,
+                                  userId,
+                                  zoneId: zoneId || undefined,
+                                  contactNumber: user.email || "",
+                                  transactionDate: new Date().toISOString(),
+                                  paymentMethod: `USDT (${usdtNeeded} USDT)`,
+                                });
+                                setReceiptOpen(true);
+                                toast({ title: "Paid with USDT", description: `Debited ${usdtNeeded} USDT` });
+                              } catch (e) {
+                                toast({
+                                  title: "USDT payment failed",
+                                  description: e instanceof Error ? e.message : "Try again",
+                                  variant: "destructive",
+                                });
+                              } finally {
+                                setIsProcessing(false);
+                              }
+                            }}
+                          >
+                            <Wallet className="w-4 h-4 mr-2" />
+                            {canPayUsdt
+                              ? `Pay ${usdtNeeded} USDT (Bal: ${usdtBalance.toFixed(4)})`
+                              : `Need ${usdtNeeded} USDT — Top up`}
+                          </Button>
+                        );
+                      })()}
                       
                     </>
                   ) : (

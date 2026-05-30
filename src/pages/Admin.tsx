@@ -10,6 +10,7 @@ import RedeemCodeManagement from "@/components/admin/RedeemCodeManagement";
 import Leaderboard from "@/components/admin/Leaderboard";
 import AuctionManager from "@/components/admin/AuctionManager";
 import PaymentTransactions from "@/components/admin/PaymentTransactions";
+import CryptoManagement from "@/components/admin/CryptoManagement";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -115,7 +116,7 @@ const Admin = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history" | "security" | "audit" | "alerts" | "products" | "smm" | "apis" | "settings" | "banners" | "coinpackages" | "redeem" | "leaderboard" | "auctions" | "transactions">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "users" | "wallets" | "history" | "security" | "audit" | "alerts" | "products" | "smm" | "apis" | "settings" | "banners" | "coinpackages" | "redeem" | "leaderboard" | "auctions" | "transactions" | "crypto">("orders");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userOrdersDialogOpen, setUserOrdersDialogOpen] = useState(false);
@@ -1169,6 +1170,9 @@ const Admin = () => {
             </button>
             <button onClick={() => setActiveTab("transactions")} className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${activeTab === "transactions" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
               <Wallet className="w-4 h-4" /> Transactions
+            </button>
+            <button onClick={() => setActiveTab("crypto")} className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-display font-bold transition-all whitespace-nowrap ${activeTab === "crypto" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
+              <Wallet className="w-4 h-4" /> Crypto
             </button>
           </div>
 
@@ -2283,6 +2287,7 @@ const Admin = () => {
           {activeTab === "leaderboard" && <Leaderboard />}
           {activeTab === "auctions" && <AuctionManager />}
           {activeTab === "transactions" && <PaymentTransactions />}
+          {activeTab === "crypto" && <CryptoManagement />}
         </div>
 
       </main>

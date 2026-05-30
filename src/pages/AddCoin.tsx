@@ -6,14 +6,17 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import QuickActions from "@/components/QuickActions";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import CryptoTopUp from "@/components/CryptoTopUp";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Coins, CreditCard, Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Coins, CreditCard, Loader2, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Helmet } from "react-helmet-async";
+
 
 interface CoinPackage { id: string; amount: number; bonus: number; sort_order: number; }
 
@@ -147,67 +150,80 @@ const AddCoin = () => {
           </CardContent>
         </Card>
 
-        <Card className="mb-6">
-          <CardHeader><CardTitle className="text-lg font-display">Select Package</CardTitle></CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {packages.map((pkg, index) => (
-                <button
-                  key={pkg.id}
-                  onClick={() => { setSelectedPackage(index); setCustomAmount(""); }}
-                  className={`p-4 rounded-xl border-2 transition-all ${selectedPackage === index ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}
-                >
-                  <div className="flex items-center justify-center gap-1 mb-2">
-                    <Coins className="w-5 h-5 text-yellow-500" />
-                    <span className="text-xl font-bold">{pkg.amount}</span>
+        <Tabs defaultValue="upi" className="w-full">
+          <TabsList className="grid grid-cols-2 w-full mb-4">
+            <TabsTrigger value="upi"><CreditCard className="w-4 h-4 mr-1.5" /> UPI</TabsTrigger>
+            <TabsTrigger value="crypto"><Wallet className="w-4 h-4 mr-1.5" /> Crypto (USDT)</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="upi" className="space-y-4">
+            <Card>
+              <CardHeader><CardTitle className="text-lg font-display">Select Package</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {packages.map((pkg, index) => (
+                    <button
+                      key={pkg.id}
+                      onClick={() => { setSelectedPackage(index); setCustomAmount(""); }}
+                      className={`p-4 rounded-xl border-2 transition-all ${selectedPackage === index ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}
+                    >
+                      <div className="flex items-center justify-center gap-1 mb-2">
+                        <Coins className="w-5 h-5 text-yellow-500" />
+                        <span className="text-xl font-bold">{pkg.amount}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">₹{pkg.amount}</p>
+                      {pkg.bonus > 0 && <p className="text-xs text-green-500 mt-1">+{pkg.bonus} bonus</p>}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-4">
+                  <Label htmlFor="customAmount">Or enter custom amount (₹)</Label>
+                  <Input
+                    id="customAmount" type="number" placeholder="Enter amount (min ₹1)"
+                    value={customAmount}
+                    onChange={(e) => { setCustomAmount(e.target.value); setSelectedPackage(null); }}
+                    className="mt-2"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {getAmount() > 0 && (
+              <Card>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span>₹{getAmount()}</span></div>
+                  {getBonus() > 0 && (
+                    <div className="flex justify-between text-green-500"><span>Bonus Coins</span><span>+{getBonus()}</span></div>
+                  )}
+                  <div className="border-t border-border pt-2 flex justify-between font-bold">
+                    <span>Total Coins</span>
+                    <div className="flex items-center gap-1"><Coins className="w-4 h-4 text-yellow-500" /><span>{getTotalCoins()}</span></div>
                   </div>
-                  <p className="text-sm text-muted-foreground">₹{pkg.amount}</p>
-                  {pkg.bonus > 0 && <p className="text-xs text-green-500 mt-1">+{pkg.bonus} bonus</p>}
-                </button>
-              ))}
-            </div>
+                </CardContent>
+              </Card>
+            )}
 
-            <div className="mt-4">
-              <Label htmlFor="customAmount">Or enter custom amount (₹)</Label>
-              <Input
-                id="customAmount" type="number" placeholder="Enter amount (min ₹1)"
-                value={customAmount}
-                onChange={(e) => { setCustomAmount(e.target.value); setSelectedPackage(null); }}
-                className="mt-2"
-              />
-            </div>
-          </CardContent>
-        </Card>
+            {getAmount() >= 1 && isUpiPaymentEnabled && (
+              <Button
+                onClick={handlePay}
+                disabled={isProcessing}
+                className="w-full bg-gradient-to-r from-primary to-red-600 hover:opacity-90"
+                size="lg"
+              >
+                {isProcessing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing...</> : <><CreditCard className="w-4 h-4 mr-2" /> Pay UPI ₹{getAmount()}</>}
+              </Button>
+            )}
 
-        {getAmount() > 0 && (
-          <Card className="mb-6">
-            <CardContent className="p-4 space-y-2">
-              <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span>₹{getAmount()}</span></div>
-              {getBonus() > 0 && (
-                <div className="flex justify-between text-green-500"><span>Bonus Coins</span><span>+{getBonus()}</span></div>
-              )}
-              <div className="border-t border-border pt-2 flex justify-between font-bold">
-                <span>Total Coins</span>
-                <div className="flex items-center gap-1"><Coins className="w-4 h-4 text-yellow-500" /><span>{getTotalCoins()}</span></div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            <p className="text-center text-xs text-muted-foreground">
+              {isUpiPaymentEnabled ? "Coins are credited automatically after payment confirmation." : "UPI payments are temporarily unavailable."}
+            </p>
+          </TabsContent>
 
-        {getAmount() >= 1 && isUpiPaymentEnabled && (
-          <Button
-            onClick={handlePay}
-            disabled={isProcessing}
-            className="w-full bg-gradient-to-r from-primary to-red-600 hover:opacity-90"
-            size="lg"
-          >
-            {isProcessing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing...</> : <><CreditCard className="w-4 h-4 mr-2" /> Pay UPI ₹{getAmount()}</>}
-          </Button>
-        )}
-
-        <p className="text-center text-xs text-muted-foreground mt-3">
-          {isUpiPaymentEnabled ? "Coins are credited automatically after payment confirmation." : "UPI payments are temporarily unavailable."}
-        </p>
+          <TabsContent value="crypto">
+            <CryptoTopUp />
+          </TabsContent>
+        </Tabs>
       </main>
       <Footer />
       <QuickActions />
