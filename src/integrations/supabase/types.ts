@@ -262,6 +262,7 @@ export type Database = {
           id: string
           metadata: Json | null
           network: string
+          notes: string | null
           order_reference: string
           player_id: string | null
           product_id: string | null
@@ -287,6 +288,7 @@ export type Database = {
           id?: string
           metadata?: Json | null
           network?: string
+          notes?: string | null
           order_reference: string
           player_id?: string | null
           product_id?: string | null
@@ -312,6 +314,7 @@ export type Database = {
           id?: string
           metadata?: Json | null
           network?: string
+          notes?: string | null
           order_reference?: string
           player_id?: string | null
           product_id?: string | null
@@ -325,6 +328,30 @@ export type Database = {
           user_id?: string
           wallet_address?: string | null
           zone_id?: string | null
+        }
+        Relationships: []
+      }
+      crypto_wallets: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -927,6 +954,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_set_crypto_order_status: {
+        Args: { p_new_status: string; p_order_id: string }
+        Returns: Json
+      }
+      credit_crypto_wallet: {
+        Args: { p_amount: number; p_order_reference: string; p_user_id: string }
+        Returns: boolean
+      }
+      debit_crypto_wallet: {
+        Args: { p_amount: number; p_reference: string; p_user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
