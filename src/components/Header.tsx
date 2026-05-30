@@ -3,7 +3,9 @@ import { Button } from "./ui/button";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import HeaderWalletChip from "./HeaderWalletChip";
 import logoImg from "@/assets/scaliver-logo.jpeg";
+
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -29,6 +31,9 @@ const Header = () => {
           <span className="font-display font-extrabold text-sm sm:text-xl tracking-wider text-gradient logo-text-glow">
             <span className="so-letter">S</span>caliver&nbsp;<span className="so-letter">O</span>fficial
           </span>
+          <div className="ml-1 sm:ml-2" onClick={(e) => e.stopPropagation()}>
+            <HeaderWalletChip />
+          </div>
         </div>
 
         {/* Desktop Navigation */}
