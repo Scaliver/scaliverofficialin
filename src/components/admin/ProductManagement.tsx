@@ -98,6 +98,7 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
     requires_server_id: false,
     is_stackable: false,
     max_quantity: 5,
+    username_check_required: false,
   });
   const [instructionsText, setInstructionsText] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -268,6 +269,7 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
         requires_server_id: (product as any).requires_server_id === true,
         is_stackable: (product as any).is_stackable === true,
         max_quantity: Number((product as any).max_quantity) > 0 ? Number((product as any).max_quantity) : 5,
+        username_check_required: (product as any).username_check_required === true,
       });
       setInstructionsText((product.instructions || []).join("\n"));
     } else {
@@ -287,6 +289,7 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
         requires_server_id: false,
         is_stackable: false,
         max_quantity: 5,
+        username_check_required: false,
       });
       setInstructionsText("");
     }
@@ -815,6 +818,13 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
                       onCheckedChange={(checked) => setProductForm({ ...productForm, requires_server_id: checked })}
                     />
                     <Label>Requires Server ID</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={!!productForm.username_check_required}
+                      onCheckedChange={(checked) => setProductForm({ ...productForm, username_check_required: checked })}
+                    />
+                    <Label>Mandatory Username Check (block checkout if not verified)</Label>
                   </div>
                 </>
               )}
