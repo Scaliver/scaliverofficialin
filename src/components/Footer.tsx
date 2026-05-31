@@ -3,50 +3,45 @@ import { Phone, MessageCircle } from "lucide-react";
 const Footer = () => {
   return (
     <footer id="contact" className="bg-card border-t border-border">
-      {/* Main Footer */}
-      <div className="container py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="container py-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-5 md:gap-6">
           {/* Brand */}
-          <div className="lg:col-span-2">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center glow-blue">
-                <span className="font-display font-bold text-lg text-primary-foreground">S</span>
+          <div className="col-span-2 md:col-span-2">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-7 w-7 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center glow-blue">
+                <span className="font-display font-bold text-xs text-primary-foreground">S</span>
               </div>
-              <span className="font-display font-bold text-xl tracking-wider text-gradient">
+              <span className="font-display font-bold text-sm tracking-wider text-gradient">
                 Scaliver Official
               </span>
             </div>
-            <p className="font-body text-xs sm:text-sm leading-relaxed text-muted-foreground max-w-md mb-6">
-              Welcome to Scaliver Official — your one-stop shop for in-game currencies across Mobile Legends, BGMI, PUBG, Genshin Impact and more. Fast, reliable, 24/7 support.
+            <p className="font-body text-[11px] leading-snug text-muted-foreground max-w-md mb-3">
+              Your one-stop shop for in-game currencies across Mobile Legends, BGMI, PUBG, Genshin Impact and more. Fast, reliable, 24/7 support.
             </p>
-            
-            {/* Contact */}
-            <div className="space-y-2">
-              <p className="font-display text-sm font-semibold text-foreground uppercase tracking-wider">
-                Support
-              </p>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Phone className="w-4 h-4 text-primary" />
-                <span className="font-body">+91 7637851804</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <MessageCircle className="w-4 h-4 text-primary" />
-                <a href="https://chat.whatsapp.com/EMhSsDxfiwj2HVVvsIOt0S" target="_blank" rel="noopener noreferrer" className="font-body hover:text-primary transition-colors">
-                  Join if you want to join my WhatsApp channel
-                </a>
-              </div>
+
+            <p className="font-display text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1">
+              Support
+            </p>
+            <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+              <Phone className="w-3 h-3 text-primary" />
+              <span className="font-body">+91 7637851804</span>
+            </div>
+            <div className="flex items-start gap-1.5 text-muted-foreground text-[11px] mt-0.5">
+              <MessageCircle className="w-3 h-3 text-primary mt-0.5 flex-shrink-0" />
+              <a href="https://chat.whatsapp.com/EMhSsDxfiwj2HVVvsIOt0S" target="_blank" rel="noopener noreferrer" className="font-body hover:text-primary transition-colors leading-snug">
+                Join my WhatsApp channel
+              </a>
             </div>
           </div>
 
-          {/* Quick Links */}
           <div>
-            <h4 className="font-display text-sm font-semibold text-foreground uppercase tracking-wider mb-4">
+            <h4 className="font-display text-[11px] font-semibold text-foreground uppercase tracking-wider mb-2">
               Quick Links
             </h4>
-            <ul className="space-y-2">
+            <ul className="space-y-1">
               {["Home", "Login", "Register", "Contact"].map((link) => (
                 <li key={link}>
-                  <a href="#" className="font-body text-muted-foreground hover:text-primary transition-colors">
+                  <a href="#" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">
                     {link}
                   </a>
                 </li>
@@ -54,46 +49,37 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Important Pages */}
           <div>
-            <h4 className="font-display text-sm font-semibold text-foreground uppercase tracking-wider mb-4">
-              Important Pages
+            <h4 className="font-display text-[11px] font-semibold text-foreground uppercase tracking-wider mb-2">
+              Important
             </h4>
-            <ul className="space-y-2">
+            <ul className="space-y-1">
               {["Privacy Policy", "Terms & Conditions", "Refund Policy"].map((link) => (
                 <li key={link}>
-                  <a href="#" className="font-body text-muted-foreground hover:text-primary transition-colors">
+                  <a href="#" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">
                     {link}
                   </a>
                 </li>
               ))}
             </ul>
 
-            {/* Payment */}
-            <div className="mt-6">
-              <h4 className="font-display text-sm font-semibold text-foreground uppercase tracking-wider mb-3">
-                Payment Modes
-              </h4>
-              <div className="flex gap-3">
-                <div className="h-10 w-16 bg-secondary rounded-lg flex items-center justify-center">
-                  <span className="font-body text-xs text-muted-foreground">GPay</span>
+            <h4 className="font-display text-[11px] font-semibold text-foreground uppercase tracking-wider mt-3 mb-1.5">
+              Payment Modes
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {["GPay", "UPI", "PhonePe"].map(p => (
+                <div key={p} className="h-6 px-2 bg-secondary rounded flex items-center justify-center">
+                  <span className="font-body text-[10px] text-muted-foreground">{p}</span>
                 </div>
-                <div className="h-10 w-16 bg-secondary rounded-lg flex items-center justify-center">
-                  <span className="font-body text-xs text-muted-foreground">UPI</span>
-                </div>
-                <div className="h-10 w-16 bg-secondary rounded-lg flex items-center justify-center">
-                  <span className="font-body text-xs text-muted-foreground">PhonePe</span>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bottom Bar */}
       <div className="border-t border-border">
-        <div className="container py-4 text-center">
-          <p className="font-body text-sm text-muted-foreground">
+        <div className="container py-2 text-center">
+          <p className="font-body text-[10px] text-muted-foreground">
             All Rights Reserved © 2024 | Scaliver Official
           </p>
         </div>

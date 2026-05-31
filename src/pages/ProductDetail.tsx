@@ -599,12 +599,12 @@ const ProductDetail = () => {
             Back to Products
           </Button>
 
-          <div className="grid lg:grid-cols-2 gap-6 md:gap-8">
+          <div className="grid lg:grid-cols-2 gap-4 md:gap-8">
             {/* Product Image & Info */}
-            <div className="space-y-4 md:space-y-6">
-              <div className="relative overflow-hidden rounded-xl md:rounded-2xl border border-border bg-card mx-auto max-w-[260px] sm:max-w-[320px] md:max-w-none">
-                <img 
-                  src={product.image} 
+            <div className="space-y-3 md:space-y-6">
+              <div className="relative overflow-hidden rounded-lg md:rounded-2xl border border-border bg-card mx-auto max-w-[180px] sm:max-w-[260px] md:max-w-none">
+                <img
+                  src={product.image}
                   alt={product.name}
                   className="w-full aspect-square object-cover"
                 />
@@ -613,17 +613,17 @@ const ProductDetail = () => {
 
               {/* Instructions */}
               {product.instructions && product.instructions.length > 0 && (
-                <div className="bg-card border border-border rounded-lg md:rounded-xl p-3 md:p-6">
-                  <h3 className="font-display text-sm md:text-lg font-bold text-foreground mb-2 md:mb-4">
+                <div className="bg-card border border-border rounded-md md:rounded-xl p-2.5 md:p-6">
+                  <h3 className="font-display text-xs md:text-lg font-bold text-foreground mb-1.5 md:mb-4">
                     How to Order
                   </h3>
-                  <ol className="space-y-1.5 md:space-y-3">
+                  <ol className="space-y-1 md:space-y-3">
                     {product.instructions.map((instruction, index) => (
-                      <li key={index} className="flex items-start gap-2 md:gap-3">
-                        <span className="flex-shrink-0 w-5 h-5 md:w-6 md:h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-display text-[10px] md:text-sm font-bold">
+                      <li key={index} className="flex items-start gap-1.5 md:gap-3">
+                        <span className="flex-shrink-0 w-4 h-4 md:w-6 md:h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-display text-[9px] md:text-sm font-bold">
                           {index + 1}
                         </span>
-                        <span className="font-body text-xs md:text-base text-muted-foreground leading-snug">{instruction}</span>
+                        <span className="font-body text-[11px] md:text-base text-muted-foreground leading-snug">{instruction}</span>
                       </li>
                     ))}
                   </ol>
@@ -632,17 +632,17 @@ const ProductDetail = () => {
             </div>
 
             {/* Order Form */}
-            <div className="space-y-6">
+            <div className="space-y-3 md:space-y-6">
               {/* Product Title */}
               <div>
-                <Badge variant="gaming" className="mb-3">
+                <Badge variant="gaming" className="mb-1.5 md:mb-3 text-[10px] md:text-xs">
                   {product.category}
                 </Badge>
-                <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-2">
+                <h1 className="font-display text-lg md:text-4xl font-bold text-foreground mb-1 md:mb-2 leading-tight">
                   {isInstagramMainProduct ? "INSTAGRAM SERVICE" : isFacebookMainProduct ? "FACEBOOK SERVICE" : isTikTokMainProduct ? "TIKTOK SERVICE" : product.name}
                 </h1>
-                <p className="font-body text-muted-foreground">
-                  {isInstagramMainProduct 
+                <p className="font-body text-xs md:text-base text-muted-foreground leading-snug">
+                  {isInstagramMainProduct
                     ? "Boost your Instagram presence with followers, likes, views, comments, and saves."
                     : isFacebookMainProduct
                     ? "Boost your Facebook presence with followers, likes, views, watch time, and reactions."
@@ -651,6 +651,7 @@ const ProductDetail = () => {
                     : product.description}
                 </p>
               </div>
+
 
               {/* Instagram Category Selector */}
               {isInstagramMainProduct && (
@@ -678,10 +679,11 @@ const ProductDetail = () => {
 
 
               {/* User Details Form */}
-              <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-                <h3 className="font-display text-lg font-bold text-foreground">
+              <div className="bg-card border border-border rounded-lg p-3 md:p-6 space-y-3 md:space-y-4">
+                <h3 className="font-display text-sm md:text-lg font-bold text-foreground">
                   {product.isSocialMedia ? "Enter Your Details" : "Enter Your Game Details"}
                 </h3>
+
                 
                 {product.isSocialMedia ? (
                   <div className="space-y-2">
@@ -830,10 +832,11 @@ const ProductDetail = () => {
               )}
 
               {/* Pricing Tiers */}
-              <div className="bg-card border border-border rounded-xl p-6">
-                <h3 className="font-display text-lg font-bold text-foreground mb-4">
+              <div className="bg-card border border-border rounded-lg p-3 md:p-6">
+                <h3 className="font-display text-sm md:text-lg font-bold text-foreground mb-2 md:mb-4">
                   Select Package
                 </h3>
+
                 {isReseller && discountPercent > 0 && (
                   <Badge className="mb-3 bg-accent/20 text-accent border-accent/30">
                     Reseller pricing • {discountPercent}% OFF applied
@@ -877,10 +880,11 @@ const ProductDetail = () => {
 
               {/* Order Summary */}
               {selectedTier && (
-                <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-                  <h3 className="font-display text-lg font-bold text-foreground">
+                <div className="bg-card border border-border rounded-lg p-3 md:p-6 space-y-2.5 md:space-y-4">
+                  <h3 className="font-display text-sm md:text-lg font-bold text-foreground">
                     Order Summary
                   </h3>
+
 
                   {/* Quantity Selector — only when product is stackable */}
                   {product.isStackable && maxQty > 1 && (
