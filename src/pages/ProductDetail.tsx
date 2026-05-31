@@ -336,6 +336,16 @@ const ProductDetail = () => {
       return false;
     }
 
+    // Mandatory username verification (admin-controlled per product)
+    if (product?.usernameCheckRequired && !isPlayerVerified) {
+      toast({
+        title: "Verify username first",
+        description: "Please click \"Check Username\" and wait for a successful verification before ordering.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     return true;
   };
 

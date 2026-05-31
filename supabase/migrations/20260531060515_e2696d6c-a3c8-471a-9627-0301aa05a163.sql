@@ -1,0 +1,1 @@
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS username_check_required boolean NOT NULL DEFAULT false;
