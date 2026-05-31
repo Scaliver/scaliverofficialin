@@ -35,6 +35,7 @@ export interface Product {
   server_options?: unknown;
   is_stackable?: boolean;
   max_quantity?: number;
+  username_check_required?: boolean;
   created_at: string;
   updated_at: string;
   pricing_tiers?: PricingTier[];
@@ -58,6 +59,7 @@ export interface ProductFormData {
   server_options?: unknown;
   is_stackable?: boolean;
   max_quantity?: number;
+  username_check_required?: boolean;
 }
 
 export interface PricingTierFormData {
@@ -92,6 +94,7 @@ export interface LegacyProduct {
   serverOptions?: Array<{ value: string; label: string }>;
   isStackable?: boolean;
   maxQuantity?: number;
+  usernameCheckRequired?: boolean;
   pricingTiers: {
     id: string;
     amount: string;
@@ -125,6 +128,7 @@ const toLegacyProduct = (product: Product): LegacyProduct => ({
   serverOptions: Array.isArray(product.server_options) ? (product.server_options as Array<{ value: string; label: string }>) : [],
   isStackable: (product as any).is_stackable === true,
   maxQuantity: Number((product as any).max_quantity) > 0 ? Number((product as any).max_quantity) : 5,
+  usernameCheckRequired: (product as any).username_check_required === true,
   pricingTiers: (product.pricing_tiers || []).map(tier => ({
     id: tier.id,
     amount: tier.amount,
