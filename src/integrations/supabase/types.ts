@@ -540,6 +540,7 @@ export type Database = {
           sort_order: number
           sub_category: string | null
           updated_at: string
+          username_check_required: boolean
         }
         Insert: {
           category: string
@@ -563,6 +564,7 @@ export type Database = {
           sort_order?: number
           sub_category?: string | null
           updated_at?: string
+          username_check_required?: boolean
         }
         Update: {
           category?: string
@@ -586,6 +588,7 @@ export type Database = {
           sort_order?: number
           sub_category?: string | null
           updated_at?: string
+          username_check_required?: boolean
         }
         Relationships: []
       }
