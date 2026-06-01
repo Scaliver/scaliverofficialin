@@ -159,9 +159,22 @@ serve(async (req) => {
           p_amount: netCredit,
           p_order_reference: order_id,
         });
-        if (credErr) console.error("credit_crypto_wallet", credErr);
+        if (credErr) {
+          console.error("credit_crypto_wallet", credErr);
+          await sb.from("crypto_orders").update({
+            notes: `Credit failed: ${credErr.message}`,
+          }).eq("id", order.id);
+          await sb.from("audit_logs").insert({
+            admin_id: user.id,
+            action: "crypto_credit_failed",
+            resource_type: "crypto_orders",
+            resource_id: order.id,
+            details: { error: credErr.message, amount: netCredit, order_reference: order_id },
+          });
+          return jsonResponse({ success: false, error: `Credit failed: ${credErr.message}` }, 200);
+        }
 
-        return jsonResponse({ success: true, data: json.data });
+        return jsonResponse({ success: true, credited: netCredit, data: json.data });
       }
 
       // Failed
