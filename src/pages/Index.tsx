@@ -230,28 +230,11 @@ const Index = () => {
           </div>
         </div>
 
-        {filteredML.length > 0 && (
-          <ProductSection
-            title="Mobile Legends"
-            products={filteredML}
-          />
-        )}
+        {sections.map((s) => (
+          <ProductSection key={s.name} title={s.name} products={s.items} />
+        ))}
 
-        {filteredMG.length > 0 && (
-          <ProductSection
-            title="Mobile Games"
-            products={filteredMG}
-          />
-        )}
-
-        {filteredSM.length > 0 && (
-          <ProductSection
-            title="Social Media"
-            products={filteredSM}
-          />
-        )}
-
-        {searchQuery && filteredML.length === 0 && filteredMG.length === 0 && filteredSM.length === 0 && (
+        {searchQuery && sections.length === 0 && (
           <div className="container py-12 text-center text-muted-foreground">
             No products match "{searchQuery}".
           </div>
