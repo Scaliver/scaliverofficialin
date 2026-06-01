@@ -383,6 +383,7 @@ export type Database = {
           created_at: string
           id: string
           payment_request_id: string | null
+          player_name: string | null
           price: number
           product_id: string
           product_name: string
@@ -399,6 +400,7 @@ export type Database = {
           created_at?: string
           id?: string
           payment_request_id?: string | null
+          player_name?: string | null
           price: number
           product_id: string
           product_name: string
@@ -415,6 +417,7 @@ export type Database = {
           created_at?: string
           id?: string
           payment_request_id?: string | null
+          player_name?: string | null
           price?: number
           product_id?: string
           product_name?: string
@@ -708,9 +711,12 @@ export type Database = {
           alert_type: string
           created_at: string
           created_by: string | null
+          cta_label: string
           id: string
+          image_url: string | null
           is_active: boolean
           message: string
+          redirect_url: string | null
           title: string
           updated_at: string
         }
@@ -718,9 +724,12 @@ export type Database = {
           alert_type?: string
           created_at?: string
           created_by?: string | null
+          cta_label?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean
           message: string
+          redirect_url?: string | null
           title?: string
           updated_at?: string
         }
@@ -728,9 +737,12 @@ export type Database = {
           alert_type?: string
           created_at?: string
           created_by?: string | null
+          cta_label?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean
           message?: string
+          redirect_url?: string | null
           title?: string
           updated_at?: string
         }
@@ -805,6 +817,7 @@ export type Database = {
           id: string
           is_social_media: boolean | null
           player_id: string | null
+          player_name: string | null
           product_id: string | null
           product_name: string | null
           product_pack: string | null
@@ -831,6 +844,7 @@ export type Database = {
           id?: string
           is_social_media?: boolean | null
           player_id?: string | null
+          player_name?: string | null
           product_id?: string | null
           product_name?: string | null
           product_pack?: string | null
@@ -857,6 +871,7 @@ export type Database = {
           id?: string
           is_social_media?: boolean | null
           player_id?: string | null
+          player_name?: string | null
           product_id?: string | null
           product_name?: string | null
           product_pack?: string | null
@@ -957,6 +972,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_credit_crypto_wallet: {
+        Args: { p_amount: number; p_note?: string; p_user_id: string }
+        Returns: Json
+      }
       admin_set_crypto_order_status: {
         Args: { p_new_status: string; p_order_id: string }
         Returns: Json
