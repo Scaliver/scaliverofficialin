@@ -95,8 +95,8 @@ const CryptoTopUp = () => {
       if (error) throw error;
       if (data?.success) {
         setStatus("success");
-        toast({ title: "Payment confirmed", description: "USDT credited to your wallet." });
-        refresh();
+        toast({ title: "Wallet credited successfully.", description: `+${Number(data.credited ?? 0).toFixed(4)} USDT added.` });
+        await refresh();
       } else if (data?.confirming) {
         setStatus("confirming");
         toast({ title: "Waiting for confirmations", description: data?.message ?? "Network confirming…" });
