@@ -38,21 +38,42 @@ const Index = () => {
   const [siteAlert, setSiteAlert] = useState<SiteAlert | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   
-  const { getDisplayProducts, isLoading } = useProducts();
-  
-  const mobileLegendsProducts = getDisplayProducts("Mobile Legends");
-  const mobileGamesProducts = getDisplayProducts("Mobile Games");
-  const socialMediaProducts = getDisplayProducts("Social Media");
+  const { legacyProducts, getDisplayProducts, isLoading } = useProducts();
 
-  const filterBySearch = (products: any[]) => {
-    if (!searchQuery.trim()) return products;
-    const q = searchQuery.toLowerCase();
-    return products.filter((p) => p.name?.toLowerCase().includes(q));
-  };
+  // Dynamic categories (live updates via realtime)
+  const [categories, setCategories] = useState<{ id: string; name: string; sort_order: number }[]>([]);
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from("categories" as any)
+        .select("id,name,sort_order")
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+      setCategories(((data || []) as unknown) as { id: string; name: string; sort_order: number }[]);
+    };
+    load();
+    const ch = supabase
+      .channel("categories-home")
+      .on("postgres_changes", { event: "*", schema: "public", table: "categories" }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
 
-  const filteredML = useMemo(() => filterBySearch(mobileLegendsProducts), [mobileLegendsProducts, searchQuery]);
-  const filteredMG = useMemo(() => filterBySearch(mobileGamesProducts), [mobileGamesProducts, searchQuery]);
-  const filteredSM = useMemo(() => filterBySearch(socialMediaProducts), [socialMediaProducts, searchQuery]);
+  const effectiveCategories = useMemo(() => {
+    if (categories.length) return categories;
+    return Array.from(new Set(legacyProducts.map(p => p.category))).map((name, i) => ({ id: name, name, sort_order: i }));
+  }, [categories, legacyProducts]);
+
+  const sections = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return effectiveCategories
+      .map(cat => {
+        const items = getDisplayProducts(cat.name);
+        const filtered = q ? items.filter(p => p.name?.toLowerCase().includes(q)) : items;
+        return { name: cat.name, items: filtered };
+      })
+      .filter(s => s.items.length > 0);
+  }, [effectiveCategories, getDisplayProducts, searchQuery]);
 
   // Payment verification now happens exclusively on /payment-detect.
   // If a stale payment_order param lands on home, just clean the URL.
