@@ -20,12 +20,19 @@ export const CategoryManagement = () => {
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
 
+  const persistOrder = async (ordered: Category[]) => {
+    const updates = ordered.map((category, index) =>
+      supabase.from("categories" as any).update({ sort_order: index }).eq("id", category.id)
+    );
+    await Promise.all(updates);
+  };
+
   const load = async () => {
     const { data } = await supabase
       .from("categories" as any)
       .select("*")
-      .order("sort_order")
-      .order("name");
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
     setCategories((data || []) as unknown as Category[]);
   };
 
@@ -33,7 +40,8 @@ export const CategoryManagement = () => {
 
   const add = async () => {
     if (!newName.trim()) return;
-    const { error } = await supabase.from("categories" as any).insert({ name: newName.trim(), sort_order: categories.length });
+    const nextSortOrder = categories.length > 0 ? Math.max(...categories.map((category) => category.sort_order)) + 1 : 0;
+    const { error } = await supabase.from("categories" as any).insert({ name: newName.trim(), sort_order: nextSortOrder });
     if (error) return toast({ title: "Error", description: error.message, variant: "destructive" });
     setNewName("");
     toast({ title: "Category added" });
@@ -68,8 +76,9 @@ export const CategoryManagement = () => {
     const idx = categories.findIndex(c => c.id === cat.id);
     const swap = categories[idx + dir];
     if (!swap) return;
-    await supabase.from("categories" as any).update({ sort_order: swap.sort_order }).eq("id", cat.id);
-    await supabase.from("categories" as any).update({ sort_order: cat.sort_order }).eq("id", swap.id);
+    const reordered = [...categories];
+    [reordered[idx], reordered[idx + dir]] = [reordered[idx + dir], reordered[idx]];
+    await persistOrder(reordered);
     load();
   };
 
