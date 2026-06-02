@@ -180,76 +180,6 @@ const ProductDetail = () => {
     fetchUpiSetting();
   }, []);
 
-  // Player verification function - supports Digital Top-Up and Game Top-Up APIs
-  const verifyPlayer = useCallback(async (playerId: string, zone: string, productSlug?: string) => {
-    if (!playerId || !zone) return;
-    
-    setIsVerifying(true);
-    setVerificationError(null);
-    setPlayerInfo(null);
-    setIsPlayerVerified(false);
-    
-    try {
-      let data, error;
-      
-      if (productApiType === 'gametopup' && productApiId) {
-        // Use Game Top-Up API for validation
-        const result = await supabase.functions.invoke('gametopup-order', {
-          body: { 
-            action: 'validate', 
-            apiId: productApiId,
-            playerId: playerId, 
-            zoneId: zone 
-          }
-        });
-        data = result.data;
-        error = result.error;
-        
-        if (error) throw error;
-        
-        if (data.code === 200 && data.success && data.username) {
-          setPlayerInfo({
-            nickname: data.username,
-            region: data.region || data.zone_name || 'Unknown'
-          });
-          setIsPlayerVerified(true);
-        } else {
-          setVerificationError(data.message || data.error || 'Invalid Player ID or Zone ID');
-        }
-      } else {
-        // Aluu does not expose a standalone validate endpoint; skip and treat as verified.
-        setPlayerInfo({ nickname: playerId, region: zone || 'Unknown' });
-        setIsPlayerVerified(true);
-      }
-    } catch (err) {
-      console.error('Player verification error:', err);
-      setVerificationError('Verification failed. Please check your details.');
-    } finally {
-      setIsVerifying(false);
-    }
-  }, [productApiType, productApiId]);
-
-  // Trigger verification when player ID and zone ID change (with debounce)
-  useEffect(() => {
-    if (verifyTimeoutRef.current) clearTimeout(verifyTimeoutRef.current);
-    
-    const isMLBBProduct = product?.category === 'Mobile Legends' && !product?.isSocialMedia;
-    
-    if (userId && zoneId && isMLBBProduct) {
-      verifyTimeoutRef.current = setTimeout(() => {
-        verifyPlayer(userId, zoneId, product?.slug);
-      }, 600);
-    } else {
-      setPlayerInfo(null);
-      setVerificationError(null);
-      setIsPlayerVerified(false);
-    }
-    
-    return () => {
-      if (verifyTimeoutRef.current) clearTimeout(verifyTimeoutRef.current);
-    };
-  }, [userId, zoneId, product?.category, product?.isSocialMedia, product?.slug, verifyPlayer]);
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -329,30 +259,7 @@ const ProductDetail = () => {
       return false;
     }
 
-    // Mandatory username verification (admin-controlled per product)
-    if (product?.usernameCheckRequired && !isPlayerVerified) {
-      toast({
-        title: "Verify username first",
-        description: "Please click \"Check Username\" and wait for a successful verification before ordering.",
-        variant: "destructive",
-      });
-      return false;
-    }
-
     return true;
-  };
-
-  // Manual verify button handler
-  const handleManualVerify = () => {
-    if (!userId || !zoneId) {
-      toast({
-        title: "Missing Details",
-        description: "Please enter both Player ID and Zone ID to verify.",
-        variant: "destructive",
-      });
-      return;
-    }
-    verifyPlayer(userId, zoneId, product?.slug);
   };
 
   // Places a single API order (one row in `orders`). Returns true on success.
@@ -424,7 +331,7 @@ const ProductDetail = () => {
             body: {
               action: 'create_order', game, denom, userid: userId,
               serverid: zoneId || undefined,
-              charname: charName || playerInfo?.nickname || undefined,
+              charname: charName || undefined,
               partner_orderid: orderData.id,
               partner_webhook_url: webhookUrl,
             }
