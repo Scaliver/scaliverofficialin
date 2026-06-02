@@ -665,55 +665,6 @@ const ProductDetail = () => {
                       </div>
                     )}
                     
-                    {/* Player Verification Section - Only show in automatic mode */}
-                    {product.category === 'Mobile Legends' && rechargeMode === 'automatic' && (
-                      <div className="mt-3 space-y-3">
-                        {/* Manual Check Username Button */}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleManualVerify}
-                          disabled={isVerifying || !userId || !zoneId}
-                          className="w-full"
-                        >
-                          {isVerifying ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Checking Username...
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 className="w-4 h-4 mr-2" />
-                              Check Username
-                            </>
-                          )}
-                        </Button>
-                        
-                        {/* Verification Status */}
-                        {playerInfo && (
-                          <div className="flex items-center gap-2 text-green-500 bg-green-500/10 px-3 py-2 rounded-lg">
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span className="text-sm font-medium">
-                              ✓ Player: {playerInfo.nickname} | Region: {playerInfo.region}
-                            </span>
-                          </div>
-                        )}
-                        {verificationError && (
-                          <div className="flex items-center gap-2 text-destructive bg-destructive/10 px-3 py-2 rounded-lg">
-                            <AlertCircle className="w-4 h-4" />
-                            <span className="text-sm">{verificationError}</span>
-                          </div>
-                        )}
-                        {!isVerifying && !playerInfo && !verificationError && (!userId || !zoneId) && (
-                          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                            <AlertCircle className="w-4 h-4" />
-                            <span>Enter Player ID and Zone ID, then click "Check Username" to verify</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    
                   </>
                 )}
               </div>
