@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { ArrowLeft, Check, AlertCircle, Wallet, Loader2, CreditCard, CheckCircle2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { ArrowLeft, Check, AlertCircle, Wallet, Loader2, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -94,13 +94,6 @@ const ProductDetail = () => {
   // Manual recharge removed; always automatic.
   const rechargeMode: 'automatic' | 'manual' = 'automatic';
   const isManualRechargeEnabled = false;
-
-  // Player verification state
-  const [playerInfo, setPlayerInfo] = useState<{ nickname: string; region: string } | null>(null);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [verificationError, setVerificationError] = useState<string | null>(null);
-  const [isPlayerVerified, setIsPlayerVerified] = useState(false);
-  const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track which API type to use for this product
   const [productApiType, setProductApiType] = useState<'aluu' | 'gametopup' | null>(null);
