@@ -30,6 +30,9 @@ interface SiteAlert {
   message: string;
   is_active: boolean;
   alert_type: string;
+  image_url?: string | null;
+  redirect_url?: string | null;
+  cta_label?: string | null;
 }
 
 const Index = () => {
@@ -48,7 +51,7 @@ const Index = () => {
         .from("categories" as any)
         .select("id,name,sort_order")
         .order("sort_order", { ascending: true })
-        .order("name", { ascending: true });
+        .order("created_at", { ascending: true });
       setCategories(((data || []) as unknown) as { id: string; name: string; sort_order: number }[]);
     };
     load();
@@ -123,6 +126,14 @@ const Index = () => {
     setShowAlert(false);
   };
 
+  const handleJoinNow = () => {
+    if (siteAlert?.redirect_url) {
+      window.location.href = siteAlert.redirect_url;
+      return;
+    }
+    handleClose();
+  };
+
   const getAlertStyles = (type: string) => {
     switch (type) {
       case "warning":
@@ -174,6 +185,21 @@ const Index = () => {
               {siteAlert?.message}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {siteAlert?.image_url && (
+            <button
+              type="button"
+              onClick={handleJoinNow}
+              className="block overflow-hidden rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+              aria-label={siteAlert.title}
+            >
+              <img
+                src={siteAlert.image_url}
+                alt={siteAlert.title}
+                className="w-full max-h-[55vh] object-cover"
+                loading="lazy"
+              />
+            </button>
+          )}
           <div className="flex items-center space-x-2 py-2">
             <Checkbox 
               id="dontShowAgain" 
@@ -185,8 +211,11 @@ const Index = () => {
             </Label>
           </div>
           <AlertDialogFooter>
+            <AlertDialogAction onClick={handleJoinNow}>
+              {siteAlert?.cta_label?.trim() || "Join Now"}
+            </AlertDialogAction>
             <AlertDialogAction onClick={handleClose}>
-              I Understand
+              Close
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

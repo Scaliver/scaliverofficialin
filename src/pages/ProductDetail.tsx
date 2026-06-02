@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { ArrowLeft, Check, AlertCircle, Wallet, Loader2, CreditCard, CheckCircle2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { ArrowLeft, Check, AlertCircle, Wallet, Loader2, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -95,13 +95,6 @@ const ProductDetail = () => {
   const rechargeMode: 'automatic' | 'manual' = 'automatic';
   const isManualRechargeEnabled = false;
 
-  // Player verification state
-  const [playerInfo, setPlayerInfo] = useState<{ nickname: string; region: string } | null>(null);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [verificationError, setVerificationError] = useState<string | null>(null);
-  const [isPlayerVerified, setIsPlayerVerified] = useState(false);
-  const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   // Track which API type to use for this product
   const [productApiType, setProductApiType] = useState<'aluu' | 'gametopup' | null>(null);
   const [productApiId, setProductApiId] = useState<string | null>(null);
@@ -187,76 +180,6 @@ const ProductDetail = () => {
     fetchUpiSetting();
   }, []);
 
-  // Player verification function - supports Digital Top-Up and Game Top-Up APIs
-  const verifyPlayer = useCallback(async (playerId: string, zone: string, productSlug?: string) => {
-    if (!playerId || !zone) return;
-    
-    setIsVerifying(true);
-    setVerificationError(null);
-    setPlayerInfo(null);
-    setIsPlayerVerified(false);
-    
-    try {
-      let data, error;
-      
-      if (productApiType === 'gametopup' && productApiId) {
-        // Use Game Top-Up API for validation
-        const result = await supabase.functions.invoke('gametopup-order', {
-          body: { 
-            action: 'validate', 
-            apiId: productApiId,
-            playerId: playerId, 
-            zoneId: zone 
-          }
-        });
-        data = result.data;
-        error = result.error;
-        
-        if (error) throw error;
-        
-        if (data.code === 200 && data.success && data.username) {
-          setPlayerInfo({
-            nickname: data.username,
-            region: data.region || data.zone_name || 'Unknown'
-          });
-          setIsPlayerVerified(true);
-        } else {
-          setVerificationError(data.message || data.error || 'Invalid Player ID or Zone ID');
-        }
-      } else {
-        // Aluu does not expose a standalone validate endpoint; skip and treat as verified.
-        setPlayerInfo({ nickname: playerId, region: zone || 'Unknown' });
-        setIsPlayerVerified(true);
-      }
-    } catch (err) {
-      console.error('Player verification error:', err);
-      setVerificationError('Verification failed. Please check your details.');
-    } finally {
-      setIsVerifying(false);
-    }
-  }, [productApiType, productApiId]);
-
-  // Trigger verification when player ID and zone ID change (with debounce)
-  useEffect(() => {
-    if (verifyTimeoutRef.current) clearTimeout(verifyTimeoutRef.current);
-    
-    const isMLBBProduct = product?.category === 'Mobile Legends' && !product?.isSocialMedia;
-    
-    if (userId && zoneId && isMLBBProduct) {
-      verifyTimeoutRef.current = setTimeout(() => {
-        verifyPlayer(userId, zoneId, product?.slug);
-      }, 600);
-    } else {
-      setPlayerInfo(null);
-      setVerificationError(null);
-      setIsPlayerVerified(false);
-    }
-    
-    return () => {
-      if (verifyTimeoutRef.current) clearTimeout(verifyTimeoutRef.current);
-    };
-  }, [userId, zoneId, product?.category, product?.isSocialMedia, product?.slug, verifyPlayer]);
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -336,30 +259,7 @@ const ProductDetail = () => {
       return false;
     }
 
-    // Mandatory username verification (admin-controlled per product)
-    if (product?.usernameCheckRequired && !isPlayerVerified) {
-      toast({
-        title: "Verify username first",
-        description: "Please click \"Check Username\" and wait for a successful verification before ordering.",
-        variant: "destructive",
-      });
-      return false;
-    }
-
     return true;
-  };
-
-  // Manual verify button handler
-  const handleManualVerify = () => {
-    if (!userId || !zoneId) {
-      toast({
-        title: "Missing Details",
-        description: "Please enter both Player ID and Zone ID to verify.",
-        variant: "destructive",
-      });
-      return;
-    }
-    verifyPlayer(userId, zoneId, product?.slug);
   };
 
   // Places a single API order (one row in `orders`). Returns true on success.
@@ -431,7 +331,7 @@ const ProductDetail = () => {
             body: {
               action: 'create_order', game, denom, userid: userId,
               serverid: zoneId || undefined,
-              charname: charName || playerInfo?.nickname || undefined,
+              charname: charName || undefined,
               partner_orderid: orderData.id,
               partner_webhook_url: webhookUrl,
             }
@@ -762,55 +662,6 @@ const ProductDetail = () => {
                           onChange={(e) => setCharName(e.target.value)}
                           className="bg-secondary border-border"
                         />
-                      </div>
-                    )}
-                    
-                    {/* Player Verification Section - Only show in automatic mode */}
-                    {product.category === 'Mobile Legends' && rechargeMode === 'automatic' && (
-                      <div className="mt-3 space-y-3">
-                        {/* Manual Check Username Button */}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleManualVerify}
-                          disabled={isVerifying || !userId || !zoneId}
-                          className="w-full"
-                        >
-                          {isVerifying ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Checking Username...
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 className="w-4 h-4 mr-2" />
-                              Check Username
-                            </>
-                          )}
-                        </Button>
-                        
-                        {/* Verification Status */}
-                        {playerInfo && (
-                          <div className="flex items-center gap-2 text-green-500 bg-green-500/10 px-3 py-2 rounded-lg">
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span className="text-sm font-medium">
-                              ✓ Player: {playerInfo.nickname} | Region: {playerInfo.region}
-                            </span>
-                          </div>
-                        )}
-                        {verificationError && (
-                          <div className="flex items-center gap-2 text-destructive bg-destructive/10 px-3 py-2 rounded-lg">
-                            <AlertCircle className="w-4 h-4" />
-                            <span className="text-sm">{verificationError}</span>
-                          </div>
-                        )}
-                        {!isVerifying && !playerInfo && !verificationError && (!userId || !zoneId) && (
-                          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                            <AlertCircle className="w-4 h-4" />
-                            <span>Enter Player ID and Zone ID, then click "Check Username" to verify</span>
-                          </div>
-                        )}
                       </div>
                     )}
                     
