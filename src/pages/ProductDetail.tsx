@@ -514,9 +514,9 @@ const ProductDetail = () => {
               {/* Instructions */}
               {product.instructions && product.instructions.length > 0 && (
                 <div className="bg-card border border-border rounded-md md:rounded-xl p-2.5 md:p-6">
-                  <h3 className="font-display text-xs md:text-lg font-bold text-foreground mb-1.5 md:mb-4">
+                  <h2 className="font-display text-xs md:text-lg font-bold text-foreground mb-1.5 md:mb-4">
                     How to Order
-                  </h3>
+                  </h2>
                   <ol className="space-y-1 md:space-y-3">
                     {product.instructions.map((instruction, index) => (
                       <li key={index} className="flex items-start gap-1.5 md:gap-3">
