@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,18 @@ const CryptoTopUp = () => {
   const [verifying, setVerifying] = useState(false);
   const [status, setStatus] = useState<"pending" | "confirming" | "success" | "failed">("pending");
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const creditedOrderRef = useRef<string | null>(null);
+
+  const notifySuccess = async (creditedAmount: number) => {
+    if (!order?.order_id || creditedOrderRef.current === order.order_id) return;
+    creditedOrderRef.current = order.order_id;
+    setStatus("success");
+    await refresh();
+    toast({
+      title: "Wallet credited successfully.",
+      description: `+${Number(creditedAmount ?? 0).toFixed(4)} USDT added.`,
+    });
+  };
 
   useEffect(() => {
     if (!order?.order_id) return;
@@ -53,12 +65,7 @@ const CryptoTopUp = () => {
           if (!next?.status) return;
 
           if (next.status === "success") {
-            setStatus("success");
-            await refresh();
-            toast({
-              title: "Wallet credited successfully.",
-              description: `+${Number(next.amount_paid ?? order.amount ?? 0).toFixed(4)} USDT added.`,
-            });
+            await notifySuccess(Number(next.amount_paid ?? order.amount ?? 0));
           } else if (next.status === "confirming") {
             setStatus("confirming");
           } else if (next.status === "failed") {
@@ -83,12 +90,7 @@ const CryptoTopUp = () => {
 
       const nextStatus = data?.data?.status as string | undefined;
       if (nextStatus === "success") {
-        setStatus("success");
-        await refresh();
-        toast({
-          title: "Wallet credited successfully.",
-          description: `+${Number(data?.data?.amount_paid ?? order.amount ?? 0).toFixed(4)} USDT added.`,
-        });
+        await notifySuccess(Number(data?.data?.amount_paid ?? order.amount ?? 0));
         window.clearInterval(interval);
       } else if (nextStatus === "failed") {
         setStatus("failed");
@@ -159,9 +161,7 @@ const CryptoTopUp = () => {
       });
       if (error) throw error;
       if (data?.success) {
-        setStatus("success");
-        toast({ title: "Wallet credited successfully.", description: `+${Number(data.credited ?? 0).toFixed(4)} USDT added.` });
-        await refresh();
+        await notifySuccess(Number(data.credited ?? 0));
       } else if (data?.confirming) {
         setStatus("confirming");
         toast({ title: "Waiting for confirmations", description: data?.message ?? "Waiting for blockchain confirmations (1/3)" });
@@ -187,12 +187,7 @@ const CryptoTopUp = () => {
     });
     const s = data?.data?.status;
     if (s === "success") {
-      setStatus("success");
-      await refresh();
-      toast({
-        title: "Wallet credited successfully.",
-        description: `+${Number(data?.data?.amount_paid ?? order.amount ?? 0).toFixed(4)} USDT added.`,
-      });
+      await notifySuccess(Number(data?.data?.amount_paid ?? order.amount ?? 0));
       return;
     }
     else if (s === "failed") setStatus("failed");
