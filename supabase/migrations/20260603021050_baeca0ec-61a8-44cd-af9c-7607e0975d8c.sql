@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Service role can insert crypto deposit logs" ON public.crypto_deposit_logs;
