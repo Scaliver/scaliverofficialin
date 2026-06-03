@@ -227,6 +227,8 @@ const Index = () => {
       {/* Hero Banner Carousel */}
       <HeroBanner />
 
+      <h1 className="sr-only">Scaliver Official Game Top Up India</h1>
+
       {/* Scrolling Marquee */}
       <MarqueeBanner />
 
