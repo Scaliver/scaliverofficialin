@@ -14,11 +14,26 @@ interface CryptoOrderRow {
   user_id: string;
   order_reference: string;
   amount: number;
+  amount_paid?: number | null;
   status: string;
   credited: boolean;
   transaction_hash: string | null;
   wallet_address: string | null;
   request_type: string;
+  error_message?: string | null;
+  created_at: string;
+  user_email?: string | null;
+}
+
+interface DepositLogRow {
+  id: string;
+  user_id: string;
+  order_reference: string | null;
+  transaction_hash: string | null;
+  amount: number | null;
+  status: string;
+  step: string;
+  error_message: string | null;
   created_at: string;
   user_email?: string | null;
 }
@@ -36,13 +51,15 @@ const CryptoManagement = () => {
   const [savingSettings, setSavingSettings] = useState(false);
   const [wallets, setWallets] = useState<WalletRow[]>([]);
   const [orders, setOrders] = useState<CryptoOrderRow[]>([]);
+  const [depositLogs, setDepositLogs] = useState<DepositLogRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
-    const [{ data: settings }, { data: walletsData }, { data: ordersData }] = await Promise.all([
+    const [{ data: settings }, { data: walletsData }, { data: ordersData }, { data: logsData }] = await Promise.all([
       supabase.from("site_settings").select("key, value").in("key", ["usdt_to_inr_rate", "crypto_enabled"]),
       supabase.from("crypto_wallets").select("user_id, balance").order("balance", { ascending: false }).limit(200),
       supabase.from("crypto_orders").select("*").order("created_at", { ascending: false }).limit(200),
+      supabase.from("crypto_deposit_logs").select("*").order("created_at", { ascending: false }).limit(200),
     ]);
     const rateRow = settings?.find((s) => s.key === "usdt_to_inr_rate");
     const enabledRow = settings?.find((s) => s.key === "crypto_enabled");
@@ -53,6 +70,7 @@ const CryptoManagement = () => {
     const userIds = Array.from(new Set([
       ...((walletsData ?? []).map((w) => w.user_id)),
       ...((ordersData ?? []).map((o) => o.user_id)),
+      ...((logsData ?? []).map((l) => l.user_id)),
     ]));
     const { data: profs } = userIds.length
       ? await supabase.from("profiles").select("id, display_name").in("id", userIds)
@@ -61,9 +79,23 @@ const CryptoManagement = () => {
 
     setWallets((walletsData ?? []).map((w) => ({ ...w, email: profMap.get(w.user_id) ?? null })));
     setOrders((ordersData ?? []).map((o) => ({ ...o, user_email: profMap.get(o.user_id) ?? null })));
+    setDepositLogs((logsData ?? []).map((log) => ({ ...log, user_email: profMap.get(log.user_id) ?? null })));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+
+    const walletChannel = supabase
+      .channel("admin-crypto-wallets")
+      .on("postgres_changes", { event: "*", schema: "public", table: "crypto_wallets" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "crypto_orders" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "crypto_deposit_logs" }, load)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(walletChannel);
+    };
+  }, []);
 
   const saveSettings = async () => {
     setSavingSettings(true);
@@ -185,7 +217,7 @@ const CryptoManagement = () => {
                     <td className="py-2 text-xs">{new Date(o.created_at).toLocaleString()}</td>
                     <td className="py-2">{o.user_email ?? "—"}</td>
                     <td className="py-2 font-mono text-xs">{o.order_reference}</td>
-                    <td className="py-2 text-right">{Number(o.amount).toFixed(4)}</td>
+                    <td className="py-2 text-right">{Number(o.amount_paid ?? o.amount).toFixed(4)}</td>
                     <td className="py-2">
                       <Badge variant="outline" className={
                         o.status === "success" ? "border-green-500/40 text-green-500" :
@@ -194,7 +226,7 @@ const CryptoManagement = () => {
                               "border-yellow-500/40 text-yellow-500"
                       }>{o.status}</Badge>
                     </td>
-                    <td className="py-2 font-mono text-[10px] truncate max-w-[140px]">{o.transaction_hash ?? "—"}</td>
+                    <td className="py-2 font-mono text-[10px] truncate max-w-[140px]" title={o.error_message ?? undefined}>{o.transaction_hash ?? "—"}</td>
                     <td className="py-2 text-right whitespace-nowrap">
                       <Button size="sm" variant="outline" disabled={busy === o.id}
                         className="border-green-500/40 text-green-500 hover:bg-green-500/10 mr-1"
@@ -212,6 +244,52 @@ const CryptoManagement = () => {
                         <Clock className="w-3.5 h-3.5" />
                       </Button>
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="font-display text-lg">Crypto Deposit Logs</CardTitle></CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left border-b border-border">
+                  <th className="py-2">When</th>
+                  <th className="py-2">User</th>
+                  <th className="py-2">Amount</th>
+                  <th className="py-2">Order ID</th>
+                  <th className="py-2">TX Hash</th>
+                  <th className="py-2">Status</th>
+                  <th className="py-2">Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                {depositLogs.length === 0 ? (
+                  <tr><td colSpan={7} className="py-4 text-center text-muted-foreground">No deposit logs</td></tr>
+                ) : depositLogs.map((log) => (
+                  <tr key={log.id} className="border-b border-border/40 align-top">
+                    <td className="py-2 text-xs whitespace-nowrap">{new Date(log.created_at).toLocaleString()}</td>
+                    <td className="py-2">{log.user_email ?? "—"}</td>
+                    <td className="py-2">{Number(log.amount ?? 0).toFixed(4)}</td>
+                    <td className="py-2 font-mono text-[10px] break-all">{log.order_reference ?? "—"}</td>
+                    <td className="py-2 font-mono text-[10px] break-all">{log.transaction_hash ?? "—"}</td>
+                    <td className="py-2">
+                      <div className="flex flex-col gap-1">
+                        <Badge variant="outline" className={
+                          log.status === "success" ? "border-green-500/40 text-green-500" :
+                          log.status === "error" ? "border-red-500/40 text-red-500" :
+                          log.status === "warning" ? "border-yellow-500/40 text-yellow-500" :
+                          "border-blue-500/40 text-blue-500"
+                        }>{log.status}</Badge>
+                        <span className="text-[10px] text-muted-foreground">{log.step.replace(/_/g, " ")}</span>
+                      </div>
+                    </td>
+                    <td className="py-2 text-xs text-muted-foreground max-w-[260px] break-words">{log.error_message ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
