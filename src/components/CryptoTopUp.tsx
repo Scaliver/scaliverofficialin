@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { useCryptoWallet } from "@/hooks/useCryptoWallet";
 
 interface OrderData {
   order_id: string;
+  db_id?: string;
   amount: string | number;
   address: string;
   currency: string;
@@ -33,6 +34,72 @@ const CryptoTopUp = () => {
   const [verifying, setVerifying] = useState(false);
   const [status, setStatus] = useState<"pending" | "confirming" | "success" | "failed">("pending");
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const creditedOrderRef = useRef<string | null>(null);
+
+  const notifySuccess = async (creditedAmount: number) => {
+    if (!order?.order_id || creditedOrderRef.current === order.order_id) return;
+    creditedOrderRef.current = order.order_id;
+    setStatus("success");
+    await refresh();
+    toast({
+      title: "Wallet credited successfully.",
+      description: `+${Number(creditedAmount ?? 0).toFixed(4)} USDT added.`,
+    });
+  };
+
+  useEffect(() => {
+    if (!order?.order_id) return;
+
+    const orderChannel = supabase
+      .channel(`crypto-order-${order.order_id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "crypto_orders",
+          filter: `order_reference=eq.${order.order_id}`,
+        },
+        async (payload) => {
+          const next = payload.new as { status?: string; amount_paid?: number | null } | null;
+          if (!next?.status) return;
+
+          if (next.status === "success") {
+            await notifySuccess(Number(next.amount_paid ?? order.amount ?? 0));
+          } else if (next.status === "confirming") {
+            setStatus("confirming");
+          } else if (next.status === "failed") {
+            setStatus("failed");
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(orderChannel);
+    };
+  }, [order?.order_id, order?.amount, refresh, toast]);
+
+  useEffect(() => {
+    if (!order?.order_id || status !== "confirming") return;
+
+    const interval = window.setInterval(async () => {
+      const { data } = await supabase.functions.invoke("crypto-gateway", {
+        body: { action: "get_order", order_id: order.order_id },
+      });
+
+      const nextStatus = data?.data?.status as string | undefined;
+      if (nextStatus === "success") {
+        await notifySuccess(Number(data?.data?.amount_paid ?? order.amount ?? 0));
+        window.clearInterval(interval);
+      } else if (nextStatus === "failed") {
+        setStatus("failed");
+        window.clearInterval(interval);
+      }
+    }, 10000);
+
+    return () => window.clearInterval(interval);
+  }, [order?.order_id, order?.amount, refresh, status, toast]);
 
   // countdown
   useEffect(() => {
@@ -69,6 +136,7 @@ const CryptoTopUp = () => {
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "Failed to create order");
       setOrder(data.data);
+      creditedOrderRef.current = null;
       setStatus("pending");
       setTxHash("");
     } catch (e) {
@@ -94,12 +162,10 @@ const CryptoTopUp = () => {
       });
       if (error) throw error;
       if (data?.success) {
-        setStatus("success");
-        toast({ title: "Wallet credited successfully.", description: `+${Number(data.credited ?? 0).toFixed(4)} USDT added.` });
-        await refresh();
+        await notifySuccess(Number(data.credited ?? 0));
       } else if (data?.confirming) {
         setStatus("confirming");
-        toast({ title: "Waiting for confirmations", description: data?.message ?? "Network confirming…" });
+        toast({ title: "Waiting for confirmations", description: data?.message ?? "Waiting for blockchain confirmations (1/3)" });
       } else {
         setStatus("failed");
         toast({ title: "Verification failed", description: data?.error ?? "Try again later", variant: "destructive" });
@@ -121,7 +187,10 @@ const CryptoTopUp = () => {
       body: { action: "get_order", order_id: order.order_id },
     });
     const s = data?.data?.status;
-    if (s === "success") { setStatus("success"); refresh(); }
+    if (s === "success") {
+      await notifySuccess(Number(data?.data?.amount_paid ?? order.amount ?? 0));
+      return;
+    }
     else if (s === "failed") setStatus("failed");
     else if (s === "confirming") setStatus("confirming");
     toast({ title: "Refreshed", description: `Status: ${s ?? "pending"}` });
@@ -261,7 +330,7 @@ const CryptoTopUp = () => {
                   <Button variant="outline" size="sm" onClick={handleRefreshStatus}>
                     <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh Status
                   </Button>
-                  <Button variant="destructive" size="sm" onClick={() => { setOrder(null); setStatus("pending"); }}>
+                  <Button variant="destructive" size="sm" onClick={() => { creditedOrderRef.current = null; setOrder(null); setStatus("pending"); }}>
                     <X className="w-3.5 h-3.5 mr-1.5" /> Cancel View
                   </Button>
                 </div>

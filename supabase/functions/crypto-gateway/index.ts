@@ -54,6 +54,43 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+async function finalizeDeposit(
+  sb: ReturnType<typeof admin>,
+  params: {
+    userId: string;
+    orderReference: string;
+    txHash?: string | null;
+    amountPaid: number;
+    gatewayStatus: string;
+    source: "verify_tx" | "webhook" | "status_refresh";
+    payload: unknown;
+  },
+) {
+  const { data, error } = await sb.rpc("process_crypto_deposit", {
+    p_user_id: params.userId,
+    p_order_reference: params.orderReference,
+    p_transaction_hash: params.txHash ?? null,
+    p_amount: Number(params.amountPaid.toFixed(4)),
+    p_status: params.gatewayStatus,
+    p_source: params.source,
+    p_payload: params.payload ?? {},
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as {
+    success?: boolean;
+    confirming?: boolean;
+    error?: string;
+    credited_amount?: number;
+    wallet_balance?: number;
+    already_processed?: boolean;
+    status?: string;
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -134,13 +171,19 @@ serve(async (req) => {
       });
 
       // Pending confirmations
-      if (status === 202) {
+      if (status === 202 || json?.data?.status === "pending") {
         await sb.from("crypto_orders").update({
           status: "confirming",
           transaction_hash: tx_hash,
+          error_message: null,
           metadata: { ...(order.metadata ?? {}), verify: json?.data },
         }).eq("id", order.id);
-        return jsonResponse({ success: false, confirming: true, data: json?.data, message: json?.message });
+        return jsonResponse({
+          success: false,
+          confirming: true,
+          data: json?.data,
+          message: json?.message ?? "Waiting for blockchain confirmations",
+        });
       }
 
       // Success
@@ -149,32 +192,31 @@ serve(async (req) => {
         const feeDeducted = Number(json.data.fee_deducted ?? 0);
         const netCredit = Math.max(0, amountPaid - feeDeducted);
 
-        await sb.from("crypto_orders").update({
-          transaction_hash: tx_hash,
-          metadata: { ...(order.metadata ?? {}), verify: json.data },
-        }).eq("id", order.id);
-
-        const { error: credErr } = await sb.rpc("credit_crypto_wallet", {
-          p_user_id: user.id,
-          p_amount: netCredit,
-          p_order_reference: order_id,
+        const finalization = await finalizeDeposit(sb, {
+          userId: user.id,
+          orderReference: order_id,
+          txHash: tx_hash,
+          amountPaid: netCredit,
+          gatewayStatus: json.data.status,
+          source: "verify_tx",
+          payload: json.data,
         });
-        if (credErr) {
-          console.error("credit_crypto_wallet", credErr);
-          await sb.from("crypto_orders").update({
-            notes: `Credit failed: ${credErr.message}`,
-          }).eq("id", order.id);
-          await sb.from("audit_logs").insert({
-            admin_id: user.id,
-            action: "crypto_credit_failed",
-            resource_type: "crypto_orders",
-            resource_id: order.id,
-            details: { error: credErr.message, amount: netCredit, order_reference: order_id },
-          });
-          return jsonResponse({ success: false, error: `Credit failed: ${credErr.message}` }, 200);
+
+        if (!finalization?.success) {
+          return jsonResponse({
+            success: false,
+            error: finalization?.error || "Wallet credit failed",
+            data: json.data,
+          }, 200);
         }
 
-        return jsonResponse({ success: true, credited: netCredit, data: json.data });
+        return jsonResponse({
+          success: true,
+          credited: Number(finalization.credited_amount ?? netCredit),
+          wallet_balance: Number(finalization.wallet_balance ?? 0),
+          already_processed: Boolean(finalization.already_processed),
+          data: json.data,
+        });
       }
 
       // Failed
@@ -182,6 +224,7 @@ serve(async (req) => {
         status: "failed",
         transaction_hash: tx_hash,
         notes: json?.message ?? null,
+        error_message: json?.message ?? `Verify failed (${status})`,
       }).eq("id", order.id);
       return jsonResponse({ success: false, error: json?.message || `Verify failed (${status})`, data: json?.data });
     }
@@ -244,13 +287,37 @@ serve(async (req) => {
         const { data: order } = await sb.from("crypto_orders")
           .select("*").eq("order_reference", orderRef).maybeSingle();
         if (order && !order.credited) {
+          const gatewayStatus = payload?.status ?? payload?.data?.status ?? "pending";
+          if (gatewayStatus !== "credited") {
+            await sb.from("crypto_orders").update({
+              status: "confirming",
+              transaction_hash: payload?.tx_hash ?? payload?.transaction_hash ?? payload?.data?.tx_hash ?? payload?.data?.transaction_hash ?? order.transaction_hash,
+              error_message: null,
+              metadata: { ...(order.metadata ?? {}), webhook: payload },
+            }).eq("id", order.id);
+
+            return jsonResponse({
+              success: true,
+              confirming: true,
+              message: payload?.message ?? "Waiting for blockchain confirmations (1/3)",
+            });
+          }
+
           const amt = Number(payload?.amount_paid ?? payload?.data?.amount_paid ?? order.amount);
           const fee = Number(payload?.fee_deducted ?? payload?.data?.fee_deducted ?? 0);
-          await sb.rpc("credit_crypto_wallet", {
-            p_user_id: order.user_id,
-            p_amount: Math.max(0, amt - fee),
-            p_order_reference: orderRef,
+          const finalization = await finalizeDeposit(sb, {
+            userId: order.user_id,
+            orderReference: orderRef,
+            txHash: payload?.tx_hash ?? payload?.transaction_hash ?? payload?.data?.tx_hash ?? payload?.data?.transaction_hash ?? order.transaction_hash,
+            amountPaid: Math.max(0, amt - fee),
+            gatewayStatus,
+            source: "webhook",
+            payload,
           });
+
+          if (!finalization?.success && !finalization?.confirming) {
+            console.error("webhook finalize failed", finalization?.error || "Unknown error");
+          }
         }
       }
       return jsonResponse({ success: true });

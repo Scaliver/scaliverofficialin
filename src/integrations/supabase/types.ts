@@ -250,13 +250,58 @@ export type Database = {
         }
         Relationships: []
       }
+      crypto_deposit_logs: {
+        Row: {
+          amount: number | null
+          created_at: string
+          crypto_order_id: string | null
+          details: Json
+          error_message: string | null
+          id: string
+          order_reference: string | null
+          status: string
+          step: string
+          transaction_hash: string | null
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          crypto_order_id?: string | null
+          details?: Json
+          error_message?: string | null
+          id?: string
+          order_reference?: string | null
+          status?: string
+          step: string
+          transaction_hash?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          crypto_order_id?: string | null
+          details?: Json
+          error_message?: string | null
+          id?: string
+          order_reference?: string | null
+          status?: string
+          step?: string
+          transaction_hash?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       crypto_orders: {
         Row: {
           amount: number
+          amount_paid: number | null
           bonus_coins: number | null
+          completed_at: string | null
           created_at: string
           credited: boolean
           currency: string
+          error_message: string | null
           expires_at: string | null
           external_order_id: string | null
           id: string
@@ -279,10 +324,13 @@ export type Database = {
         }
         Insert: {
           amount: number
+          amount_paid?: number | null
           bonus_coins?: number | null
+          completed_at?: string | null
           created_at?: string
           credited?: boolean
           currency?: string
+          error_message?: string | null
           expires_at?: string | null
           external_order_id?: string | null
           id?: string
@@ -305,10 +353,13 @@ export type Database = {
         }
         Update: {
           amount?: number
+          amount_paid?: number | null
           bonus_coins?: number | null
+          completed_at?: string | null
           created_at?: string
           credited?: boolean
           currency?: string
+          error_message?: string | null
           expires_at?: string | null
           external_order_id?: string | null
           id?: string
@@ -994,6 +1045,18 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      process_crypto_deposit: {
+        Args: {
+          p_amount: number
+          p_order_reference: string
+          p_payload?: Json
+          p_source?: string
+          p_status?: string
+          p_transaction_hash: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       process_order_payment: {
         Args: {
