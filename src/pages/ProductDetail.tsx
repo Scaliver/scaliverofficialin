@@ -732,9 +732,9 @@ const ProductDetail = () => {
               {/* Order Summary */}
               {selectedTier && (
                 <div className="bg-card border border-border rounded-lg p-3 md:p-6 space-y-2.5 md:space-y-4">
-                  <h3 className="font-display text-sm md:text-lg font-bold text-foreground">
+                  <h2 className="font-display text-sm md:text-lg font-bold text-foreground">
                     Order Summary
-                  </h3>
+                  </h2>
 
 
                   {/* Quantity Selector — only when product is stackable */}
