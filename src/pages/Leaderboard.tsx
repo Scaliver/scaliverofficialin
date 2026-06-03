@@ -85,6 +85,9 @@ const LeaderboardPage = () => {
           </Button>
         </div>
 
+        <h1 className="font-display text-2xl font-bold text-foreground mb-3">Top Buyers Leaderboard</h1>
+
+
         <Card className="mb-4 bg-gradient-to-br from-primary/20 to-primary/5 border-primary/30">
           <CardHeader className="py-3">
             <CardTitle className="flex items-center gap-2 font-display text-base sm:text-lg">
