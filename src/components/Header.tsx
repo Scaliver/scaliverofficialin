@@ -78,7 +78,7 @@ const Header = () => {
 
         {/* Right-side actions — pushed a little inward */}
         <div className="flex items-center gap-3 pr-1 sm:pr-2">
-          <Button variant="ghost" size="icon" className="hidden md:flex">
+          <Button variant="ghost" size="icon" className="hidden md:flex" aria-label="Search">
             <Search className="h-5 w-5" />
           </Button>
           {user ? (
