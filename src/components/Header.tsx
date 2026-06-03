@@ -78,7 +78,7 @@ const Header = () => {
 
         {/* Right-side actions — pushed a little inward */}
         <div className="flex items-center gap-3 pr-1 sm:pr-2">
-          <Button variant="ghost" size="icon" className="hidden md:flex">
+          <Button variant="ghost" size="icon" className="hidden md:flex" aria-label="Search">
             <Search className="h-5 w-5" />
           </Button>
           {user ? (
@@ -115,7 +115,7 @@ const Header = () => {
           {/* Brand */}
           <div className="flex items-center gap-2 px-4 pt-5 pb-3">
             <div className="h-9 w-9 rounded-full overflow-hidden ring-2 ring-primary/60">
-              <img src={logoImg} alt="Scaliver" className="w-full h-full object-cover" />
+              <img src={logoImg} alt="Scaliver Official logo" className="w-full h-full object-cover" />
             </div>
             <span className="font-display font-extrabold text-base text-gradient">Scaliver Official</span>
           </div>

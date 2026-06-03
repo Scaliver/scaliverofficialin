@@ -514,9 +514,9 @@ const ProductDetail = () => {
               {/* Instructions */}
               {product.instructions && product.instructions.length > 0 && (
                 <div className="bg-card border border-border rounded-md md:rounded-xl p-2.5 md:p-6">
-                  <h3 className="font-display text-xs md:text-lg font-bold text-foreground mb-1.5 md:mb-4">
+                  <h2 className="font-display text-xs md:text-lg font-bold text-foreground mb-1.5 md:mb-4">
                     How to Order
-                  </h3>
+                  </h2>
                   <ol className="space-y-1 md:space-y-3">
                     {product.instructions.map((instruction, index) => (
                       <li key={index} className="flex items-start gap-1.5 md:gap-3">
@@ -580,9 +580,9 @@ const ProductDetail = () => {
 
               {/* User Details Form */}
               <div className="bg-card border border-border rounded-lg p-3 md:p-6 space-y-3 md:space-y-4">
-                <h3 className="font-display text-sm md:text-lg font-bold text-foreground">
+                <h2 className="font-display text-sm md:text-lg font-bold text-foreground">
                   {product.isSocialMedia ? "Enter Your Details" : "Enter Your Game Details"}
-                </h3>
+                </h2>
 
                 
                 {product.isSocialMedia ? (
@@ -684,9 +684,9 @@ const ProductDetail = () => {
 
               {/* Pricing Tiers */}
               <div className="bg-card border border-border rounded-lg p-3 md:p-6">
-                <h3 className="font-display text-sm md:text-lg font-bold text-foreground mb-2 md:mb-4">
+                <h2 className="font-display text-sm md:text-lg font-bold text-foreground mb-2 md:mb-4">
                   Select Package
-                </h3>
+                </h2>
 
                 {isReseller && discountPercent > 0 && (
                   <Badge className="mb-3 bg-accent/20 text-accent border-accent/30">
@@ -732,9 +732,9 @@ const ProductDetail = () => {
               {/* Order Summary */}
               {selectedTier && (
                 <div className="bg-card border border-border rounded-lg p-3 md:p-6 space-y-2.5 md:space-y-4">
-                  <h3 className="font-display text-sm md:text-lg font-bold text-foreground">
+                  <h2 className="font-display text-sm md:text-lg font-bold text-foreground">
                     Order Summary
-                  </h3>
+                  </h2>
 
 
                   {/* Quantity Selector — only when product is stackable */}
