@@ -580,9 +580,9 @@ const ProductDetail = () => {
 
               {/* User Details Form */}
               <div className="bg-card border border-border rounded-lg p-3 md:p-6 space-y-3 md:space-y-4">
-                <h3 className="font-display text-sm md:text-lg font-bold text-foreground">
+                <h2 className="font-display text-sm md:text-lg font-bold text-foreground">
                   {product.isSocialMedia ? "Enter Your Details" : "Enter Your Game Details"}
-                </h3>
+                </h2>
 
                 
                 {product.isSocialMedia ? (
