@@ -684,9 +684,9 @@ const ProductDetail = () => {
 
               {/* Pricing Tiers */}
               <div className="bg-card border border-border rounded-lg p-3 md:p-6">
-                <h3 className="font-display text-sm md:text-lg font-bold text-foreground mb-2 md:mb-4">
+                <h2 className="font-display text-sm md:text-lg font-bold text-foreground mb-2 md:mb-4">
                   Select Package
-                </h3>
+                </h2>
 
                 {isReseller && discountPercent > 0 && (
                   <Badge className="mb-3 bg-accent/20 text-accent border-accent/30">
