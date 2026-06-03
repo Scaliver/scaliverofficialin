@@ -136,6 +136,7 @@ const CryptoTopUp = () => {
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "Failed to create order");
       setOrder(data.data);
+      creditedOrderRef.current = null;
       setStatus("pending");
       setTxHash("");
     } catch (e) {
@@ -329,7 +330,7 @@ const CryptoTopUp = () => {
                   <Button variant="outline" size="sm" onClick={handleRefreshStatus}>
                     <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh Status
                   </Button>
-                  <Button variant="destructive" size="sm" onClick={() => { setOrder(null); setStatus("pending"); }}>
+                  <Button variant="destructive" size="sm" onClick={() => { creditedOrderRef.current = null; setOrder(null); setStatus("pending"); }}>
                     <X className="w-3.5 h-3.5 mr-1.5" /> Cancel View
                   </Button>
                 </div>
