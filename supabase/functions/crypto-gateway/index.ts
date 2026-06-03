@@ -288,6 +288,21 @@ serve(async (req) => {
           .select("*").eq("order_reference", orderRef).maybeSingle();
         if (order && !order.credited) {
           const gatewayStatus = payload?.status ?? payload?.data?.status ?? "pending";
+          if (gatewayStatus !== "credited") {
+            await sb.from("crypto_orders").update({
+              status: "confirming",
+              transaction_hash: payload?.tx_hash ?? payload?.transaction_hash ?? payload?.data?.tx_hash ?? payload?.data?.transaction_hash ?? order.transaction_hash,
+              error_message: null,
+              metadata: { ...(order.metadata ?? {}), webhook: payload },
+            }).eq("id", order.id);
+
+            return jsonResponse({
+              success: true,
+              confirming: true,
+              message: payload?.message ?? "Waiting for blockchain confirmations (1/3)",
+            });
+          }
+
           const amt = Number(payload?.amount_paid ?? payload?.data?.amount_paid ?? order.amount);
           const fee = Number(payload?.fee_deducted ?? payload?.data?.fee_deducted ?? 0);
           const finalization = await finalizeDeposit(sb, {
