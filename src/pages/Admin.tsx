@@ -2217,6 +2217,59 @@ const Admin = () => {
                   </Select>
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="alert-image">Popup Image (optional — replaces the message visually)</Label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Input
+                      id="alert-image-file"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) uploadAlertImage(f);
+                      }}
+                      disabled={isAlertUploading}
+                      className="bg-secondary border-border"
+                    />
+                    <Input
+                      placeholder="…or paste image URL"
+                      value={alertImageUrl}
+                      onChange={(e) => setAlertImageUrl(e.target.value)}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                  {alertImageUrl && (
+                    <div className="flex items-center gap-3 mt-2">
+                      <img src={alertImageUrl} alt="Popup preview" className="h-20 w-20 object-cover rounded border border-border" loading="lazy" />
+                      <Button variant="outline" size="sm" onClick={() => setAlertImageUrl("")}>Remove image</Button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="alert-redirect">Redirect URL (image tap & Join button)</Label>
+                    <Input
+                      id="alert-redirect"
+                      placeholder="https://chat.whatsapp.com/..."
+                      value={alertRedirectUrl}
+                      onChange={(e) => setAlertRedirectUrl(e.target.value)}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="alert-cta">Join Button Label</Label>
+                    <Input
+                      id="alert-cta"
+                      placeholder="Join Now"
+                      value={alertCtaLabel}
+                      onChange={(e) => setAlertCtaLabel(e.target.value)}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                </div>
+
+
                 <div className="flex items-center gap-2 pt-2">
                   <Switch
                     id="alert-active"
