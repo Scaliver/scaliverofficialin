@@ -530,11 +530,29 @@ const Admin = () => {
     }
   };
 
+  const uploadAlertImage = async (file: File) => {
+    if (!file) return;
+    try {
+      setIsAlertUploading(true);
+      const ext = file.name.split(".").pop() || "png";
+      const path = `alert-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("alerts").upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("alerts").getPublicUrl(path);
+      setAlertImageUrl(pub.publicUrl);
+      toast({ title: "Image uploaded", description: "Popup image attached." });
+    } catch (e: any) {
+      toast({ title: "Upload failed", description: e?.message || "Try again", variant: "destructive" });
+    } finally {
+      setIsAlertUploading(false);
+    }
+  };
+
   const saveSiteAlert = async () => {
-    if (!alertMessage.trim()) {
+    if (!alertMessage.trim() && !alertImageUrl) {
       toast({
-        title: "Message Required",
-        description: "Please enter an alert message.",
+        title: "Message or image required",
+        description: "Please enter a message or upload a popup image.",
         variant: "destructive",
       });
       return;
@@ -543,30 +561,20 @@ const Admin = () => {
     setIsAlertLoading(true);
 
     try {
+      const payload: any = {
+        title: alertTitle,
+        message: alertMessage,
+        alert_type: alertType,
+        is_active: isAlertActive,
+        image_url: alertImageUrl || null,
+        redirect_url: alertRedirectUrl || null,
+        cta_label: alertCtaLabel?.trim() || "Join Now",
+      };
       if (siteAlert) {
-        // Update existing alert
-        const { error } = await supabase
-          .from('site_alerts' as any)
-          .update({
-            title: alertTitle,
-            message: alertMessage,
-            alert_type: alertType,
-            is_active: isAlertActive,
-          } as any)
-          .eq('id', siteAlert.id);
-
+        const { error } = await supabase.from('site_alerts' as any).update(payload).eq('id', siteAlert.id);
         if (error) throw error;
       } else {
-        // Create new alert
-        const { error } = await supabase
-          .from('site_alerts' as any)
-          .insert({
-            title: alertTitle,
-            message: alertMessage,
-            alert_type: alertType,
-            is_active: isAlertActive,
-          } as any);
-
+        const { error } = await supabase.from('site_alerts' as any).insert(payload);
         if (error) throw error;
       }
 
