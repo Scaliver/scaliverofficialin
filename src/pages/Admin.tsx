@@ -102,6 +102,9 @@ interface SiteAlert {
   message: string;
   is_active: boolean;
   alert_type: string;
+  image_url?: string | null;
+  redirect_url?: string | null;
+  cta_label?: string | null;
   created_at: string;
   updated_at: string;
 }
