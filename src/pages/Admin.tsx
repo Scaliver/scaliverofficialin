@@ -102,6 +102,9 @@ interface SiteAlert {
   message: string;
   is_active: boolean;
   alert_type: string;
+  image_url?: string | null;
+  redirect_url?: string | null;
+  cta_label?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -151,6 +154,10 @@ const Admin = () => {
   const [alertTitle, setAlertTitle] = useState("Important Notice");
   const [alertMessage, setAlertMessage] = useState("");
   const [alertType, setAlertType] = useState("info");
+  const [alertImageUrl, setAlertImageUrl] = useState("");
+  const [alertRedirectUrl, setAlertRedirectUrl] = useState("");
+  const [alertCtaLabel, setAlertCtaLabel] = useState("Join Now");
+  const [isAlertUploading, setIsAlertUploading] = useState(false);
   const [isAlertActive, setIsAlertActive] = useState(false);
   const [isAlertLoading, setIsAlertLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -514,17 +521,38 @@ const Admin = () => {
         setAlertMessage(alertData.message);
         setAlertType(alertData.alert_type);
         setIsAlertActive(alertData.is_active);
+        setAlertImageUrl(alertData.image_url || "");
+        setAlertRedirectUrl(alertData.redirect_url || "");
+        setAlertCtaLabel(alertData.cta_label || "Join Now");
       }
     } catch (error) {
       console.error("Error fetching site alert:", error);
     }
   };
 
+  const uploadAlertImage = async (file: File) => {
+    if (!file) return;
+    try {
+      setIsAlertUploading(true);
+      const ext = file.name.split(".").pop() || "png";
+      const path = `alert-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("alerts").upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("alerts").getPublicUrl(path);
+      setAlertImageUrl(pub.publicUrl);
+      toast({ title: "Image uploaded", description: "Popup image attached." });
+    } catch (e: any) {
+      toast({ title: "Upload failed", description: e?.message || "Try again", variant: "destructive" });
+    } finally {
+      setIsAlertUploading(false);
+    }
+  };
+
   const saveSiteAlert = async () => {
-    if (!alertMessage.trim()) {
+    if (!alertMessage.trim() && !alertImageUrl) {
       toast({
-        title: "Message Required",
-        description: "Please enter an alert message.",
+        title: "Message or image required",
+        description: "Please enter a message or upload a popup image.",
         variant: "destructive",
       });
       return;
@@ -533,30 +561,20 @@ const Admin = () => {
     setIsAlertLoading(true);
 
     try {
+      const payload: any = {
+        title: alertTitle,
+        message: alertMessage,
+        alert_type: alertType,
+        is_active: isAlertActive,
+        image_url: alertImageUrl || null,
+        redirect_url: alertRedirectUrl || null,
+        cta_label: alertCtaLabel?.trim() || "Join Now",
+      };
       if (siteAlert) {
-        // Update existing alert
-        const { error } = await supabase
-          .from('site_alerts' as any)
-          .update({
-            title: alertTitle,
-            message: alertMessage,
-            alert_type: alertType,
-            is_active: isAlertActive,
-          } as any)
-          .eq('id', siteAlert.id);
-
+        const { error } = await supabase.from('site_alerts' as any).update(payload).eq('id', siteAlert.id);
         if (error) throw error;
       } else {
-        // Create new alert
-        const { error } = await supabase
-          .from('site_alerts' as any)
-          .insert({
-            title: alertTitle,
-            message: alertMessage,
-            alert_type: alertType,
-            is_active: isAlertActive,
-          } as any);
-
+        const { error } = await supabase.from('site_alerts' as any).insert(payload);
         if (error) throw error;
       }
 
@@ -2198,6 +2216,59 @@ const Admin = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="alert-image">Popup Image (optional — replaces the message visually)</Label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Input
+                      id="alert-image-file"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) uploadAlertImage(f);
+                      }}
+                      disabled={isAlertUploading}
+                      className="bg-secondary border-border"
+                    />
+                    <Input
+                      placeholder="…or paste image URL"
+                      value={alertImageUrl}
+                      onChange={(e) => setAlertImageUrl(e.target.value)}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                  {alertImageUrl && (
+                    <div className="flex items-center gap-3 mt-2">
+                      <img src={alertImageUrl} alt="Popup preview" className="h-20 w-20 object-cover rounded border border-border" loading="lazy" />
+                      <Button variant="outline" size="sm" onClick={() => setAlertImageUrl("")}>Remove image</Button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="alert-redirect">Redirect URL (image tap & Join button)</Label>
+                    <Input
+                      id="alert-redirect"
+                      placeholder="https://chat.whatsapp.com/..."
+                      value={alertRedirectUrl}
+                      onChange={(e) => setAlertRedirectUrl(e.target.value)}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="alert-cta">Join Button Label</Label>
+                    <Input
+                      id="alert-cta"
+                      placeholder="Join Now"
+                      value={alertCtaLabel}
+                      onChange={(e) => setAlertCtaLabel(e.target.value)}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                </div>
+
 
                 <div className="flex items-center gap-2 pt-2">
                   <Switch
