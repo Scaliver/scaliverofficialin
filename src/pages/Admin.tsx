@@ -154,6 +154,10 @@ const Admin = () => {
   const [alertTitle, setAlertTitle] = useState("Important Notice");
   const [alertMessage, setAlertMessage] = useState("");
   const [alertType, setAlertType] = useState("info");
+  const [alertImageUrl, setAlertImageUrl] = useState("");
+  const [alertRedirectUrl, setAlertRedirectUrl] = useState("");
+  const [alertCtaLabel, setAlertCtaLabel] = useState("Join Now");
+  const [isAlertUploading, setIsAlertUploading] = useState(false);
   const [isAlertActive, setIsAlertActive] = useState(false);
   const [isAlertLoading, setIsAlertLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -517,6 +521,9 @@ const Admin = () => {
         setAlertMessage(alertData.message);
         setAlertType(alertData.alert_type);
         setIsAlertActive(alertData.is_active);
+        setAlertImageUrl(alertData.image_url || "");
+        setAlertRedirectUrl(alertData.redirect_url || "");
+        setAlertCtaLabel(alertData.cta_label || "Join Now");
       }
     } catch (error) {
       console.error("Error fetching site alert:", error);
