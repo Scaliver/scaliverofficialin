@@ -1,4 +1,5 @@
 import { Phone, MessageCircle } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Footer = () => {
   return (
@@ -39,13 +40,10 @@ const Footer = () => {
               Quick Links
             </h4>
             <ul className="space-y-1">
-              {["Home", "Login", "Register", "Contact"].map((link) => (
-                <li key={link}>
-                  <a href="#" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">
-                    {link}
-                  </a>
-                </li>
-              ))}
+              <li><Link to="/" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">Home</Link></li>
+              <li><Link to="/auth" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">Login</Link></li>
+              <li><Link to="/auth" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">Register</Link></li>
+              <li><Link to="/help-support" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">Contact</Link></li>
             </ul>
           </div>
 
@@ -54,13 +52,10 @@ const Footer = () => {
               Important
             </h4>
             <ul className="space-y-1">
-              {["Privacy Policy", "Terms & Conditions", "Refund Policy"].map((link) => (
-                <li key={link}>
-                  <a href="#" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">
-                    {link}
-                  </a>
-                </li>
-              ))}
+              <li><Link to="/privacy-policy" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/terms-and-conditions" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">Terms & Conditions</Link></li>
+              <li><Link to="/refund-policy" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">Refund Policy</Link></li>
+              <li><Link to="/help-support" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">Help & Support</Link></li>
             </ul>
 
             <h4 className="font-display text-[11px] font-semibold text-foreground uppercase tracking-wider mt-3 mb-1.5">
