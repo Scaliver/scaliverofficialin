@@ -97,6 +97,7 @@ export interface LegacyProduct {
   isStackable?: boolean;
   maxQuantity?: number;
   usernameCheckRequired?: boolean;
+  validationMode?: 'mandatory' | 'non_mandatory' | 'disabled';
   pricingTiers: {
     id: string;
     amount: string;
