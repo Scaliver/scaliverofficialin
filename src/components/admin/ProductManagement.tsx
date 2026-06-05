@@ -828,6 +828,23 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
                     />
                     <Label>Mandatory Username Check (block checkout if not verified)</Label>
                   </div>
+                  <div className="col-span-full space-y-2 p-3 border rounded-md">
+                    <Label className="font-semibold">Player Validation</Label>
+                    <p className="text-xs text-muted-foreground">Controls the "Validate Player" button on this product page.</p>
+                    <div className="flex flex-wrap gap-4">
+                      {(['mandatory','non_mandatory','disabled'] as const).map(mode => (
+                        <label key={mode} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="validation_mode"
+                            checked={(productForm.validation_mode || 'non_mandatory') === mode}
+                            onChange={() => setProductForm({ ...productForm, validation_mode: mode })}
+                          />
+                          <span className="text-sm capitalize">{mode.replace('_',' ')}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </>
               )}
               <div className="flex items-center gap-2">
