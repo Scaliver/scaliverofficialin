@@ -1,0 +1,1 @@
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS validation_mode text NOT NULL DEFAULT 'non_mandatory' CHECK (validation_mode IN ('mandatory','non_mandatory','disabled'));

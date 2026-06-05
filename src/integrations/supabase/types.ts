@@ -595,6 +595,7 @@ export type Database = {
           sub_category: string | null
           updated_at: string
           username_check_required: boolean
+          validation_mode: string
         }
         Insert: {
           category: string
@@ -619,6 +620,7 @@ export type Database = {
           sub_category?: string | null
           updated_at?: string
           username_check_required?: boolean
+          validation_mode?: string
         }
         Update: {
           category?: string
@@ -643,6 +645,7 @@ export type Database = {
           sub_category?: string | null
           updated_at?: string
           username_check_required?: boolean
+          validation_mode?: string
         }
         Relationships: []
       }
