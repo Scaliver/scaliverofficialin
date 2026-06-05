@@ -991,7 +991,7 @@ const ProductDetail = () => {
                           <Button
                             variant="outline"
                             className="w-full border-green-500/40 hover:bg-green-500/10 text-green-500"
-                            disabled={!canPayUsdt || isProcessing}
+                            disabled={!canPayUsdt || isProcessing || isValidationBlocking}
                             onClick={async () => {
                               if (!validateForm() || !user) return;
                               setIsProcessing(true);
