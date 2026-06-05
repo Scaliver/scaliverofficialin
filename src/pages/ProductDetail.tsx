@@ -869,7 +869,7 @@ const ProductDetail = () => {
                       <p className="text-green-500 mt-1 flex items-center gap-1"><Check className="w-4 h-4" /> Validated Successfully</p>
                     </div>
                   )}
-                  {validationResult && !validationResult.success && (
+                  {validationResult && validationResult.success === false && (
                     <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
                       <p className="text-destructive font-medium">❌ Player not found</p>
                       <p className="text-muted-foreground text-xs mt-1">Please check Player ID and Server ID. ({validationResult.error})</p>
