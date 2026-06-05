@@ -133,6 +133,9 @@ const ProductDetail = () => {
   // Reset quantity when tier changes
   useEffect(() => { setQuantity(1); }, [selectedTier?.id]);
 
+  // Clear validation when Player ID / Zone changes
+  useEffect(() => { setValidationResult(null); }, [userId, zoneId]);
+
   // Clamp quantity to product max
   const maxQty = product?.isStackable ? Math.max(1, product?.maxQuantity ?? 5) : 1;
   useEffect(() => {
