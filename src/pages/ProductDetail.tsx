@@ -972,7 +972,7 @@ const ProductDetail = () => {
                               setIsUpiProcessing(false);
                             }
                           }}
-                          disabled={!selectedTier || isUpiProcessing}
+                          disabled={!selectedTier || isUpiProcessing || isValidationBlocking}
                         >
                           {isUpiProcessing ? (
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
