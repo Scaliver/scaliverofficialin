@@ -88,6 +88,12 @@ const ProductDetail = () => {
   const [isUpiProcessing, setIsUpiProcessing] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData2, setReceiptData2] = useState<null>(null); // placeholder removed
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState<
+    | { success: true; username: string; region?: string }
+    | { success: false; error: string }
+    | null
+  >(null);
 
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
@@ -126,6 +132,9 @@ const ProductDetail = () => {
 
   // Reset quantity when tier changes
   useEffect(() => { setQuantity(1); }, [selectedTier?.id]);
+
+  // Clear validation when Player ID / Zone changes
+  useEffect(() => { setValidationResult(null); }, [userId, zoneId]);
 
   // Clamp quantity to product max
   const maxQty = product?.isStackable ? Math.max(1, product?.maxQuantity ?? 5) : 1;
@@ -445,6 +454,51 @@ const ProductDetail = () => {
 
   // UPI QR manual flow removed.
 
+  const validationMode: 'mandatory' | 'non_mandatory' | 'disabled' =
+    product?.validationMode || 'non_mandatory';
+
+  const handleValidatePlayer = async () => {
+    if (!userId.trim()) {
+      toast({ title: "Player ID required", description: "Enter your Player ID first.", variant: "destructive" });
+      return;
+    }
+    const serverNeeded = product?.serverMode === 'select' || product?.serverMode === 'manual' || product?.requiresServerId;
+    if (serverNeeded && !zoneId.trim()) {
+      toast({ title: "Server required", description: "Enter / select your Server (Zone) ID first.", variant: "destructive" });
+      return;
+    }
+    setIsValidating(true);
+    setValidationResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('gametopup-order', {
+        body: {
+          action: 'validate',
+          apiId: productApiId || undefined,
+          playerId: userId.trim(),
+          zoneId: zoneId.trim() || '0',
+        },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        setValidationResult({
+          success: true,
+          username: data.username || data.data?.username || data.data?.nickname || 'Unknown',
+          region: data.region || data.zone_name || data.data?.region,
+        });
+      } else {
+        setValidationResult({ success: false, error: data?.message || data?.error || 'Player not found' });
+      }
+    } catch (e) {
+      setValidationResult({
+        success: false,
+        error: e instanceof Error ? e.message : 'Validation request failed',
+      });
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const isValidationBlocking = validationMode === 'mandatory' && !validationResult?.success;
 
   const totalPrice = selectedTier ? selectedTier.price * Math.max(1, Math.min(maxQty, quantity)) : 0;
   const canPayWithWallet = !!(user && wallet && selectedTier && balance >= totalPrice);
@@ -790,6 +844,43 @@ const ProductDetail = () => {
 
               {/* UPI QR manual flow removed — only gateway payments */}
 
+              {/* Player Validation */}
+              {validationMode !== 'disabled' && !product.isSocialMedia && (
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full border-primary/40"
+                    onClick={handleValidatePlayer}
+                    disabled={isValidating}
+                  >
+                    {isValidating ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Validating…</>
+                    ) : (
+                      <><Check className="w-4 h-4 mr-2" /> Validate Player</>
+                    )}
+                  </Button>
+                  {validationResult?.success && (
+                    <div className="rounded-md border border-green-500/40 bg-green-500/10 p-3 text-sm">
+                      <p className="text-foreground"><span className="text-muted-foreground">Player:</span> <b>{validationResult.username}</b></p>
+                      {validationResult.region && (
+                        <p className="text-foreground"><span className="text-muted-foreground">Region:</span> <b>{validationResult.region}</b></p>
+                      )}
+                      <p className="text-green-500 mt-1 flex items-center gap-1"><Check className="w-4 h-4" /> Validated Successfully</p>
+                    </div>
+                  )}
+                  {validationResult && validationResult.success === false && (
+                    <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+                      <p className="text-destructive font-medium">❌ Player not found</p>
+                      <p className="text-muted-foreground text-xs mt-1">Please check Player ID and Server ID. ({validationResult.error})</p>
+                    </div>
+                  )}
+                  {validationMode === 'mandatory' && !validationResult?.success && (
+                    <p className="text-xs text-muted-foreground">Validation is required before placing an order.</p>
+                  )}
+                </div>
+              )}
+
               {/* Payment Buttons */}
               {(
                 <div className="space-y-3">
@@ -799,7 +890,7 @@ const ProductDetail = () => {
                         variant="gaming"
                         className="w-full"
                         onClick={handleWalletPayment}
-                        disabled={!selectedTier || isProcessing || !canPayWithWallet}
+                        disabled={!selectedTier || isProcessing || !canPayWithWallet || isValidationBlocking}
                       >
                         {isProcessing ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -881,7 +972,7 @@ const ProductDetail = () => {
                               setIsUpiProcessing(false);
                             }
                           }}
-                          disabled={!selectedTier || isUpiProcessing}
+                          disabled={!selectedTier || isUpiProcessing || isValidationBlocking}
                         >
                           {isUpiProcessing ? (
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -900,7 +991,7 @@ const ProductDetail = () => {
                           <Button
                             variant="outline"
                             className="w-full border-green-500/40 hover:bg-green-500/10 text-green-500"
-                            disabled={!canPayUsdt || isProcessing}
+                            disabled={!canPayUsdt || isProcessing || isValidationBlocking}
                             onClick={async () => {
                               if (!validateForm() || !user) return;
                               setIsProcessing(true);

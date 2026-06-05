@@ -270,6 +270,7 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
         is_stackable: (product as any).is_stackable === true,
         max_quantity: Number((product as any).max_quantity) > 0 ? Number((product as any).max_quantity) : 5,
         username_check_required: (product as any).username_check_required === true,
+        validation_mode: ((product as any).validation_mode || 'non_mandatory'),
       });
       setInstructionsText((product.instructions || []).join("\n"));
     } else {
@@ -290,6 +291,7 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
         is_stackable: false,
         max_quantity: 5,
         username_check_required: false,
+        validation_mode: 'non_mandatory',
       });
       setInstructionsText("");
     }
@@ -825,6 +827,23 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
                       onCheckedChange={(checked) => setProductForm({ ...productForm, username_check_required: checked })}
                     />
                     <Label>Mandatory Username Check (block checkout if not verified)</Label>
+                  </div>
+                  <div className="col-span-full space-y-2 p-3 border rounded-md">
+                    <Label className="font-semibold">Player Validation</Label>
+                    <p className="text-xs text-muted-foreground">Controls the "Validate Player" button on this product page.</p>
+                    <div className="flex flex-wrap gap-4">
+                      {(['mandatory','non_mandatory','disabled'] as const).map(mode => (
+                        <label key={mode} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="validation_mode"
+                            checked={(productForm.validation_mode || 'non_mandatory') === mode}
+                            onChange={() => setProductForm({ ...productForm, validation_mode: mode })}
+                          />
+                          <span className="text-sm capitalize">{mode.replace('_',' ')}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </>
               )}
