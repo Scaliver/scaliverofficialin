@@ -36,6 +36,7 @@ export interface Product {
   is_stackable?: boolean;
   max_quantity?: number;
   username_check_required?: boolean;
+  validation_mode?: 'mandatory' | 'non_mandatory' | 'disabled';
   created_at: string;
   updated_at: string;
   pricing_tiers?: PricingTier[];
