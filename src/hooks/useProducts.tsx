@@ -132,6 +132,7 @@ const toLegacyProduct = (product: Product): LegacyProduct => ({
   isStackable: (product as any).is_stackable === true,
   maxQuantity: Number((product as any).max_quantity) > 0 ? Number((product as any).max_quantity) : 5,
   usernameCheckRequired: (product as any).username_check_required === true,
+  validationMode: ((product as any).validation_mode || 'non_mandatory') as 'mandatory' | 'non_mandatory' | 'disabled',
   pricingTiers: (product.pricing_tiers || []).map(tier => ({
     id: tier.id,
     amount: tier.amount,
