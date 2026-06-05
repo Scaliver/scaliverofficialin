@@ -291,6 +291,7 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
         is_stackable: false,
         max_quantity: 5,
         username_check_required: false,
+        validation_mode: 'non_mandatory',
       });
       setInstructionsText("");
     }
