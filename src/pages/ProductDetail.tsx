@@ -844,6 +844,43 @@ const ProductDetail = () => {
 
               {/* UPI QR manual flow removed — only gateway payments */}
 
+              {/* Player Validation */}
+              {validationMode !== 'disabled' && !product.isSocialMedia && (
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full border-primary/40"
+                    onClick={handleValidatePlayer}
+                    disabled={isValidating}
+                  >
+                    {isValidating ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Validating…</>
+                    ) : (
+                      <><Check className="w-4 h-4 mr-2" /> Validate Player</>
+                    )}
+                  </Button>
+                  {validationResult?.success && (
+                    <div className="rounded-md border border-green-500/40 bg-green-500/10 p-3 text-sm">
+                      <p className="text-foreground"><span className="text-muted-foreground">Player:</span> <b>{validationResult.username}</b></p>
+                      {validationResult.region && (
+                        <p className="text-foreground"><span className="text-muted-foreground">Region:</span> <b>{validationResult.region}</b></p>
+                      )}
+                      <p className="text-green-500 mt-1 flex items-center gap-1"><Check className="w-4 h-4" /> Validated Successfully</p>
+                    </div>
+                  )}
+                  {validationResult && !validationResult.success && (
+                    <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+                      <p className="text-destructive font-medium">❌ Player not found</p>
+                      <p className="text-muted-foreground text-xs mt-1">Please check Player ID and Server ID. ({validationResult.error})</p>
+                    </div>
+                  )}
+                  {validationMode === 'mandatory' && !validationResult?.success && (
+                    <p className="text-xs text-muted-foreground">Validation is required before placing an order.</p>
+                  )}
+                </div>
+              )}
+
               {/* Payment Buttons */}
               {(
                 <div className="space-y-3">
