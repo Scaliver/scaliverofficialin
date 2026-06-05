@@ -88,6 +88,12 @@ const ProductDetail = () => {
   const [isUpiProcessing, setIsUpiProcessing] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData2, setReceiptData2] = useState<null>(null); // placeholder removed
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState<
+    | { success: true; username: string; region?: string }
+    | { success: false; error: string }
+    | null
+  >(null);
 
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
