@@ -890,7 +890,7 @@ const ProductDetail = () => {
                         variant="gaming"
                         className="w-full"
                         onClick={handleWalletPayment}
-                        disabled={!selectedTier || isProcessing || !canPayWithWallet}
+                        disabled={!selectedTier || isProcessing || !canPayWithWallet || isValidationBlocking}
                       >
                         {isProcessing ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
