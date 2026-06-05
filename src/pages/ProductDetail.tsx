@@ -454,6 +454,51 @@ const ProductDetail = () => {
 
   // UPI QR manual flow removed.
 
+  const validationMode: 'mandatory' | 'non_mandatory' | 'disabled' =
+    product?.validationMode || 'non_mandatory';
+
+  const handleValidatePlayer = async () => {
+    if (!userId.trim()) {
+      toast({ title: "Player ID required", description: "Enter your Player ID first.", variant: "destructive" });
+      return;
+    }
+    const serverNeeded = product?.serverMode === 'select' || product?.serverMode === 'manual' || product?.requiresServerId;
+    if (serverNeeded && !zoneId.trim()) {
+      toast({ title: "Server required", description: "Enter / select your Server (Zone) ID first.", variant: "destructive" });
+      return;
+    }
+    setIsValidating(true);
+    setValidationResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('gametopup-order', {
+        body: {
+          action: 'validate',
+          apiId: productApiId || undefined,
+          playerId: userId.trim(),
+          zoneId: zoneId.trim() || '0',
+        },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        setValidationResult({
+          success: true,
+          username: data.username || data.data?.username || data.data?.nickname || 'Unknown',
+          region: data.region || data.zone_name || data.data?.region,
+        });
+      } else {
+        setValidationResult({ success: false, error: data?.message || data?.error || 'Player not found' });
+      }
+    } catch (e) {
+      setValidationResult({
+        success: false,
+        error: e instanceof Error ? e.message : 'Validation request failed',
+      });
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const isValidationBlocking = validationMode === 'mandatory' && !validationResult?.success;
 
   const totalPrice = selectedTier ? selectedTier.price * Math.max(1, Math.min(maxQty, quantity)) : 0;
   const canPayWithWallet = !!(user && wallet && selectedTier && balance >= totalPrice);
