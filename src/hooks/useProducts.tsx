@@ -61,6 +61,7 @@ export interface ProductFormData {
   is_stackable?: boolean;
   max_quantity?: number;
   username_check_required?: boolean;
+  validation_mode?: 'mandatory' | 'non_mandatory' | 'disabled';
 }
 
 export interface PricingTierFormData {
