@@ -270,6 +270,7 @@ export const ProductManagement = ({ mode = "all" }: ProductManagementProps) => {
         is_stackable: (product as any).is_stackable === true,
         max_quantity: Number((product as any).max_quantity) > 0 ? Number((product as any).max_quantity) : 5,
         username_check_required: (product as any).username_check_required === true,
+        validation_mode: ((product as any).validation_mode || 'non_mandatory'),
       });
       setInstructionsText((product.instructions || []).join("\n"));
     } else {
