@@ -30,7 +30,7 @@ const Header = () => {
   const menuItems: { icon: any; label: string; onClick: () => void; show?: boolean }[] = [
     { icon: Home, label: "Home", onClick: () => go("/") },
     { icon: Bell, label: "Announcement", onClick: () => go("/#contact") },
-    { icon: Globe, label: "Check ML Region", onClick: () => go("/product/mlbb_global") },
+    { icon: Globe, label: "Game Name Checker", onClick: () => go("/name-checker") },
     { icon: UserCircle, label: "My Account", onClick: () => go("/profile"), show: !!user },
     { icon: Coins, label: "Wallet", onClick: () => go("/wallet"), show: !!user },
     { icon: Trophy, label: "Leaderboard", onClick: () => go("/leaderboard") },
