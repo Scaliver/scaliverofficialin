@@ -470,23 +470,39 @@ const ProductDetail = () => {
     setIsValidating(true);
     setValidationResult(null);
     try {
-      const { data, error } = await supabase.functions.invoke('gametopup-order', {
-        body: {
-          action: 'validate',
-          apiId: productApiId || undefined,
-          playerId: userId.trim(),
-          zoneId: zoneId.trim() || '0',
-        },
-      });
+      const gameCode = getGameCodeForSlug(product?.slug);
+      let data: any, error: any;
+      if (gameCode) {
+        // Use ALUU Name Checker API
+        ({ data, error } = await supabase.functions.invoke('aluu-order', {
+          body: {
+            action: 'name_check',
+            gameCode,
+            userId: userId.trim(),
+            serverId: zoneId.trim() || undefined,
+          },
+        }));
+      } else {
+        // Fallback to gametopup validation
+        ({ data, error } = await supabase.functions.invoke('gametopup-order', {
+          body: {
+            action: 'validate',
+            apiId: productApiId || undefined,
+            playerId: userId.trim(),
+            zoneId: zoneId.trim() || '0',
+          },
+        }));
+      }
       if (error) throw error;
-      if (data?.success) {
+      const username = data?.username || data?.data?.username || data?.data?.nickname || '';
+      if (data?.success === true && username) {
         setValidationResult({
           success: true,
-          username: data.username || data.data?.username || data.data?.nickname || 'Unknown',
-          region: data.region || data.zone_name || data.data?.region,
+          username,
+          region: data.region || data.country || data.zone_name || data.data?.region || data.data?.country,
         });
       } else {
-        setValidationResult({ success: false, error: data?.message || data?.error || 'Player not found' });
+        setValidationResult({ success: false, error: data?.message || data?.error || 'Player Not Found' });
       }
     } catch (e) {
       setValidationResult({
@@ -497,6 +513,7 @@ const ProductDetail = () => {
       setIsValidating(false);
     }
   };
+
 
   const isValidationBlocking = validationMode === 'mandatory' && !validationResult?.success;
 
