@@ -19,6 +19,7 @@ import InstagramCategorySelector, { InstagramCategory } from "@/components/Insta
 import FacebookCategorySelector, { FacebookCategory } from "@/components/FacebookCategorySelector";
 import TikTokCategorySelector, { TikTokCategory } from "@/components/TikTokCategorySelector";
 import { Helmet } from "react-helmet-async";
+import { getGameCodeForSlug } from "@/lib/aluuGameCodes";
 
 // WhatsApp auto-notifications removed per user request — now a no-op.
 const sendWhatsAppNotification = (_orderDetails: {
