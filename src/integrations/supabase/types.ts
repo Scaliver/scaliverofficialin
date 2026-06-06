@@ -976,6 +976,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          metadata: Json | null
+          read: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          metadata?: Json | null
+          read?: boolean
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          metadata?: Json | null
+          read?: boolean
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1027,6 +1060,10 @@ export type Database = {
     }
     Functions: {
       admin_credit_crypto_wallet: {
+        Args: { p_amount: number; p_note?: string; p_user_id: string }
+        Returns: Json
+      }
+      admin_debit_crypto_wallet: {
         Args: { p_amount: number; p_note?: string; p_user_id: string }
         Returns: Json
       }
