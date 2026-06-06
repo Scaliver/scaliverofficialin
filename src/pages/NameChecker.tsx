@@ -181,7 +181,7 @@ const NameChecker = () => {
                   <p className="text-green-600 flex items-center gap-1"><Check className="w-4 h-4" /> Validated Successfully</p>
                 </div>
               ) : (
-                <p className="text-destructive flex items-center gap-1"><X className="w-4 h-4" /> {result.error || "Player Not Found"}</p>
+                <p className="text-destructive flex items-center gap-1"><X className="w-4 h-4" /> {(result as { ok: false; error: string }).error || "Player Not Found"}</p>
               )}
             </motion.div>
           )}
