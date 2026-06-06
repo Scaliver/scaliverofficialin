@@ -74,6 +74,7 @@ const AnimatedRoutes = () => {
           <Route path="/terms-and-conditions" element={<PageTransition><TermsAndConditions /></PageTransition>} />
           <Route path="/refund-policy" element={<PageTransition><RefundPolicy /></PageTransition>} />
           <Route path="/help-support" element={<PageTransition><HelpSupport /></PageTransition>} />
+          <Route path="/name-checker" element={<PageTransition><NameChecker /></PageTransition>} />
           {LANDING_SLUGS.map((s) => (
             <Route key={s} path={`/${s}`} element={<PageTransition><SeoLanding /></PageTransition>} />
           ))}
