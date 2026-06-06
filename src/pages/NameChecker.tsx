@@ -36,6 +36,7 @@ const NameChecker = () => {
   const [gameCode, setGameCode] = useState<string>(ALUU_GAMES[0].code);
   const [userId, setUserId] = useState("");
   const [serverId, setServerId] = useState("");
+  const [charname, setCharname] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<
     | { ok: true; username: string; region?: string }
@@ -58,7 +59,13 @@ const NameChecker = () => {
 
   useEffect(() => {
     setResult(null);
-  }, [gameCode, userId, serverId]);
+    setServerId("");
+    setCharname("");
+  }, [gameCode]);
+
+  useEffect(() => {
+    setResult(null);
+  }, [userId, serverId, charname]);
 
   const saveHistory = (entry: HistoryEntry) => {
     const next = [entry, ...history.filter(h => !(h.code === entry.code && h.userId === entry.userId && h.serverId === entry.serverId))].slice(0, 10);
@@ -73,11 +80,15 @@ const NameChecker = () => {
 
   const handleCheck = async () => {
     if (!userId.trim()) {
-      toast({ title: `${game.userLabel || "Player ID"} required`, variant: "destructive" });
+      toast({ title: `${game.userLabel || "Character ID"} required`, variant: "destructive" });
       return;
     }
     if (game.requiresServer && !serverId.trim()) {
-      toast({ title: `${game.serverLabel || "Server ID"} required`, variant: "destructive" });
+      toast({ title: `${game.serverLabel || "Server Code"} required`, variant: "destructive" });
+      return;
+    }
+    if (game.requiresCharname && !charname.trim()) {
+      toast({ title: `${game.charnameLabel || "Character Name"} required`, variant: "destructive" });
       return;
     }
     setLoading(true);
@@ -89,6 +100,7 @@ const NameChecker = () => {
           gameCode: game.code,
           userId: userId.trim(),
           serverId: game.requiresServer ? serverId.trim() : undefined,
+          charname: game.requiresCharname ? charname.trim() : undefined,
         },
       });
       if (error) throw error;
