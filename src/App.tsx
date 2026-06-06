@@ -31,6 +31,7 @@ const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
 const RefundPolicy = lazy(() => import("./pages/RefundPolicy"));
 const HelpSupport = lazy(() => import("./pages/HelpSupport"));
+const NameChecker = lazy(() => import("./pages/NameChecker"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
