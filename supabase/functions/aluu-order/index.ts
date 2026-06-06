@@ -102,7 +102,7 @@ serve(async (req) => {
     }
 
     if (action === "name_check") {
-      const { gameCode, userId, serverId } = body;
+      const { gameCode, userId, serverId, charname } = body;
       if (!gameCode || !userId) {
         return new Response(JSON.stringify({ success: false, error: "gameCode and userId required" }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -112,6 +112,7 @@ serve(async (req) => {
       if (!apiKey) throw new Error("ALUU_API_KEY not configured");
       const qs = new URLSearchParams({ user_id: String(userId) });
       if (serverId) qs.set("server_id", String(serverId));
+      if (charname) qs.set("charname", String(charname));
       const url = `https://aluu.in/api/check/${encodeURIComponent(gameCode)}-check?${qs.toString()}`;
       const res = await fetch(url, { headers: { "x-api-key": apiKey } });
       const text = await res.text();
