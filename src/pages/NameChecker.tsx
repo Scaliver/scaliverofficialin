@@ -161,14 +161,21 @@ const NameChecker = () => {
           </div>
 
           <div className="space-y-2">
-            <Label>{game.userLabel || "Player ID"}</Label>
-            <Input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder={`Enter ${game.userLabel || "Player ID"}`} />
+            <Label>{game.userLabel || "Character ID"}</Label>
+            <Input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder={`Enter ${game.userLabel || "Character ID"}`} />
           </div>
 
           {game.requiresServer && (
             <div className="space-y-2">
-              <Label>{game.serverLabel || "Server ID"}</Label>
-              <Input value={serverId} onChange={(e) => setServerId(e.target.value)} placeholder={`Enter ${game.serverLabel || "Server ID"}`} />
+              <Label>{game.serverLabel || "Server Code"}</Label>
+              <Input value={serverId} onChange={(e) => setServerId(e.target.value)} placeholder={`Enter ${game.serverLabel || "Server Code"}`} />
+            </div>
+          )}
+
+          {game.requiresCharname && (
+            <div className="space-y-2">
+              <Label>{game.charnameLabel || "Character Name"}</Label>
+              <Input value={charname} onChange={(e) => setCharname(e.target.value)} placeholder={`Enter ${game.charnameLabel || "Character Name"}`} />
             </div>
           )}
 
