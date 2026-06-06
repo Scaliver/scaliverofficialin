@@ -101,6 +101,34 @@ serve(async (req) => {
       return new Response(JSON.stringify(json), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    if (action === "name_check") {
+      const { gameCode, userId, serverId } = body;
+      if (!gameCode || !userId) {
+        return new Response(JSON.stringify({ success: false, error: "gameCode and userId required" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+      const apiKey = Deno.env.get("ALUU_API_KEY");
+      if (!apiKey) throw new Error("ALUU_API_KEY not configured");
+      const qs = new URLSearchParams({ user_id: String(userId) });
+      if (serverId) qs.set("server_id", String(serverId));
+      const url = `https://aluu.in/api/check/${encodeURIComponent(gameCode)}-check?${qs.toString()}`;
+      const res = await fetch(url, { headers: { "x-api-key": apiKey } });
+      const text = await res.text();
+      let json: any;
+      try { json = JSON.parse(text); } catch { json = { raw: text }; }
+      const username = json?.username || json?.data?.username || json?.nickname || json?.data?.nickname || "";
+      const region = json?.country || json?.region || json?.data?.country || json?.data?.region || "";
+      const ok = json?.success === true && !!username;
+      return new Response(JSON.stringify({
+        success: ok,
+        username: ok ? username : undefined,
+        region: ok ? region : undefined,
+        error: ok ? undefined : (json?.message || json?.error || "Player not found"),
+        raw: json,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     return new Response(JSON.stringify({ success: false, error: "Unknown action" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
