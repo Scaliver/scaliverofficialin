@@ -1,5 +1,6 @@
 import { Phone, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import TrustpilotWidget from "./TrustpilotWidget";
 
 const Footer = () => {
   return (
@@ -68,6 +69,16 @@ const Footer = () => {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* Live Trustpilot Reviews */}
+        <div className="mt-4 pt-4 border-t border-border">
+          <h4 className="font-display text-[11px] font-semibold text-foreground uppercase tracking-wider mb-2 text-center">
+            Live Customer Reviews
+          </h4>
+          <div className="flex justify-center">
+            <TrustpilotWidget />
           </div>
         </div>
       </div>
