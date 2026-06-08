@@ -91,6 +91,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  // Auto-logout after 30 minutes of inactivity
+  useEffect(() => {
+    if (!user) return;
+    const IDLE_MS = 30 * 60 * 1000;
+    let timer: number | undefined;
+    const reset = () => {
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(async () => {
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+        setIsAdmin(false);
+      }, IDLE_MS);
+    };
+    const events = ["mousemove", "keydown", "click", "touchstart", "scroll"] as const;
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
+  }, [user]);
+
   const signUp = async (email: string, password: string, displayName: string, phone?: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
