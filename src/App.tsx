@@ -32,6 +32,7 @@ const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
 const RefundPolicy = lazy(() => import("./pages/RefundPolicy"));
 const HelpSupport = lazy(() => import("./pages/HelpSupport"));
 const NameChecker = lazy(() => import("./pages/NameChecker"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -75,6 +76,8 @@ const AnimatedRoutes = () => {
           <Route path="/refund-policy" element={<PageTransition><RefundPolicy /></PageTransition>} />
           <Route path="/help-support" element={<PageTransition><HelpSupport /></PageTransition>} />
           <Route path="/name-checker" element={<PageTransition><NameChecker /></PageTransition>} />
+          <Route path="/reset-password" element={<PageTransition><ResetPassword /></PageTransition>} />
+          <Route path="/forgot-password" element={<PageTransition><ResetPassword /></PageTransition>} />
           {LANDING_SLUGS.map((s) => (
             <Route key={s} path={`/${s}`} element={<PageTransition><SeoLanding /></PageTransition>} />
           ))}
