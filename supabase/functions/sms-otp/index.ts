@@ -122,11 +122,7 @@ serve(async (req) => {
 
       console.log("2FA check for user:", userId, "has2FA:", has2FA);
       return new Response(
-        JSON.stringify({ 
-          has2FA, 
-          maskedPhone,
-          phone: contact?.phone // Full phone for internal use
-        }),
+        JSON.stringify({ has2FA, maskedPhone }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
 
@@ -194,12 +190,7 @@ serve(async (req) => {
       const maskedPhone = contact.phone.slice(0, 4) + "****" + contact.phone.slice(-2);
       console.log("2FA OTP sent for user:", userId);
       return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: "2FA code sent",
-          maskedPhone,
-          phone: contact.phone
-        }),
+        JSON.stringify({ success: true, message: "2FA code sent", maskedPhone }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
 

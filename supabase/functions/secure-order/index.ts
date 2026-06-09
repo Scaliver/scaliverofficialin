@@ -55,23 +55,41 @@ serve(async (req) => {
       );
     }
 
+    // Require authenticated caller; derive userId from JWT (ignore body's userId)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized', code: 401 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 });
+    }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const authClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claims, error: claimsErr } = await authClient.auth.getClaims(token);
+    if (claimsErr || !claims?.claims?.sub) {
+      return new Response(JSON.stringify({ error: 'Unauthorized', code: 401 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 });
+    }
+    const userId = claims.claims.sub as string;
+
     const body: OrderRequest = await req.json();
-    const { productId, userId, playerId, zoneId, amount, price, productName, contactNumber, providerProductId } = body;
+    const { productId, playerId, zoneId, amount, price, productName, contactNumber, providerProductId } = body;
 
     console.log('Secure order request:', { productId, playerId, zoneId, productName });
 
     // Validate required fields
-    if (!productId || !userId || !playerId || !amount || !price || !productName || !contactNumber) {
+    if (!productId || !playerId || !amount || !price || !productName || !contactNumber) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields', code: 400 }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
 
     // Fetch API configuration from database
     const { data: apiConfig, error: apiError } = await supabase
