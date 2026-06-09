@@ -34,15 +34,15 @@ serve(async (req) => {
     return new Response("Server misconfig", { status: 500, headers: corsHeaders });
   }
 
-  // Verify signature (skip enforcement if missing, but log)
-  if (timestamp && signature) {
-    const expected = await hmacSha256Hex(secret, `${timestamp}.${rawBody}`);
-    if (!timingSafeEqual(expected, signature)) {
-      console.error("Invalid webhook signature");
-      return new Response("Invalid signature", { status: 401, headers: corsHeaders });
-    }
-  } else {
-    console.warn("Webhook missing timestamp or signature headers");
+  // Signature is REQUIRED — never accept unsigned webhooks
+  if (!timestamp || !signature) {
+    console.error("Webhook missing timestamp or signature headers");
+    return new Response("Missing signature", { status: 401, headers: corsHeaders });
+  }
+  const expected = await hmacSha256Hex(secret, `${timestamp}.${rawBody}`);
+  if (!timingSafeEqual(expected, signature)) {
+    console.error("Invalid webhook signature");
+    return new Response("Invalid signature", { status: 401, headers: corsHeaders });
   }
 
   let payload: any;
