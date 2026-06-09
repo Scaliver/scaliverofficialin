@@ -13,6 +13,7 @@ const RefundPolicy = () => (
       />
       <link rel="canonical" href="https://scaliverofficial.in/refund-policy" />
       <meta property="og:title" content="Refund Policy | Scaliver Official" />
+      <meta property="og:description" content="Refund policy for Scaliver Official game top-up orders, including eligibility, review times, and wallet refund handling." />
       <meta property="og:url" content="https://scaliverofficial.in/refund-policy" />
     </Helmet>
     <Header />
