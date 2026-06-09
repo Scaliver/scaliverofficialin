@@ -13,6 +13,7 @@ const PrivacyPolicy = () => (
       />
       <link rel="canonical" href="https://scaliverofficial.in/privacy-policy" />
       <meta property="og:title" content="Privacy Policy | Scaliver Official" />
+      <meta property="og:description" content="How Scaliver Official collects, uses, and protects your data for game top-up orders and customer support in India." />
       <meta property="og:url" content="https://scaliverofficial.in/privacy-policy" />
     </Helmet>
     <Header />
