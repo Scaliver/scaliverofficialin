@@ -13,6 +13,7 @@ const TermsAndConditions = () => (
       />
       <link rel="canonical" href="https://scaliverofficial.in/terms-and-conditions" />
       <meta property="og:title" content="Terms & Conditions | Scaliver Official" />
+      <meta property="og:description" content="Read the terms and conditions for using Scaliver Official game top-up services, UPI payments, and wallet credits in India." />
       <meta property="og:url" content="https://scaliverofficial.in/terms-and-conditions" />
     </Helmet>
     <Header />

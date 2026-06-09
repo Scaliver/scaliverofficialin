@@ -90,9 +90,9 @@ const LeaderboardPage = () => {
 
         <Card className="mb-4 bg-gradient-to-br from-primary/20 to-primary/5 border-primary/30">
           <CardHeader className="py-3">
-            <CardTitle className="flex items-center gap-2 font-display text-base sm:text-lg">
+            <h2 className="flex items-center gap-2 font-display text-base sm:text-lg font-semibold leading-none tracking-tight">
               <Trophy className="w-4 h-4 text-primary" /> Top Purchase Leaderboard
-            </CardTitle>
+            </h2>
           </CardHeader>
           <CardContent className="pt-0">
             <p className="text-xs text-muted-foreground">Live ranking of the top 15 buyers by total purchase amount.</p>

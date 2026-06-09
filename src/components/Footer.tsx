@@ -37,9 +37,9 @@ const Footer = () => {
           </div>
 
           <div>
-            <h4 className="font-display text-[11px] font-semibold text-foreground uppercase tracking-wider mb-2">
+            <h3 className="font-display text-[11px] font-semibold text-foreground uppercase tracking-wider mb-2">
               Quick Links
-            </h4>
+            </h3>
             <ul className="space-y-1">
               <li><Link to="/" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">Home</Link></li>
               <li><Link to="/auth" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">Login</Link></li>
@@ -49,9 +49,9 @@ const Footer = () => {
           </div>
 
           <div>
-            <h4 className="font-display text-[11px] font-semibold text-foreground uppercase tracking-wider mb-2">
+            <h3 className="font-display text-[11px] font-semibold text-foreground uppercase tracking-wider mb-2">
               Important
-            </h4>
+            </h3>
             <ul className="space-y-1">
               <li><Link to="/privacy-policy" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">Privacy Policy</Link></li>
               <li><Link to="/terms-and-conditions" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">Terms & Conditions</Link></li>
@@ -59,9 +59,9 @@ const Footer = () => {
               <li><Link to="/help-support" className="font-body text-[11px] text-muted-foreground hover:text-primary transition-colors">Help & Support</Link></li>
             </ul>
 
-            <h4 className="font-display text-[11px] font-semibold text-foreground uppercase tracking-wider mt-3 mb-1.5">
+            <h3 className="font-display text-[11px] font-semibold text-foreground uppercase tracking-wider mt-3 mb-1.5">
               Payment Modes
-            </h4>
+            </h3>
             <div className="flex flex-wrap gap-1.5">
               {["GPay", "UPI", "PhonePe"].map(p => (
                 <div key={p} className="h-6 px-2 bg-secondary rounded flex items-center justify-center">
@@ -74,9 +74,9 @@ const Footer = () => {
 
         {/* Live Trustpilot Reviews */}
         <div className="mt-4 pt-4 border-t border-border">
-          <h4 className="font-display text-[11px] font-semibold text-foreground uppercase tracking-wider mb-2 text-center">
+          <h3 className="font-display text-[11px] font-semibold text-foreground uppercase tracking-wider mb-2 text-center">
             Live Customer Reviews
-          </h4>
+          </h3>
           <div className="flex justify-center">
             <TrustpilotWidget />
           </div>
