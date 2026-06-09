@@ -9,25 +9,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 
-const GoogleIcon = () => (
-  <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
-    <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.5-1.7 4.3-5.5 4.3-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.6 14.6 2.7 12 2.7 6.9 2.7 2.8 6.8 2.8 12s4.1 9.3 9.2 9.3c5.3 0 8.8-3.7 8.8-9 0-.6-.1-1.1-.2-1.6H12z"/>
-  </svg>
-);
-
-const handleGoogleSignIn = async (toast: ReturnType<typeof useToast>["toast"]) => {
-  const result = await lovable.auth.signInWithOAuth("google", {
-    redirect_uri: window.location.origin,
-  });
-  if (result.error) {
-    toast({ title: "Google sign-in failed", description: result.error.message, variant: "destructive" });
-  }
-};
 
 
 const loginSchema = z.object({
@@ -1096,30 +1081,6 @@ const Auth = () => {
               </button>
             </div>
 
-            {/* Google sign-in (login and email signup) */}
-            {authMode !== "phone-signup" && (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full mb-4 py-6 bg-background hover:bg-secondary"
-                  onClick={() => handleGoogleSignIn(toast)}
-                >
-                  <GoogleIcon />
-                  <span className="ml-2 font-body font-medium">
-                    {authMode === "login" ? "Continue with Google" : "Sign up with Google"}
-                  </span>
-                </Button>
-                <div className="relative my-4">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">or</span>
-                  </div>
-                </div>
-              </>
-            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Email signup fields */}
