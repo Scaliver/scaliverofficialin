@@ -176,6 +176,21 @@ const SiteSettings = () => {
           <CardDescription>Manage site-wide settings and features</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className={`p-4 border-2 rounded-lg space-y-3 ${isMaintenanceEnabled ? "border-destructive bg-destructive/5" : "border-border"}`}>
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <Label className="text-base font-medium flex items-center gap-2">
+                  <Wrench className="w-4 h-4" /> Maintenance Mode
+                  {isMaintenanceEnabled && <span className="text-xs font-bold text-destructive ml-2">LIVE</span>}
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  When ON, all visitors see a maintenance page. Only admins can access the site.
+                </p>
+              </div>
+              <Switch checked={isMaintenanceEnabled} onCheckedChange={handleToggleMaintenance} disabled={savingMaintenance} />
+            </div>
+          </div>
+
           <div className="p-4 border rounded-lg space-y-3">
             <div className="flex items-center justify-between gap-4">
               <div className="space-y-1">
