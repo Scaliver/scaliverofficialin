@@ -17,6 +17,8 @@ interface UserRow {
 const SiteSettings = () => {
   const [isWalletUpiEnabled, setIsWalletUpiEnabled] = useState(true);
   const [isProductUpiEnabled, setIsProductUpiEnabled] = useState(true);
+  const [isMaintenanceEnabled, setIsMaintenanceEnabled] = useState(false);
+  const [savingMaintenance, setSavingMaintenance] = useState(false);
   const [resellerPercent, setResellerPercent] = useState<number>(0);
   const [savingPercent, setSavingPercent] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
