@@ -8,6 +8,7 @@ import { AnimatePresence } from "framer-motion";
 import { lazy, Suspense } from "react";
 import PageTransition from "@/components/PageTransition";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import MaintenanceGate from "@/components/MaintenanceGate";
 import Index from "./pages/Index";
 import { LANDING_SLUGS } from "./pages/SeoLanding";
 
