@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Loader2, Percent, Users, Search, CreditCard } from "lucide-react";
+import { Settings, Loader2, Percent, Users, Search, CreditCard, Wrench } from "lucide-react";
 
 interface UserRow {
   id: string;
@@ -17,6 +17,8 @@ interface UserRow {
 const SiteSettings = () => {
   const [isWalletUpiEnabled, setIsWalletUpiEnabled] = useState(true);
   const [isProductUpiEnabled, setIsProductUpiEnabled] = useState(true);
+  const [isMaintenanceEnabled, setIsMaintenanceEnabled] = useState(false);
+  const [savingMaintenance, setSavingMaintenance] = useState(false);
   const [resellerPercent, setResellerPercent] = useState<number>(0);
   const [savingPercent, setSavingPercent] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,6 +59,10 @@ const SiteSettings = () => {
         const v = pct.value as { percent?: number };
         setResellerPercent(Number(v.percent) || 0);
       }
+
+      const { data: maint } = await supabase
+        .from("site_settings").select("*").eq("key", "maintenance_mode").maybeSingle();
+      setIsMaintenanceEnabled(maint ? readBool(maint, false) : false);
     } catch (error) {
       toast({ title: "Error", description: "Failed to fetch settings", variant: "destructive" });
     } finally {
@@ -117,6 +123,23 @@ const SiteSettings = () => {
     } finally { setSavingProduct(false); }
   };
 
+  const handleToggleMaintenance = async () => {
+    setSavingMaintenance(true);
+    try {
+      const newValue = !isMaintenanceEnabled;
+      await toggleSetting("maintenance_mode", newValue);
+      setIsMaintenanceEnabled(newValue);
+      toast({
+        title: newValue ? "Maintenance Mode ON" : "Maintenance Mode OFF",
+        description: newValue
+          ? "Site is now hidden from users. Only admins can access it."
+          : "Site is live for all users.",
+      });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed", variant: "destructive" });
+    } finally { setSavingMaintenance(false); }
+  };
+
   const saveResellerPercent = async () => {
     setSavingPercent(true);
     try {
@@ -153,6 +176,21 @@ const SiteSettings = () => {
           <CardDescription>Manage site-wide settings and features</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className={`p-4 border-2 rounded-lg space-y-3 ${isMaintenanceEnabled ? "border-destructive bg-destructive/5" : "border-border"}`}>
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <Label className="text-base font-medium flex items-center gap-2">
+                  <Wrench className="w-4 h-4" /> Maintenance Mode
+                  {isMaintenanceEnabled && <span className="text-xs font-bold text-destructive ml-2">LIVE</span>}
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  When ON, all visitors see a maintenance page. Only admins can access the site.
+                </p>
+              </div>
+              <Switch checked={isMaintenanceEnabled} onCheckedChange={handleToggleMaintenance} disabled={savingMaintenance} />
+            </div>
+          </div>
+
           <div className="p-4 border rounded-lg space-y-3">
             <div className="flex items-center justify-between gap-4">
               <div className="space-y-1">
