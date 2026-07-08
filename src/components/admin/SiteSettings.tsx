@@ -59,6 +59,10 @@ const SiteSettings = () => {
         const v = pct.value as { percent?: number };
         setResellerPercent(Number(v.percent) || 0);
       }
+
+      const { data: maint } = await supabase
+        .from("site_settings").select("*").eq("key", "maintenance_mode").maybeSingle();
+      setIsMaintenanceEnabled(maint ? readBool(maint, false) : false);
     } catch (error) {
       toast({ title: "Error", description: "Failed to fetch settings", variant: "destructive" });
     } finally {
