@@ -86,6 +86,7 @@ const AnimatedRoutes = () => {
           <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
         </Routes>
       </Suspense>
+      </MaintenanceGate>
     </AnimatePresence>
   );
 };
