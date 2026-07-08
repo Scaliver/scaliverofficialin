@@ -123,6 +123,23 @@ const SiteSettings = () => {
     } finally { setSavingProduct(false); }
   };
 
+  const handleToggleMaintenance = async () => {
+    setSavingMaintenance(true);
+    try {
+      const newValue = !isMaintenanceEnabled;
+      await toggleSetting("maintenance_mode", newValue);
+      setIsMaintenanceEnabled(newValue);
+      toast({
+        title: newValue ? "Maintenance Mode ON" : "Maintenance Mode OFF",
+        description: newValue
+          ? "Site is now hidden from users. Only admins can access it."
+          : "Site is live for all users.",
+      });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed", variant: "destructive" });
+    } finally { setSavingMaintenance(false); }
+  };
+
   const saveResellerPercent = async () => {
     setSavingPercent(true);
     try {
