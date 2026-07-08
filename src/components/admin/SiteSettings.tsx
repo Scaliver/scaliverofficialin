@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Loader2, Percent, Users, Search, CreditCard } from "lucide-react";
+import { Settings, Loader2, Percent, Users, Search, CreditCard, Wrench } from "lucide-react";
 
 interface UserRow {
   id: string;
